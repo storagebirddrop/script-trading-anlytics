@@ -37,4 +37,4 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add ATR_Tracker_Dashboard.xlsx
           git diff --staged --quiet || git commit -m "Update crypto tracker data"
-          git push
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
