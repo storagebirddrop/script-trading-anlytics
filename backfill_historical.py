@@ -185,7 +185,7 @@ def calculate_indicators(df):
     atr_series = df['ATR'].squeeze() if isinstance(df['ATR'], pd.DataFrame) else df['ATR']
     ema_series = df['EMA21'].squeeze() if isinstance(df['EMA21'], pd.DataFrame) else df['EMA21']
     
-    df['ATR_Distance'] = close - (close - atr_series)
+    df['ATR_Distance'] = (close - ema_series) / atr_series
     df['Pct_Above_EMA'] = ((close - ema_series) / ema_series) * 100
     
     return df
