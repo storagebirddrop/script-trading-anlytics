@@ -306,11 +306,7 @@ def get_latest_data(asset, timeframe):
 
 
 def write_to_spreadsheet(data):
-    """Write data to Daily_Data and Weekly_Data sheets in the Excel spreadsheet."""
-    # Separate data by timeframe
-    daily_data = [row for row in data if row['Timeframe'] == '1d']
-    weekly_data = [row for row in data if row['Timeframe'] == '1w']
-    
+    """Write data to a single Data sheet in the Excel spreadsheet."""
     try:
         # Load existing workbook
         wb = load_workbook(SPREADSHEET_PATH)
@@ -320,24 +316,20 @@ def write_to_spreadsheet(data):
         # Remove default sheet
         wb.remove(wb.active)
     
-    # Write daily data
-    if daily_data:
-        write_to_sheet(wb, 'Daily_Data', daily_data)
-    
-    # Write weekly data
-    if weekly_data:
-        write_to_sheet(wb, 'Weekly_Data', weekly_data)
+    # Write all data to single Data sheet
+    if data:
+        write_to_sheet(wb, 'Data', data)
     
     # Save workbook
     wb.save(SPREADSHEET_PATH)
-    print(f"Data written to Daily_Data and Weekly_Data sheets")
+    print(f"Data written to Data sheet")
     
-    return 'Daily_Data, Weekly_Data'
+    return 'Data'
 
 
 def write_to_sheet(wb, sheet_name, data):
     """Write data to a specific sheet, creating it if it doesn't exist."""
-    headers = ['Date', 'Asset', 'Price', 'EMA21', 'ATR', 'RSI', 'ATR Distance', '% Above EMA', 'Timeframe']
+    headers = ['Date', 'Asset', 'Timeframe', 'Price', 'EMA21', 'ATR', 'RSI', 'RSI_Z_Score', 'ATR_Distance', 'Pct_Above_EMA']
     
     if sheet_name in wb.sheetnames:
         # Sheet exists, append data
@@ -355,13 +347,14 @@ def write_to_sheet(wb, sheet_name, data):
     for row_num, row_data in enumerate(data, start_row):
         ws.cell(row=row_num, column=1, value=row_data['Date'])
         ws.cell(row=row_num, column=2, value=row_data['Asset'])
-        ws.cell(row=row_num, column=3, value=row_data['Price'])
-        ws.cell(row=row_num, column=4, value=row_data['EMA21'])
-        ws.cell(row=row_num, column=5, value=row_data['ATR'])
-        ws.cell(row=row_num, column=6, value=row_data['RSI'])
-        ws.cell(row=row_num, column=7, value=row_data['ATR_Distance'])
-        ws.cell(row=row_num, column=8, value=row_data['Pct_Above_EMA'])
-        ws.cell(row=row_num, column=9, value=row_data['Timeframe'])
+        ws.cell(row=row_num, column=3, value=row_data['Timeframe'])
+        ws.cell(row=row_num, column=4, value=row_data['Price'])
+        ws.cell(row=row_num, column=5, value=row_data['EMA21'])
+        ws.cell(row=row_num, column=6, value=row_data['ATR'])
+        ws.cell(row=row_num, column=7, value=row_data['RSI'])
+        ws.cell(row=row_num, column=8, value=row_data['RSI_Z_Score'])
+        ws.cell(row=row_num, column=9, value=row_data['ATR_Distance'])
+        ws.cell(row=row_num, column=10, value=row_data['Pct_Above_EMA'])
     
     print(f"  {sheet_name}: Added {len(data)} records (total rows: {ws.max_row})")
 

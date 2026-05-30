@@ -241,7 +241,7 @@ def get_historical_data(asset, start_date, end_date, timeframe):
 
 def write_to_sheet(wb, sheet_name, data):
     """Write data to a specific sheet, creating it if it doesn't exist."""
-    headers = ['Date', 'Asset', 'Price', 'EMA21', 'ATR', 'RSI', 'ATR Distance', '% Above EMA', 'Timeframe']
+    headers = ['Date', 'Asset', 'Timeframe', 'Price', 'EMA21', 'ATR', 'RSI', 'RSI_Z_Score', 'ATR_Distance', 'Pct_Above_EMA']
     
     if sheet_name in wb.sheetnames:
         # Sheet exists, append data
@@ -259,13 +259,14 @@ def write_to_sheet(wb, sheet_name, data):
     for row_num, row_data in enumerate(data, start_row):
         ws.cell(row=row_num, column=1, value=row_data['Date'])
         ws.cell(row=row_num, column=2, value=row_data['Asset'])
-        ws.cell(row=row_num, column=3, value=row_data['Price'])
-        ws.cell(row=row_num, column=4, value=row_data['EMA21'])
-        ws.cell(row=row_num, column=5, value=row_data['ATR'])
-        ws.cell(row=row_num, column=6, value=row_data['RSI'])
-        ws.cell(row=row_num, column=7, value=row_data['ATR_Distance'])
-        ws.cell(row=row_num, column=8, value=row_data['Pct_Above_EMA'])
-        ws.cell(row=row_num, column=9, value=row_data['Timeframe'])
+        ws.cell(row=row_num, column=3, value=row_data['Timeframe'])
+        ws.cell(row=row_num, column=4, value=row_data['Price'])
+        ws.cell(row=row_num, column=5, value=row_data['EMA21'])
+        ws.cell(row=row_num, column=6, value=row_data['ATR'])
+        ws.cell(row=row_num, column=7, value=row_data['RSI'])
+        ws.cell(row=row_num, column=8, value=row_data['RSI_Z_Score'])
+        ws.cell(row=row_num, column=9, value=row_data['ATR_Distance'])
+        ws.cell(row=row_num, column=10, value=row_data['Pct_Above_EMA'])
     
     print(f"  {sheet_name}: Added {len(data)} records (total rows: {ws.max_row})")
 
@@ -302,6 +303,12 @@ def main():
     
     print(f"\nTotal records: {len(all_daily_data)} daily, {len(all_weekly_data)} weekly")
     
+    # Combine all data with timeframe
+    all_data = all_daily_data + all_weekly_data
+    
+    # Sort data by date before writing
+    all_data.sort(key=lambda x: x['Date'])
+    
     # Write to spreadsheet
     try:
         wb = load_workbook(SPREADSHEET_PATH)
@@ -309,21 +316,13 @@ def main():
         wb = openpyxl.Workbook()
         wb.remove(wb.active)
     
-    # Sort data by date before writing
-    all_daily_data.sort(key=lambda x: x['Date'])
-    all_weekly_data.sort(key=lambda x: x['Date'])
-    
-    # Write daily data
-    if all_daily_data:
-        write_to_sheet(wb, 'Daily_Data', all_daily_data)
-    
-    # Write weekly data
-    if all_weekly_data:
-        write_to_sheet(wb, 'Weekly_Data', all_weekly_data)
+    # Write all data to single Data sheet
+    if all_data:
+        write_to_sheet(wb, 'Data', all_data)
     
     # Save workbook
     wb.save(SPREADSHEET_PATH)
-    print(f"\nBackfill complete! Data written to Daily_Data and Weekly_Data sheets.")
+    print(f"\nBackfill complete! Data written to Data sheet.")
 
 
 if __name__ == '__main__':
