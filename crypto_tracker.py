@@ -28,7 +28,7 @@ ASSETS = [
     'SCP', 'D2X'
 ]
 TIMEFRAMES = ['1d', '1w']  # Daily and Weekly
-SPREADSHEET_PATH = '/home/dribble0335/dev/script-trading-anlytics/ATR_Tracker_Dashboard.xlsx'
+SPREADSHEET_PATH = 'ATR_Tracker_Dashboard.xlsx'
 
 # Asset mappings with data source and symbol
 ASSET_CONFIG = {

@@ -68,7 +68,7 @@ ATR_PERIOD = 14
 RSI_PERIOD = 14
 Z_SCORE_PERIOD = 20
 
-SPREADSHEET_PATH = '/home/dribble0335/dev/script-trading-anlytics/ATR_Tracker_Dashboard.xlsx'
+SPREADSHEET_PATH = 'ATR_Tracker_Dashboard.xlsx'
 
 # Backfill date range
 START_DATE = datetime(2024, 1, 1)
