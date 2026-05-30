@@ -69,6 +69,8 @@ RSI_PERIOD = 14
 Z_SCORE_PERIOD = 20
 
 SPREADSHEET_PATH = 'ATR_Tracker_Dashboard.xlsx'
+MASTER_CSV_PATH = 'data/master.csv'
+HISTORY_CSV_PATH = 'data/history.csv'
 
 # Backfill date range
 START_DATE = datetime(2024, 1, 1)
@@ -239,6 +241,22 @@ def get_historical_data(asset, start_date, end_date, timeframe):
     return data
 
 
+def write_to_master_csv(data):
+    """Write data to master.csv (latest snapshot)."""
+    df = pd.DataFrame(data)
+    df = df.sort_values(['Asset', 'Timeframe', 'Date'])
+    df.to_csv(MASTER_CSV_PATH, index=False)
+    print(f"Data written to {MASTER_CSV_PATH}")
+
+
+def write_to_history_csv(data):
+    """Write historical data to history.csv (all historical data)."""
+    df = pd.DataFrame(data)
+    df = df.sort_values(['Date', 'Asset', 'Timeframe'])
+    df.to_csv(HISTORY_CSV_PATH, index=False)
+    print(f"Data written to {HISTORY_CSV_PATH} (total rows: {len(df)})")
+
+
 def write_to_sheet(wb, sheet_name, data):
     """Write data to a specific sheet, creating it if it doesn't exist."""
     headers = ['Date', 'Asset', 'Timeframe', 'Price', 'EMA21', 'ATR', 'RSI', 'RSI_Z_Score', 'ATR_Distance', 'Pct_Above_EMA']
@@ -309,7 +327,11 @@ def main():
     # Sort data by date before writing
     all_data.sort(key=lambda x: x['Date'])
     
-    # Write to spreadsheet
+    # Write to CSV files (primary data source)
+    write_to_master_csv(all_data)
+    write_to_history_csv(all_data)
+    
+    # Write to Excel spreadsheet (secondary, for GitHub Pages)
     try:
         wb = load_workbook(SPREADSHEET_PATH)
     except FileNotFoundError:
@@ -322,7 +344,8 @@ def main():
     
     # Save workbook
     wb.save(SPREADSHEET_PATH)
-    print(f"\nBackfill complete! Data written to Data sheet.")
+    print(f"Data written to Excel spreadsheet (secondary)")
+    print(f"\nBackfill complete!")
 
 
 if __name__ == '__main__':

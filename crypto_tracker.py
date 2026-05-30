@@ -29,6 +29,8 @@ ASSETS = [
 ]
 TIMEFRAMES = ['1d', '1w']  # Daily and Weekly
 SPREADSHEET_PATH = 'ATR_Tracker_Dashboard.xlsx'
+MASTER_CSV_PATH = 'data/master.csv'
+HISTORY_CSV_PATH = 'data/history.csv'
 
 # Asset mappings with data source and symbol
 ASSET_CONFIG = {
@@ -305,8 +307,41 @@ def get_latest_data(asset, timeframe):
     }
 
 
+def write_to_master_csv(data):
+    """Write data to master.csv (latest snapshot)."""
+    df = pd.DataFrame(data)
+    df = df.sort_values(['Asset', 'Timeframe', 'Date'])
+    df.to_csv(MASTER_CSV_PATH, index=False)
+    print(f"Data written to {MASTER_CSV_PATH}")
+
+
+def append_to_history_csv(data):
+    """Append data to history.csv (historical snapshots)."""
+    df = pd.DataFrame(data)
+    
+    # Check if file exists
+    try:
+        existing_df = pd.read_csv(HISTORY_CSV_PATH)
+        # Combine and remove duplicates
+        combined_df = pd.concat([existing_df, df], ignore_index=True)
+        combined_df = combined_df.drop_duplicates(subset=['Date', 'Asset', 'Timeframe'], keep='last')
+        combined_df = combined_df.sort_values(['Date', 'Asset', 'Timeframe'])
+        combined_df.to_csv(HISTORY_CSV_PATH, index=False)
+        print(f"Data appended to {HISTORY_CSV_PATH} (total rows: {len(combined_df)})")
+    except FileNotFoundError:
+        # Create new file
+        df = df.sort_values(['Date', 'Asset', 'Timeframe'])
+        df.to_csv(HISTORY_CSV_PATH, index=False)
+        print(f"Data written to {HISTORY_CSV_PATH} (total rows: {len(df)})")
+
+
 def write_to_spreadsheet(data):
-    """Write data to a single Data sheet in the Excel spreadsheet."""
+    """Write data to CSV files (primary) and Excel spreadsheet (secondary)."""
+    # Write to CSV files (primary data source)
+    write_to_master_csv(data)
+    append_to_history_csv(data)
+    
+    # Write to Excel spreadsheet (secondary, for GitHub Pages)
     try:
         # Load existing workbook
         wb = load_workbook(SPREADSHEET_PATH)
@@ -322,7 +357,7 @@ def write_to_spreadsheet(data):
     
     # Save workbook
     wb.save(SPREADSHEET_PATH)
-    print(f"Data written to Data sheet")
+    print(f"Data written to Excel spreadsheet (secondary)")
     
     return 'Data'
 
