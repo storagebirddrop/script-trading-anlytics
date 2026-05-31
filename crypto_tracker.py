@@ -178,6 +178,23 @@ def get_manual_data(asset, timeframe):
     data = MANUAL_DATA[asset][timeframe]
     
     # Calculate derived metrics
+    def get_manual_data(asset, timeframe):
+    """Get manually inserted data for an asset."""
+    if asset not in MANUAL_DATA:
+        print(f"No manual data configured for {asset}")
+        return None
+    
+    if timeframe not in MANUAL_DATA[asset]:
+        print(f"No manual data for {asset} timeframe {timeframe}")
+        return None
+    
+    data = MANUAL_DATA[asset][timeframe]
+    
+    # Calculate derived metrics
+    atr_distance = data['price'] - (data['price'] - data['atr'])  # WRONG FORMULA
+    pct_above_ema = ((data['price'] - data['ema21']) / data['ema21']) * 100
+    ...
+    
     atr_distance = data['price'] - (data['price'] - data['atr'])
     pct_above_ema = ((data['price'] - data['ema21']) / data['ema21']) * 100
     
