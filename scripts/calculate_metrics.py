@@ -14,7 +14,7 @@ from typing import Any, Dict
 import numpy as np
 import pandas as pd
 
-from trading_utils import HISTORY_CSV_PATH, DASHBOARD_JSON_PATH, METADATA_JSON_PATH
+from trading_utils import HISTORY_CSV_PATH, DASHBOARD_JSON_PATH, CHART_HISTORY_JSON_PATH, METADATA_JSON_PATH
 
 
 def _norm_timeframe(tf: str) -> str:
@@ -28,12 +28,12 @@ def _norm_timeframe(tf: str) -> str:
 
 
 def _sanitise(obj):
-    """Recursively replace float NaN / inf with None so json.dump produces valid JSON (H5)."""
+    """Recursively replace float/numpy NaN / inf with None so json.dump produces valid JSON."""
     if isinstance(obj, dict):
         return {k: _sanitise(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [_sanitise(v) for v in obj]
-    if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+    if isinstance(obj, (float, np.floating)) and (math.isnan(obj) or math.isinf(obj)):
         return None
     return obj
 
@@ -142,6 +142,64 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
     return metrics
 
 
+def generate_chart_history(df: pd.DataFrame, n_bars: int = 90) -> Dict[str, Any]:
+    """
+    Build chart_history.json — last N bars of ATR Distance, RSI, Price and EMA21
+    per asset+timeframe, for use by the Drilldown charts in the dashboard.
+
+    Output structure::
+
+        {
+            "BTC": {
+                "1d": [{"d": "2026-03-01", "a": -1.23, "r": 45.1, "p": 68000, "e": 67500}, ...],
+                "1w": [...]
+            },
+            ...
+        }
+
+    Keys are abbreviated to minimise JSON payload size.
+    """
+    result: Dict[str, Any] = {}
+
+    for (asset, timeframe), group in df.groupby(['Asset', 'Timeframe']):
+        if pd.isna(timeframe):
+            continue
+
+        tf_norm = _norm_timeframe(str(timeframe))
+        group = group.sort_values('Date', ascending=True)
+
+        # Restrict to rows that have a valid ATR_Distance
+        valid = group.dropna(subset=['ATR_Distance'])
+        tail = valid.tail(n_bars)
+
+        bars = []
+        for _, row in tail.iterrows():
+            atr_d = row.get('ATR_Distance')
+            rsi   = row.get('RSI')
+            price = row.get('Price')
+            ema   = row.get('EMA21')
+            bars.append({
+                'd': str(row['Date'])[:10],
+                'a': round(float(atr_d), 4) if pd.notna(atr_d) else None,
+                'r': round(float(rsi), 2)   if pd.notna(rsi)   else None,
+                'p': round(float(price), 4) if pd.notna(price) else None,
+                'e': round(float(ema), 4)   if pd.notna(ema)   else None,
+            })
+
+        bucket = result.setdefault(asset, {}).setdefault(tf_norm, [])
+        bucket.extend(bars)
+
+    # Deduplicate by date (last writer wins) and re-cap at n_bars, sorted ascending
+    for asset_buckets in result.values():
+        for tf in list(asset_buckets.keys()):
+            seen: Dict[str, Any] = {}
+            for bar in sorted(asset_buckets[tf], key=lambda b: b['d']):
+                seen[bar['d']] = bar
+            asset_buckets[tf] = list(seen.values())[-n_bars:]
+
+    return result
+
+
 def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
     """Build the complete dashboard.json payload."""
     print("Calculating historical metrics...")
@@ -214,6 +272,14 @@ def main():
     with open(DASHBOARD_JSON_PATH, 'w') as f:
         json.dump(dashboard, f, indent=2)
     print(f"✓ Saved dashboard.json to {DASHBOARD_JSON_PATH}")
+    print()
+
+    print("Generating chart_history.json (last 90 bars per asset/timeframe)...")
+    chart_history = generate_chart_history(history_df, n_bars=90)
+
+    with open(CHART_HISTORY_JSON_PATH, 'w') as f:
+        json.dump(chart_history, f, separators=(',', ':'))  # compact — no indent
+    print(f"✓ Saved chart_history.json to {CHART_HISTORY_JSON_PATH}")
     print()
 
     print("=" * 60)

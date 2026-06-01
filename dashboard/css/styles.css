@@ -8,13 +8,18 @@
     --text-secondary: #a0aec0;
     --accent-blue: #3b82f6;
     --accent-green: #10b981;
-    --accent-dark-green: #065f46;
+    --accent-capitulation: #991b1b;
     --accent-orange: #f97316;
     --accent-red: #ef4444;
     --accent-yellow: #f59e0b;
     --accent-purple: #8b5cf6;
     --border-color: #374151;
     --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --transition-fast: 0.15s ease;
+    --transition-base: 0.2s ease;
 }
 
 * {
@@ -27,7 +32,7 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     background-color: var(--bg-primary);
     color: var(--text-primary);
-    line-height: 1.6;
+    line-height: 1.4;
     min-height: 100vh;
 }
 
@@ -56,6 +61,12 @@ body {
     color: var(--text-primary);
 }
 
+.header-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.125rem;
+}
+
 .last-updated {
     font-size: 0.875rem;
     color: var(--text-secondary);
@@ -68,14 +79,23 @@ body {
     padding: 1rem;
     padding-bottom: 80px;
     overflow-y: auto;
+    position: relative;
 }
 
+/* Tab transition */
 .tab-content {
     display: none;
+    opacity: 0;
 }
 
 .tab-content.active {
     display: block;
+    animation: tabFadeIn var(--transition-fast) ease forwards;
+}
+
+@keyframes tabFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
 .tab-content h2 {
@@ -83,6 +103,91 @@ body {
     font-weight: 600;
     margin-bottom: 1rem;
     color: var(--text-primary);
+}
+
+/* Regime Strip */
+.regime-strip {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.regime-strip .asset-regime {
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+    user-select: none;
+}
+
+.regime-strip .asset-regime:hover {
+    opacity: 0.8;
+}
+
+.regime-strip .asset-regime.active-filter {
+    outline: 2px solid white;
+    outline-offset: 1px;
+}
+
+/* Filter Bar */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background-color: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.filter-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.filter-chips {
+    display: flex;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+}
+
+.chip {
+    padding: 0.3rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: none;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.chip:hover {
+    border-color: var(--accent-blue);
+    color: var(--text-primary);
+}
+
+.chip.active {
+    background-color: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: white;
+}
+
+.filter-select {
+    padding: 0.3rem 0.65rem;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 0.8rem;
 }
 
 /* Portfolio Cards */
@@ -106,10 +211,17 @@ body {
 
 .asset-card {
     background-color: var(--bg-card);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 1rem;
     box-shadow: var(--shadow);
     border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.asset-card:hover {
+    border-color: var(--accent-blue);
+    transform: translateY(-1px);
 }
 
 .asset-card-header {
@@ -128,12 +240,12 @@ body {
 .asset-regime {
     font-size: 0.75rem;
     padding: 0.25rem 0.5rem;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     font-weight: 500;
 }
 
 .regime-capitulation {
-    background-color: var(--accent-dark-green);
+    background-color: var(--accent-capitulation);
     color: white;
 }
 
@@ -157,6 +269,11 @@ body {
     color: white;
 }
 
+.regime-unknown {
+    background-color: var(--border-color);
+    color: var(--text-secondary);
+}
+
 .asset-metrics {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -177,6 +294,8 @@ body {
     font-size: 0.875rem;
     font-weight: 500;
     color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
 }
 
 .metric-value.positive {
@@ -185,6 +304,21 @@ body {
 
 .metric-value.negative {
     color: var(--accent-red);
+}
+
+.asset-card-footer {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.asset-date {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.asset-date.stale {
+    color: #f59e0b;
 }
 
 /* Rankings */
@@ -202,7 +336,7 @@ body {
 
 .ranking-section {
     background-color: var(--bg-card);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 1rem;
     box-shadow: var(--shadow);
     border: 1px solid var(--border-color);
@@ -225,19 +359,31 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem;
+    padding: 0.5rem 0.65rem;
     background-color: var(--bg-secondary);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
+    border: 1px solid transparent;
+    gap: 0.5rem;
+}
+
+.ranking-item:hover {
+    border-color: var(--accent-blue);
+    background-color: var(--bg-card);
 }
 
 .ranking-asset {
     font-weight: 500;
     color: var(--text-primary);
+    min-width: 3.5rem;
 }
 
 .ranking-value {
     font-weight: 600;
-    color: var(--accent-blue);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    margin-left: auto;
 }
 
 .ranking-value.oversold {
@@ -246,6 +392,13 @@ body {
 
 .ranking-value.extended {
     color: var(--accent-red);
+}
+
+.ranking-empty {
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 1rem;
+    font-size: 0.875rem;
 }
 
 /* Historical Context */
@@ -267,23 +420,134 @@ body {
     padding: 0.75rem;
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     color: var(--text-primary);
     font-size: 1rem;
 }
 
 .historical-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Dual-pane historical layout */
+.historical-dual {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+@media (min-width: 768px) {
+    .historical-dual {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.historical-pane {
     background-color: var(--bg-card);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 1rem;
     box-shadow: var(--shadow);
     border: 1px solid var(--border-color);
 }
 
+.pane-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Percentile Gauge */
+.percentile-gauge-section {
+    margin-bottom: 1rem;
+}
+
+.percentile-gauge-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.gauge-wrap {
+    position: relative;
+    padding-bottom: 1.5rem;
+}
+
+.gauge-track {
+    position: relative;
+    height: 10px;
+    border-radius: 5px;
+    background-color: var(--bg-primary);
+    overflow: visible;
+}
+
+.gauge-zone {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    border-radius: 3px;
+}
+
+.gauge-zone-capitulation  { background-color: rgba(153, 27, 27, 0.35); }
+.gauge-zone-accumulation  { background-color: rgba(16, 185, 129, 0.25); }
+.gauge-zone-trend         { background-color: rgba(59, 130, 246, 0.15); }
+.gauge-zone-distribution  { background-color: rgba(249, 115, 22, 0.30); }
+.gauge-zone-mania         { background-color: rgba(239, 68, 68, 0.35); }
+
+.gauge-marker {
+    position: absolute;
+    top: -5px;
+    width: 3px;
+    height: 20px;
+    background-color: white;
+    border-radius: 2px;
+    transform: translateX(-50%);
+    box-shadow: 0 0 4px rgba(255,255,255,0.6);
+}
+
+.gauge-tick {
+    position: absolute;
+    top: 14px;
+    transform: translateX(-50%);
+    font-size: 0.6rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.gauge-tick::before {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 5px;
+    background-color: var(--border-color);
+    margin: 0 auto 1px;
+}
+
+.gauge-edge-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1.75rem;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.gauge-current-label {
+    text-align: center;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
 .historical-metrics {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
 @media (min-width: 768px) {
@@ -295,7 +559,7 @@ body {
 .historical-metric {
     background-color: var(--bg-secondary);
     padding: 0.75rem;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
 }
 
 .historical-metric-label {
@@ -308,6 +572,8 @@ body {
     font-size: 1.125rem;
     font-weight: 600;
     color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
 }
 
 .historical-metric-sub {
@@ -316,7 +582,26 @@ body {
     margin-top: 0.25rem;
 }
 
+.insufficient-history {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    text-align: center;
+    padding: 2rem 1rem;
+}
+
 /* Drilldown */
+.selectors-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.selectors-row .asset-selector,
+.selectors-row .timeframe-selector {
+    margin-bottom: 0;
+}
+
 .timeframe-selector {
     margin-bottom: 1rem;
 }
@@ -329,7 +614,7 @@ body {
 
 .drilldown-summary {
     background-color: var(--bg-card);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 1rem;
     box-shadow: var(--shadow);
     border: 1px solid var(--border-color);
@@ -339,6 +624,12 @@ body {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+    .drilldown-summary-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
 }
 
 .summary-item {
@@ -355,15 +646,35 @@ body {
     font-size: 1rem;
     font-weight: 600;
     color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
 }
 
 .chart-container {
     background-color: var(--bg-card);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 1rem;
     box-shadow: var(--shadow);
     border: 1px solid var(--border-color);
     min-height: 300px;
+}
+
+.chart-container h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.chart-placeholder {
+    height: 250px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    text-align: center;
 }
 
 /* Bottom Navigation */
@@ -391,12 +702,19 @@ body {
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: color 0.2s;
+    transition: color var(--transition-base);
     flex: 1;
+    border-radius: var(--radius-md);
 }
 
 .nav-btn.active {
     color: var(--accent-blue);
+}
+
+.nav-btn:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
 }
 
 .nav-icon {
@@ -414,17 +732,17 @@ body {
     .cards-container {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .nav-icon {
         font-size: 1.25rem;
     }
-    
+
     .nav-label {
         font-size: 0.875rem;
     }
 }
 
-/* Loading state */
+/* Loading / Error states */
 .loading {
     text-align: center;
     padding: 2rem;

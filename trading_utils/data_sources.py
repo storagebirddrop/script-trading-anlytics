@@ -27,6 +27,8 @@ _exchanges: dict = {}
 def _get_exchange(exchange_id: str):
     """Return a cached CCXT exchange instance, creating it on first use."""
     if exchange_id not in _exchanges:
+        if exchange_id.startswith('_') or not hasattr(ccxt, exchange_id):
+            raise ValueError(f"Unknown or invalid CCXT exchange: '{exchange_id}'")
         exchange_class = getattr(ccxt, exchange_id)
         _exchanges[exchange_id] = exchange_class({'enableRateLimit': True})
     return _exchanges[exchange_id]

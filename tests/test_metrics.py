@@ -10,7 +10,8 @@ from calculate_metrics import (
     classify_regime,
     calculate_historical_metrics,
     calculate_current_metrics,
-    generate_dashboard_json
+    generate_dashboard_json,
+    generate_chart_history,
 )
 
 
@@ -297,6 +298,66 @@ class TestMultipleTimeframes:
         metrics = calculate_historical_metrics(df)
         assert '1d' in metrics['BTC']
         assert '1w' in metrics['BTC']
+
+
+class TestGenerateChartHistory:
+    """Test chart history JSON generation."""
+
+    def test_output_structure(self, sample_history_df):
+        """Chart history produces asset → timeframe → list of bars."""
+        result = generate_chart_history(sample_history_df)
+        assert 'BTC' in result
+        assert '1d' in result['BTC']
+        assert isinstance(result['BTC']['1d'], list)
+
+    def test_bar_fields(self, sample_history_df):
+        """Each bar must have the five abbreviated keys d/a/r/p/e."""
+        result = generate_chart_history(sample_history_df)
+        bar = result['BTC']['1d'][0]
+        for key in ('d', 'a', 'r', 'p', 'e'):
+            assert key in bar, f"Missing key '{key}' in bar"
+
+    def test_bar_count_capped_at_n_bars(self):
+        """Bars are capped at n_bars even when more data is present."""
+        df = pd.DataFrame({
+            'Date': [f'2026-0{i // 28 + 1}-{i % 28 + 1:02d}' for i in range(200)],
+            'Asset': ['BTC'] * 200,
+            'Price': [60000.0] * 200,
+            'EMA21': [59000.0] * 200,
+            'ATR': [1000.0] * 200,
+            'RSI': [50.0] * 200,
+            'RSI_Z_Score': [0.0] * 200,
+            'ATR_Distance': [1.0] * 200,
+            'Pct_Above_EMA': [1.0] * 200,
+            'Timeframe': ['1d'] * 200,
+        })
+        result = generate_chart_history(df, n_bars=50)
+        assert len(result['BTC']['1d']) <= 50
+
+    def test_null_atr_distance_excluded(self):
+        """Bars with null ATR_Distance are excluded from the output."""
+        import numpy as np
+        df = pd.DataFrame({
+            'Date': ['2026-06-01', '2026-06-02', '2026-06-03'],
+            'Asset': ['BTC', 'BTC', 'BTC'],
+            'Price': [65000.0, 65500.0, 66000.0],
+            'EMA21': [64000.0, 64200.0, 64400.0],
+            'ATR': [1000.0, 1000.0, 1000.0],
+            'RSI': [50.0, 55.0, 60.0],
+            'RSI_Z_Score': [0.0, 0.5, 1.0],
+            'ATR_Distance': [1.0, np.nan, 1.6],
+            'Pct_Above_EMA': [1.56, 2.02, 2.48],
+            'Timeframe': ['1d', '1d', '1d'],
+        })
+        result = generate_chart_history(df)
+        assert len(result['BTC']['1d']) == 2  # null row excluded
+
+    def test_date_format(self, sample_history_df):
+        """Date field is a 10-character ISO string (YYYY-MM-DD)."""
+        result = generate_chart_history(sample_history_df)
+        for bar in result['BTC']['1d']:
+            assert len(bar['d']) == 10
+            assert bar['d'].count('-') == 2
 
 
 if __name__ == '__main__':
