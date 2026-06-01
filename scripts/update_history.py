@@ -55,32 +55,20 @@ def load_history() -> pd.DataFrame:
 
 
 def read_excel_data(excel_path: str) -> pd.DataFrame:
-    """Read all sheets from Excel workbook that contain Date and Asset columns."""
-    all_data = []
-
+    """Read the 'Data' sheet from the Excel workbook written by crypto_tracker.py."""
     try:
         xl = pd.ExcelFile(excel_path)
         print(f"Reading Excel file: {excel_path}")
         print(f"Available sheets: {', '.join(xl.sheet_names)}")
 
-        for sheet_name in xl.sheet_names:
-            print(f"  Reading sheet: {sheet_name}")
-            df = pd.read_excel(excel_path, sheet_name=sheet_name)
-            df.columns = df.columns.str.strip()
+        if 'Data' not in xl.sheet_names:
+            print("ERROR: 'Data' sheet not found in Excel workbook")
+            return pd.DataFrame()
 
-            if 'Date' in df.columns and 'Asset' in df.columns:
-                all_data.append(df)
-                print(f"    Added {len(df)} records from {sheet_name}")
-            else:
-                print(f"    Skipping {sheet_name} (missing required columns)")
-
-        if all_data:
-            combined = pd.concat(all_data, ignore_index=True)
-            print(f"Total records from Excel: {len(combined)}")
-            return combined
-
-        print("No valid data found in Excel sheets")
-        return pd.DataFrame()
+        df = pd.read_excel(excel_path, sheet_name='Data')
+        df.columns = df.columns.str.strip()
+        print(f"Read {len(df)} records from Data sheet")
+        return df
 
     except Exception as e:
         print(f"Error reading Excel file: {e}")

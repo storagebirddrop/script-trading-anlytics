@@ -32,7 +32,7 @@ jobs:
         run: python crypto_tracker.py
       
       - name: Validate data
-        run: python scripts/validate_data.py ATR_Tracker_Dashboard.xlsx
+        run: python scripts/validate_data.py ATR_Tracker_Dashboard.xlsx --sheet Data
       
       - name: Update history
         run: python scripts/update_history.py
