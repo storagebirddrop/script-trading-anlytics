@@ -26,14 +26,14 @@ _exchange = ccxt.binance({'enableRateLimit': True})
 def _with_retry(fn, *args, retries=3, backoff=5, **kwargs):
     """Call fn(*args, **kwargs) up to `retries` times with exponential backoff."""
     last_exc = None
-    for attempt in range(retries):
+    for attempt in range(retries + 1):
         try:
             result = fn(*args, **kwargs)
             if result is not None:
                 return result
         except Exception as exc:
             last_exc = exc
-            if attempt < retries - 1:
+            if attempt < retries:
                 time.sleep(backoff * (2 ** attempt))
     if last_exc:
         raise last_exc
@@ -68,6 +68,10 @@ def fetch_ohlcv_yahoo(symbol, timeframe, limit=100):
         data = yf.download(symbol, start=start, interval=interval, progress=False)
         if data.empty:
             return None
+
+        # Handle MultiIndex columns from yf.download
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = data.columns.droplevel(0)
 
         data = data.rename(columns={
             'Open': 'open',

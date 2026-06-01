@@ -62,18 +62,15 @@ class TestCalculateEMA:
 class TestCalculateATR:
     def test_atr_known_values(self):
         """
-        Hand-computed Wilder ATR for a 5-bar sequence, period=3.
+        Hand-computed Wilder ATR for a 50-bar sequence, period=14.
 
         Bars:
-          high=[15,16,17,18,19], low=[5,6,7,8,9], close=[10,11,12,13,14]
+          high=[15,16,17,...,64], low=[5,6,7,...,54], close=[10,11,12,...,59]
 
         True ranges (after bar 0 which has no prev close):
-          TR[1] = max(16-6, |16-10|, |6-10|) = max(10, 6, 4) = 10
-          TR[2] = max(17-7, |17-11|, |7-11|) = max(10, 6, 4) = 10
-          TR[3] = max(18-8, |18-12|, |8-12|) = max(10, 6, 4) = 10
-          TR[4] = max(19-9, |19-13|, |9-13|) = max(10, 6, 4) = 10
+          Each TR = (high - low) = 10 (constant across all bars)
 
-        With Wilder's com=period-1=2 (alpha=1/3):
+        With Wilder's com=period-1=13 (alpha=1/14):
           All TRs are identical (10), so ATR converges to 10.
         """
         n = 50  # Use enough bars for convergence
@@ -131,7 +128,7 @@ class TestCalculateRSI:
 
     def test_rsi_wilder_vs_standard_ema(self):
         """
-        Wilder's ATR (com=period-1) and standard EMA (span=period) give
+        Wilder's RSI (com=period-1) and standard EMA (span=period) give
         meaningfully different results on a non-trivial sequence.
         With alpha=1/14 vs alpha=2/15 the difference is detectable.
         """
