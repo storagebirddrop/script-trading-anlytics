@@ -7,23 +7,19 @@ Reads Excel workbook, validates data, appends to history.csv, updates master.csv
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
-# Anchor all paths to project root (M2)
-EXCEL_PATH = str(_PROJECT_ROOT / 'ATR_Tracker_Dashboard.xlsx')
-MASTER_CSV_PATH = str(_PROJECT_ROOT / 'data' / 'master.csv')
-HISTORY_CSV_PATH = str(_PROJECT_ROOT / 'data' / 'history.csv')
-METADATA_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'metadata.json')
-
-# Add scripts directory to path for validate_data import
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from validate_data import (
+from trading_utils import (
+    SPREADSHEET_PATH,
+    MASTER_CSV_PATH,
+    HISTORY_CSV_PATH,
+    METADATA_JSON_PATH,
+)
+from trading_utils.validation import (
     ValidationResult,
     validate_columns,
     validate_numeric_fields,
@@ -33,6 +29,8 @@ from validate_data import (
     validate_key_nulls,
     validate_duplicates,
 )
+
+EXCEL_PATH = SPREADSHEET_PATH
 
 
 def recalculate_atr_distance(df: pd.DataFrame) -> pd.DataFrame:
@@ -139,7 +137,7 @@ def update_master(df: pd.DataFrame) -> pd.DataFrame:
 def save_metadata(record_count: int, asset_count: int):
     """Write metadata.json."""
     metadata = {
-        'last_updated': datetime.utcnow().isoformat() + 'Z',
+        'last_updated': datetime.now(timezone.utc).isoformat(),
         'records_count': record_count,
         'assets_count': asset_count,
         'history_file': HISTORY_CSV_PATH,

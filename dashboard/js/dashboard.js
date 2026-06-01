@@ -1,6 +1,17 @@
 // Dashboard JavaScript
 let dashboardData = null;
 
+// LSE ETFs are quoted in GBp (pence) by Yahoo Finance — display with 'p' prefix instead of '$'
+const LSE_ASSETS = new Set(['MSTY', 'YMST', 'MARY', 'RIOY', 'IREY', 'BMNY']);
+
+function formatPrice(asset, price) {
+    if (price == null) return 'N/A';
+    if (LSE_ASSETS.has(asset)) {
+        return `${price.toLocaleString()}p`;
+    }
+    return `$${price.toLocaleString()}`;
+}
+
 // Load dashboard data on page load
 document.addEventListener('DOMContentLoaded', async () => {
     await loadDashboardData();
@@ -146,7 +157,7 @@ function renderPortfolio() {
                 </div>
                 <div class="metric">
                     <span class="metric-label">Price</span>
-                    <span class="metric-value">$${dailyData.price?.toLocaleString() || 'N/A'}</span>
+                    <span class="metric-value">${formatPrice(asset, dailyData.price)}</span>
                 </div>
             </div>
         `;
@@ -180,7 +191,7 @@ function renderRankings() {
     // Sort by ATR Distance
     rankings.sort((a, b) => a.atrDistance - b.atrDistance);
     
-    // Most oversold (most negative)
+    // Most oversold: Capitulation (< -4) + Accumulation (-4..-2)
     const oversold = rankings.slice(0, 10).filter(r => r.atrDistance < 0);
     oversold.forEach(({ asset, atrDistance }) => {
         const item = document.createElement('div');
@@ -191,8 +202,8 @@ function renderRankings() {
         `;
         oversoldContainer.appendChild(item);
     });
-    
-    // Most extended (most positive)
+
+    // Most extended: Distribution (2..4) + Mania (> 4)
     const extended = rankings.slice(-10).reverse().filter(r => r.atrDistance > 0);
     extended.forEach(({ asset, atrDistance }) => {
         const item = document.createElement('div');
@@ -283,8 +294,7 @@ function renderDrilldown() {
     if (!timeframeData) return;
     
     const current = timeframeData.current;
-    const historical = timeframeData.historical;
-    
+
     // Render summary
     const summaryContainer = document.getElementById('drilldown-summary');
     summaryContainer.innerHTML = `
@@ -299,11 +309,11 @@ function renderDrilldown() {
             </div>
             <div class="summary-item">
                 <span class="summary-label">Price</span>
-                <span class="summary-value">$${current?.price?.toLocaleString() || 'N/A'}</span>
+                <span class="summary-value">${formatPrice(selectedAsset, current?.price)}</span>
             </div>
             <div class="summary-item">
                 <span class="summary-label">EMA21</span>
-                <span class="summary-value">$${current?.ema21?.toLocaleString() || 'N/A'}</span>
+                <span class="summary-value">${formatPrice(selectedAsset, current?.ema21)}</span>
             </div>
             <div class="summary-item">
                 <span class="summary-label">ATR</span>

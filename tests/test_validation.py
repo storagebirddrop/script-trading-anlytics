@@ -6,7 +6,7 @@ Unit tests for data validation.
 import pytest
 import pandas as pd
 import numpy as np
-from validate_data import (
+from trading_utils.validation import (
     ValidationResult,
     validate_columns,
     validate_numeric_fields,
@@ -14,7 +14,7 @@ from validate_data import (
     validate_rsi,
     validate_timeframe,
     validate_duplicates,
-    validate_dataframe
+    validate_dataframe,
 )
 
 

@@ -1,8 +1,8 @@
 """
-Data fetching from Binance (via CCXT) and Yahoo Finance.
+Data fetching from Binance/CoinEx (via CCXT), Yahoo Finance, and GeckoTerminal.
 
-Fix H1: yfinance requests 180 days of history so RSI Z-score has enough warm-up bars.
-Fix M4: CCXT exchange object is created once at module level.
+Fix H1: yfinance requests 730 days of history so RSI Z-score has enough warm-up bars.
+Fix M4: CCXT exchange objects are created once and cached at module level.
 Fix M3: _with_retry wraps all network calls with exponential backoff.
 """
 
@@ -20,8 +20,16 @@ warnings.filterwarnings('ignore', category=FutureWarning, module='pandas')
 
 from .config import ASSET_CONFIG, MANUAL_DATA
 
-# Module-level exchange instance (M4)
-_exchange = ccxt.binance({'enableRateLimit': True})
+# Module-level exchange cache (M4) — keyed by exchange id
+_exchanges: dict = {}
+
+
+def _get_exchange(exchange_id: str):
+    """Return a cached CCXT exchange instance, creating it on first use."""
+    if exchange_id not in _exchanges:
+        exchange_class = getattr(ccxt, exchange_id)
+        _exchanges[exchange_id] = exchange_class({'enableRateLimit': True})
+    return _exchanges[exchange_id]
 
 
 def _with_retry(fn, *args, retries=3, backoff=5, **kwargs):
@@ -44,7 +52,7 @@ def _with_retry(fn, *args, retries=3, backoff=5, **kwargs):
 def fetch_ohlcv_binance(symbol, timeframe, limit=100):
     """Fetch recent OHLCV bars from Binance."""
     def _fetch():
-        ohlcv = _exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+        ohlcv = _get_exchange('binance').fetch_ohlcv(symbol, timeframe, limit=limit)
         if not ohlcv:
             return None
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
@@ -56,6 +64,38 @@ def fetch_ohlcv_binance(symbol, timeframe, limit=100):
         return _with_retry(_fetch)
     except Exception as e:
         print(f"Error fetching {symbol} from Binance ({timeframe}): {e}")
+        return None
+
+
+def fetch_ohlcv_ccxt(exchange_id: str, symbol: str, timeframe: str, limit: int = 750):
+    """Fetch recent OHLCV bars from any CCXT-supported exchange.
+
+    Uses a 730-day window for daily bars and fetches up to `limit` candles
+    (default 750) to provide enough history for indicator warm-up.
+
+    Args:
+        exchange_id: CCXT exchange id, e.g. 'coinex'
+        symbol:      Market symbol, e.g. 'SCP/USDT'
+        timeframe:   '1d' or '1w'
+        limit:       Number of candles to fetch
+
+    Returns a DataFrame indexed by UTC timestamp, sorted oldest-first.
+    """
+    exchange = _get_exchange(exchange_id)
+
+    def _fetch():
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+        if not ohlcv:
+            return None
+        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df.set_index('timestamp', inplace=True)
+        return df
+
+    try:
+        return _with_retry(_fetch)
+    except Exception as e:
+        print(f"Error fetching {symbol} from {exchange_id} ({timeframe}): {e}")
         return None
 
 
@@ -212,6 +252,8 @@ def fetch_ohlcv(asset, timeframe, limit=100):
         return fetch_ohlcv_binance(config['symbol'], timeframe, limit)
     if source == 'yahoo':
         return fetch_ohlcv_yahoo(config['symbol'], timeframe, limit)
+    if source == 'ccxt':
+        return fetch_ohlcv_ccxt(config['exchange'], config['symbol'], timeframe, limit)
     if source == 'geckoterminal':
         return fetch_ohlcv_geckoterminal(config['network'], config['pool'], timeframe)
     if source == 'manual':

@@ -8,19 +8,13 @@ import json
 import math
 import os
 import sys
-from datetime import datetime
-from pathlib import Path
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
-# Anchor all paths to project root (M2)
-HISTORY_CSV_PATH = str(_PROJECT_ROOT / 'data' / 'history.csv')
-DASHBOARD_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'dashboard.json')
-METADATA_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'metadata.json')
+from trading_utils import HISTORY_CSV_PATH, DASHBOARD_JSON_PATH, METADATA_JSON_PATH
 
 
 def _norm_timeframe(tf: str) -> str:
@@ -107,6 +101,11 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
     """Calculate current snapshot metrics for each asset+timeframe."""
     metrics: Dict[str, Any] = {}
 
+    # Precompute normalised timeframe column once — avoids O(n²) recomputation per asset
+    norm_series = df['Timeframe'].apply(
+        lambda t: _norm_timeframe(str(t)) if pd.notna(t) else ''
+    )
+
     latest = df.sort_values('Date', ascending=False).groupby(['Asset', 'Timeframe']).first()
 
     for (asset, timeframe), row in latest.iterrows():
@@ -119,8 +118,6 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
         atr_distance = row.get('ATR_Distance')
         regime = classify_regime(atr_distance)
 
-        # M7: normalise timeframe when filtering historical data for percentile calc
-        norm_series = df['Timeframe'].apply(lambda t: _norm_timeframe(str(t)) if pd.notna(t) else '')
         asset_data = df[(df['Asset'] == asset) & (norm_series == tf_norm)]
         atr_distances = asset_data['ATR_Distance'].replace([np.inf, -np.inf], np.nan).dropna()
 
@@ -130,7 +127,7 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
             percentile = None
 
         metrics[asset][tf_norm]['current'] = {
-            'date': row['Date'],
+            'date': str(row['Date']),
             'price': float(row['Price']) if pd.notna(row['Price']) else None,
             'ema21': float(row['EMA21']) if pd.notna(row['EMA21']) else None,
             'atr': float(row['ATR']) if pd.notna(row['ATR']) else None,
@@ -171,14 +168,13 @@ def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
 
     dashboard = {
         'metadata': {
-            'last_updated': datetime.utcnow().isoformat() + 'Z',
+            'last_updated': datetime.now(timezone.utc).isoformat(),
             'assets_count': int(history_df['Asset'].nunique()),
             'records_count': int(len(history_df)),
             'date_range': {
-                'start': history_df['Date'].min(),
-                'end': history_df['Date'].max(),
+                'start': str(history_df['Date'].min()),
+                'end': str(history_df['Date'].max()),
             },
-            'history_file': HISTORY_CSV_PATH,
         },
         'assets': assets_data,
     }

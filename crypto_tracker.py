@@ -27,6 +27,7 @@ from trading_utils import (
     calculate_indicators,
     fetch_ohlcv_binance,
     fetch_ohlcv_yahoo,
+    fetch_ohlcv_ccxt,
     fetch_ohlcv_geckoterminal,
     get_manual_data,
 )
@@ -59,6 +60,8 @@ def get_data(asset, timeframe):
         df = fetch_ohlcv_binance(config['symbol'], timeframe)
     elif source == 'yahoo':
         df = fetch_ohlcv_yahoo(config['symbol'], timeframe)
+    elif source == 'ccxt':
+        df = fetch_ohlcv_ccxt(config['exchange'], config['symbol'], timeframe)
     elif source == 'geckoterminal':
         df = fetch_ohlcv_geckoterminal(config['network'], config['pool'], timeframe)
     else:

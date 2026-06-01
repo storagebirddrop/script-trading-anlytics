@@ -9,12 +9,15 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ASSETS = [
     # Crypto assets (Yahoo Finance)
     'BTC', 'ETH', 'SOL', 'XLM', 'REZ', 'RSR', 'NEAR', 'RENDER', 'ONDO', 'ACH', 'BNB', 'XRP',
+    'ADA', 'NIGHT',
     # NASDAQ stocks (Yahoo Finance)
     'MSTR', 'XXI', 'RIOT', 'MARA', 'IREN', 'BMNR', 'HUT', 'WULF', 'HIVE', 'CLSK', 'SLNH',
     # LSE ETFs (Yahoo Finance with .L suffix)
     'MSTY', 'YMST', 'MARY', 'RIOY', 'IREY', 'BMNY',
     # Solana DEX assets (GeckoTerminal)
-    'D2X', 'SCP',
+    'D2X',
+    # CEX-listed altcoins (CCXT)
+    'SCP',
 ]
 
 TIMEFRAMES = ['1d', '1w']
@@ -35,6 +38,8 @@ ASSET_CONFIG = {
     'ACH':    {'source': 'yahoo', 'symbol': 'ACH-USD'},
     'BNB':    {'source': 'yahoo', 'symbol': 'BNB-USD'},
     'XRP':    {'source': 'yahoo', 'symbol': 'XRP-USD'},
+    'ADA':   {'source': 'yahoo', 'symbol': 'ADA-USD'},
+    'NIGHT': {'source': 'yahoo', 'symbol': 'NIGHT-USD'},
     # NASDAQ stocks (Yahoo Finance)
     'MSTR': {'source': 'yahoo', 'symbol': 'MSTR'},
     'XXI': {'source': 'yahoo', 'symbol': 'XXI'},
@@ -56,7 +61,8 @@ ASSET_CONFIG = {
     'BMNY': {'source': 'yahoo', 'symbol': 'BMNY.L'},
     # Solana DEX assets (GeckoTerminal) — pool address of most liquid pair
     'D2X': {'source': 'geckoterminal', 'network': 'solana', 'pool': '7cftYyBzNWFWB6JDa2wKZZqjZMZXMhtLWpUzG4xbDezf'},  # Orca D2X/SOL
-    'SCP': {'source': 'geckoterminal', 'network': 'solana', 'pool': 'CzDozKhnvTUMmNFjBQevKjx3jzt8KiGFwkcznq1XfEYx'},   # user-specified pool
+    # CEX-listed altcoins (CCXT) — ScPrime listed on CoinEx with full history
+    'SCP': {'source': 'ccxt', 'exchange': 'coinex', 'symbol': 'SCP/USDT'},
 }
 
 # Manual data — update from TradingView / Birdeye
@@ -74,3 +80,4 @@ SPREADSHEET_PATH = str(_PROJECT_ROOT / 'ATR_Tracker_Dashboard.xlsx')
 MASTER_CSV_PATH = str(_PROJECT_ROOT / 'data' / 'master.csv')
 HISTORY_CSV_PATH = str(_PROJECT_ROOT / 'data' / 'history.csv')
 DASHBOARD_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'dashboard.json')
+METADATA_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'metadata.json')

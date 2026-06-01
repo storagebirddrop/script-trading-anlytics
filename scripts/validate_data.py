@@ -1,202 +1,17 @@
 #!/usr/bin/env python3
 """
-Data Validation Script
-Validates trading data from Excel workbook or CSV files.
+Data Validation Script — CLI wrapper around trading_utils.validation.
+Validates trading data from an Excel workbook or CSV file.
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Tuple
 import sys
 
+import pandas as pd
 
-class ValidationResult:
-    """Container for validation results."""
-    
-    def __init__(self):
-        self.errors = []
-        self.warnings = []
-        self.is_valid = True
-    
-    def add_error(self, message: str):
-        """Add an error message."""
-        self.errors.append(message)
-        self.is_valid = False
-    
-    def add_warning(self, message: str):
-        """Add a warning message."""
-        self.warnings.append(message)
-    
-    def get_report(self) -> str:
-        """Generate a human-readable report."""
-        report = []
-        
-        if self.is_valid:
-            report.append("✓ Validation passed")
-        else:
-            report.append(f"✗ Validation failed: {len(self.errors)} error(s)")
-        
-        if self.errors:
-            report.append("\nErrors:")
-            for error in self.errors:
-                report.append(f"  - {error}")
-        
-        if self.warnings:
-            report.append("\nWarnings:")
-            for warning in self.warnings:
-                report.append(f"  - {warning}")
-        
-        return "\n".join(report)
-
-
-def validate_columns(df: pd.DataFrame, result: ValidationResult):
-    """Validate required columns exist."""
-    required_columns = ['Date', 'Asset', 'Price', 'EMA21', 'ATR', 'RSI', 'Timeframe']
-    missing_columns = [col for col in required_columns if col not in df.columns]
-    
-    if missing_columns:
-        result.add_error(f"Missing required columns: {', '.join(missing_columns)}")
-    else:
-        print(f"✓ All required columns present: {', '.join(required_columns)}")
-
-
-def validate_key_nulls(df: pd.DataFrame, result: ValidationResult):
-    """Validate that key columns have no null/NaN values."""
-    key_columns = ['Date', 'Asset', 'Timeframe']
-    
-    for col in key_columns:
-        if col not in df.columns:
-            continue
-        
-        null_mask = df[col].isna()
-        null_count = null_mask.sum()
-        
-        if null_count > 0:
-            result.add_error(f"Column '{col}' contains {null_count} null/NaN value(s)")
-        else:
-            print(f"✓ Column '{col}' has no null values")
-
-
-def validate_numeric_fields(df: pd.DataFrame, result: ValidationResult):
-    """Validate that numeric fields contain numeric data."""
-    numeric_columns = ['Price', 'EMA21', 'ATR', 'RSI']
-    
-    for col in numeric_columns:
-        if col not in df.columns:
-            continue
-        
-        # Check for non-numeric values by coercing to numeric
-        coerced = pd.to_numeric(df[col], errors='coerce')
-        non_numeric = df[coerced.isna() & df[col].notna()]
-        
-        if len(non_numeric) > 0:
-            result.add_error(f"Column '{col}' contains non-numeric values in {len(non_numeric)} row(s)")
-        else:
-            print(f"✓ Column '{col}' contains valid numeric data")
-
-
-def validate_atr(df: pd.DataFrame, result: ValidationResult):
-    """Validate ATR values are greater than 0."""
-    if 'ATR' not in df.columns:
-        return
-    
-    invalid_atr = df[(df['ATR'] <= 0) & (df['ATR'].notna())]
-    
-    if len(invalid_atr) > 0:
-        result.add_error(f"ATR must be > 0, found {len(invalid_atr)} invalid value(s)")
-        # Show first few examples
-        for idx, row in invalid_atr.head(3).iterrows():
-            result.add_error(f"  Row {idx}: Asset={row.get('Asset', 'N/A')}, ATR={row['ATR']}")
-    else:
-        print("✓ All ATR values are > 0")
-
-
-def validate_rsi(df: pd.DataFrame, result: ValidationResult):
-    """Validate RSI values are between 0 and 100."""
-    if 'RSI' not in df.columns:
-        return
-    
-    invalid_rsi = df[((df['RSI'] < 0) | (df['RSI'] > 100)) & (df['RSI'].notna())]
-    
-    if len(invalid_rsi) > 0:
-        result.add_error(f"RSI must be between 0 and 100, found {len(invalid_rsi)} invalid value(s)")
-        # Show first few examples
-        for idx, row in invalid_rsi.head(3).iterrows():
-            result.add_error(f"  Row {idx}: Asset={row.get('Asset', 'N/A')}, RSI={row['RSI']}")
-    else:
-        print("✓ All RSI values are between 0 and 100")
-
-
-def validate_timeframe(df: pd.DataFrame, result: ValidationResult):
-    """Validate Timeframe values are '1d' or '1w'."""
-    if 'Timeframe' not in df.columns:
-        return
-    
-    valid_timeframes = ['1d', '1w', 'Daily', 'Weekly']
-    invalid_timeframe = df[~df['Timeframe'].isin(valid_timeframes) & (df['Timeframe'].notna())]
-    
-    if len(invalid_timeframe) > 0:
-        result.add_error(f"Timeframe must be '1d', '1w', 'Daily', or 'Weekly', found {len(invalid_timeframe)} invalid value(s)")
-        # Show unique invalid values
-        unique_invalid = invalid_timeframe['Timeframe'].unique()
-        result.add_error(f"  Invalid values: {', '.join(map(str, unique_invalid))}")
-    else:
-        print("✓ All Timeframe values are valid")
-
-
-def validate_duplicates(df: pd.DataFrame, result: ValidationResult):
-    """Check for duplicate Date+Asset+Timeframe records."""
-    required_cols = ['Date', 'Asset', 'Timeframe']
-    missing = [col for col in required_cols if col not in df.columns]
-    
-    if missing:
-        result.add_warning(f"Cannot check duplicates: missing columns {', '.join(missing)}")
-        return
-    
-    # Check for rows with missing required columns
-    missing_values_mask = df[required_cols].isna().any(axis=1)
-    if missing_values_mask.any():
-        result.add_warning(f"Found {missing_values_mask.sum()} row(s) with missing Date/Asset/Timeframe values, excluding from duplicate check")
-    
-    # Normalize timeframe to lowercase for comparison
-    df_normalized = df.copy()
-    df_normalized['Timeframe'] = df_normalized['Timeframe'].fillna('').str.lower().replace({'daily': '1d', 'weekly': '1w'})
-    
-    # Exclude rows with missing values from duplicate check
-    df_clean = df_normalized[~df[required_cols].isna().any(axis=1)]
-    
-    duplicates = df_clean[df_clean.duplicated(subset=required_cols, keep=False)]
-    
-    if len(duplicates) > 0:
-        result.add_error(f"Found {len(duplicates)} duplicate Date+Asset+Timeframe record(s)")
-        # Show first few examples
-        for idx, row in duplicates.head(5).iterrows():
-            result.add_error(f"  Duplicate: Date={row['Date']}, Asset={row['Asset']}, Timeframe={row['Timeframe']}")
-    else:
-        print("✓ No duplicate Date+Asset+Timeframe records found")
-
-
-def validate_dataframe(df: pd.DataFrame) -> ValidationResult:
-    """Run all validation checks on a DataFrame."""
-    result = ValidationResult()
-    
-    print("Running validation checks...")
-    print(f"Total records: {len(df)}")
-    print()
-    
-    validate_columns(df, result)
-    validate_key_nulls(df, result)
-    validate_numeric_fields(df, result)
-    validate_atr(df, result)
-    validate_rsi(df, result)
-    validate_timeframe(df, result)
-    validate_duplicates(df, result)
-    
-    return result
+from trading_utils.validation import ValidationResult, validate_dataframe  # noqa: F401 (re-exported for importers)
 
 
 def validate_csv(file_path: str) -> ValidationResult:
-    """Validate a CSV file."""
     try:
         df = pd.read_csv(file_path)
         print(f"Loaded CSV: {file_path}")
@@ -208,29 +23,23 @@ def validate_csv(file_path: str) -> ValidationResult:
 
 
 def validate_excel(file_path: str, sheet_name: str = None) -> ValidationResult:
-    """Validate an Excel workbook."""
     try:
         if sheet_name:
             df = pd.read_excel(file_path, sheet_name=sheet_name)
             print(f"Loaded Excel sheet '{sheet_name}': {file_path}")
-        else:
-            # Validate all sheets
-            xl = pd.ExcelFile(file_path)
-            print(f"Loaded Excel file: {file_path}")
-            print(f"Sheets: {', '.join(xl.sheet_names)}")
-            
-            result = ValidationResult()
-            for sheet in xl.sheet_names:
-                print(f"\nValidating sheet: {sheet}")
-                sheet_result = validate_dataframe(pd.read_excel(file_path, sheet_name=sheet))
-                result.errors.extend(sheet_result.errors)
-                result.warnings.extend(sheet_result.warnings)
-                if not sheet_result.is_valid:
-                    result.is_valid = False
-            
-            return result
-        
-        return validate_dataframe(df)
+            return validate_dataframe(df)
+
+        xl = pd.ExcelFile(file_path)
+        print(f"Loaded Excel file: {file_path} — sheets: {', '.join(xl.sheet_names)}")
+        result = ValidationResult()
+        for sheet in xl.sheet_names:
+            print(f"\nValidating sheet: {sheet}")
+            sheet_result = validate_dataframe(pd.read_excel(file_path, sheet_name=sheet))
+            result.errors.extend(sheet_result.errors)
+            result.warnings.extend(sheet_result.warnings)
+            if not sheet_result.is_valid:
+                result.is_valid = False
+        return result
     except Exception as e:
         result = ValidationResult()
         result.add_error(f"Failed to read Excel file: {e}")
@@ -238,17 +47,14 @@ def validate_excel(file_path: str, sheet_name: str = None) -> ValidationResult:
 
 
 def main():
-    """Main execution function."""
     import argparse
-    
     parser = argparse.ArgumentParser(description='Validate trading data')
     parser.add_argument('file', help='Path to CSV or Excel file')
     parser.add_argument('--sheet', help='Excel sheet name (optional)')
-    parser.add_argument('--type', choices=['csv', 'excel'], help='File type (auto-detected if not specified)')
-    
+    parser.add_argument('--type', choices=['csv', 'excel'],
+                        help='File type (auto-detected if not specified)')
     args = parser.parse_args()
-    
-    # Auto-detect file type
+
     if args.type is None:
         if args.file.endswith('.csv'):
             args.type = 'csv'
@@ -257,20 +63,13 @@ def main():
         else:
             print("Error: Cannot auto-detect file type. Please specify --type")
             sys.exit(1)
-    
-    # Run validation
-    if args.type == 'csv':
-        result = validate_csv(args.file)
-    else:
-        result = validate_excel(args.file, args.sheet)
-    
-    # Print report
+
+    result = validate_csv(args.file) if args.type == 'csv' else validate_excel(args.file, args.sheet)
+
     print()
     print("=" * 60)
     print(result.get_report())
     print("=" * 60)
-    
-    # Exit with appropriate code
     sys.exit(0 if result.is_valid else 1)
 
 

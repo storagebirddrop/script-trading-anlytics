@@ -46,13 +46,18 @@ class TestCalculateEMA:
         assert abs(float(ema.iloc[-1]) - 100.0) < 0.01
 
     def test_ema_uses_span_not_com(self):
-        """Standard EMA uses alpha=2/(span+1). Spot-check against manual calc."""
+        """Standard EMA uses alpha=2/(span+1) with SMA seed at bar period-1.
+
+        With period=2 and prices=[10, 11, 12]:
+          - SMA seed at index 1: (10+11)/2 = 10.5
+          - EMA at index 2: 10.5*(1/3) + 12*(2/3) = 11.5
+        """
         prices = [10.0, 11.0, 12.0]
         df = _make_df(prices)
         ema = calculate_ema(df, period=2)  # alpha = 2/3
-        # EMA[0] = 10, EMA[1] = 10*(1/3) + 11*(2/3) ≈ 10.667
-        expected = 10 * (1 / 3) + 11 * (2 / 3)
-        assert abs(float(ema.iloc[1]) - expected) < 1e-6
+        seed = (10.0 + 11.0) / 2  # SMA of first period bars = 10.5
+        expected = seed * (1 / 3) + 12.0 * (2 / 3)  # = 11.5
+        assert abs(float(ema.iloc[2]) - expected) < 1e-6
 
 
 # ---------------------------------------------------------------------------

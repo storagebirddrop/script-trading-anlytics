@@ -44,44 +44,44 @@ def sample_history_df():
 class TestClassifyRegime:
     """Test regime classification."""
     
+    def test_capitulation_regime(self):
+        """Test ATR Distance < -4 classifies as Capitulation."""
+        assert classify_regime(-4.1) == 'Capitulation'
+        assert classify_regime(-5.0) == 'Capitulation'
+        assert classify_regime(-10.0) == 'Capitulation'
+
     def test_accumulation_regime(self):
-        """Test ATR Distance < -2 classifies as Accumulation."""
+        """Test -4 <= ATR Distance < -2 classifies as Accumulation."""
         assert classify_regime(-2.5) == 'Accumulation'
         assert classify_regime(-3.0) == 'Accumulation'
-        assert classify_regime(-10.0) == 'Accumulation'
-    
+        assert classify_regime(-4.0) == 'Accumulation'
+
     def test_trend_regime_lower_bound(self):
         """Test ATR Distance = -2 classifies as Trend."""
         assert classify_regime(-2.0) == 'Trend'
-    
+
     def test_trend_regime_middle(self):
         """Test ATR Distance between -2 and 2 classifies as Trend."""
         assert classify_regime(0.0) == 'Trend'
         assert classify_regime(1.0) == 'Trend'
         assert classify_regime(-1.0) == 'Trend'
-    
+
     def test_trend_regime_upper_bound(self):
         """Test ATR Distance = 2 classifies as Trend."""
         assert classify_regime(2.0) == 'Trend'
-    
-    def test_extended_regime_lower_bound(self):
-        """Test ATR Distance > 2 classifies as Extended."""
-        assert classify_regime(2.1) == 'Extended'
-    
-    def test_extended_regime_middle(self):
-        """Test ATR Distance between 2 and 4 classifies as Extended."""
-        assert classify_regime(3.0) == 'Extended'
-    
-    def test_extended_regime_upper_bound(self):
-        """Test ATR Distance = 4 classifies as Extended."""
-        assert classify_regime(4.0) == 'Extended'
-    
-    def test_euphoria_regime(self):
-        """Test ATR Distance > 4 classifies as Euphoria."""
-        assert classify_regime(4.1) == 'Euphoria'
-        assert classify_regime(5.0) == 'Euphoria'
-        assert classify_regime(10.0) == 'Euphoria'
-    
+
+    def test_distribution_regime(self):
+        """Test 2 < ATR Distance <= 4 classifies as Distribution."""
+        assert classify_regime(2.1) == 'Distribution'
+        assert classify_regime(3.0) == 'Distribution'
+        assert classify_regime(4.0) == 'Distribution'
+
+    def test_mania_regime(self):
+        """Test ATR Distance > 4 classifies as Mania."""
+        assert classify_regime(4.1) == 'Mania'
+        assert classify_regime(5.0) == 'Mania'
+        assert classify_regime(10.0) == 'Mania'
+
     def test_nan_regime(self):
         """Test NaN ATR Distance classifies as Unknown."""
         assert classify_regime(np.nan) == 'Unknown'

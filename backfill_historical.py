@@ -33,6 +33,9 @@ _MASTER_CSV = Path(MASTER_CSV_PATH)
 _HISTORY_CSV = Path(HISTORY_CSV_PATH)
 _SPREADSHEET = Path(SPREADSHEET_PATH)
 
+# Module-level exchange instances — created once, reused across all pagination loops
+_binance = ccxt.binance({'enableRateLimit': True})
+
 START_DATE = datetime(2010, 1, 1)  # Yahoo Finance returns data from listing date if earlier
 END_DATE = datetime.now()
 
@@ -44,7 +47,47 @@ _EXCEL_HEADERS = [
 
 def fetch_historical_binance(symbol, start_date, end_date, timeframe='1d'):
     """Fetch historical OHLCV from Binance with pagination (M5)."""
-    exchange = ccxt.binance({'enableRateLimit': True})
+    since = int(start_date.timestamp() * 1000)
+    all_ohlcv = []
+
+    try:
+        while True:
+            batch = _binance.fetch_ohlcv(symbol, timeframe, since=since, limit=1000)
+            if not batch:
+                break
+            all_ohlcv.extend(batch)
+            last_ts = batch[-1][0]
+            since = last_ts + 1
+            if datetime.fromtimestamp(last_ts / 1000) >= end_date:
+                break
+
+        if not all_ohlcv:
+            return None
+
+        df = pd.DataFrame(all_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df.set_index('timestamp', inplace=True)
+        df = df[(df.index >= start_date) & (df.index <= end_date)]
+        return df
+    except Exception as e:
+        print(f"Error fetching {symbol} from Binance: {e}")
+        return None
+
+
+_ccxt_exchange_cache: dict = {}
+
+
+def _get_ccxt_exchange(exchange_id: str):
+    """Return a cached CCXT exchange instance for backfill use."""
+    if exchange_id not in _ccxt_exchange_cache:
+        exchange_class = getattr(ccxt, exchange_id)
+        _ccxt_exchange_cache[exchange_id] = exchange_class({'enableRateLimit': True})
+    return _ccxt_exchange_cache[exchange_id]
+
+
+def fetch_historical_ccxt(exchange_id, symbol, start_date, end_date, timeframe='1d'):
+    """Fetch full historical OHLCV from any CCXT-supported exchange with pagination."""
+    exchange = _get_ccxt_exchange(exchange_id)
     since = int(start_date.timestamp() * 1000)
     all_ohlcv = []
 
@@ -68,7 +111,7 @@ def fetch_historical_binance(symbol, start_date, end_date, timeframe='1d'):
         df = df[(df.index >= start_date) & (df.index <= end_date)]
         return df
     except Exception as e:
-        print(f"Error fetching {symbol} from Binance: {e}")
+        print(f"Error fetching {symbol} from {exchange_id}: {e}")
         return None
 
 
@@ -114,6 +157,8 @@ def get_historical_data(asset, start_date, end_date, timeframe):
         df = fetch_historical_binance(config['symbol'], start_date, end_date, timeframe)
     elif source == 'yahoo':
         df = fetch_historical_yahoo(config['symbol'], start_date, end_date, timeframe)
+    elif source == 'ccxt':
+        df = fetch_historical_ccxt(config['exchange'], config['symbol'], start_date, end_date, timeframe)
     elif source == 'geckoterminal':
         # GeckoTerminal returns all available history in one call; filter to requested range
         df = fetch_ohlcv_geckoterminal(config['network'], config['pool'], timeframe)
@@ -127,15 +172,15 @@ def get_historical_data(asset, start_date, end_date, timeframe):
 
     df = calculate_indicators(df)
 
+    def to_scalar(val):
+        if isinstance(val, (pd.Series, pd.DataFrame)):
+            val = val.iloc[0] if isinstance(val, pd.Series) else val.iloc[0, 0]
+        if pd.isna(val):
+            return None
+        return float(val)
+
     data = []
     for idx, row in df.iterrows():
-        def to_scalar(val):
-            if isinstance(val, (pd.Series, pd.DataFrame)):
-                val = val.iloc[0] if isinstance(val, pd.Series) else val.iloc[0, 0]
-            if pd.isna(val):
-                return None
-            return float(val)
-
         data.append({
             'Date': idx.strftime('%Y-%m-%d') if hasattr(idx, 'strftime') else str(idx),
             'Asset': asset,
