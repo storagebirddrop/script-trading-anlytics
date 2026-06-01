@@ -724,10 +724,38 @@ function renderHistoricalContext() {
         // ── Percentile gauge ──────────────────────────────────────────────────
         const atrMin  = historical.atr_min;
         const atrMax  = historical.atr_max;
-        const range   = atrMax - atrMin || 1;
         const pct     = current.atr_percentile ?? 50;
 
-        const toPos = val => Math.max(0, Math.min(100, ((val - atrMin) / range) * 100));
+        // Percentile-based positioning: maps ATR Distance values → gauge %
+        // using piecewise linear interpolation between known breakpoints.
+        // This prevents extreme outliers from compressing the visible range —
+        // zone widths now reflect how frequently the asset spends in each regime.
+        const knownPts = [
+            { pct: 0,   val: atrMin },
+            { pct: 25,  val: historical.atr_percentile_25 },
+            { pct: 50,  val: historical.atr_percentile_50 },
+            { pct: 75,  val: historical.atr_percentile_75 },
+            { pct: 90,  val: historical.atr_percentile_90 },
+            { pct: 100, val: atrMax }
+        ].filter(pt => pt.val != null);
+
+        const toPos = val => {
+            if (knownPts.length < 2) {
+                // fallback to linear if breakpoints are missing
+                const r = atrMax - atrMin || 1;
+                return Math.max(0, Math.min(100, ((val - atrMin) / r) * 100));
+            }
+            if (val <= knownPts[0].val) return 0;
+            if (val >= knownPts[knownPts.length - 1].val) return 100;
+            for (let i = 0; i < knownPts.length - 1; i++) {
+                const lo = knownPts[i], hi = knownPts[i + 1];
+                if (val >= lo.val && val <= hi.val) {
+                    const t = (val - lo.val) / ((hi.val - lo.val) || 1);
+                    return lo.pct + t * (hi.pct - lo.pct);
+                }
+            }
+            return 50;
+        };
 
         // Regime zone positions (thresholds: -4, -2, 2, 4)
         const zones = [
