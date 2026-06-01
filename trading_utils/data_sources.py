@@ -59,10 +59,14 @@ def fetch_ohlcv_binance(symbol, timeframe, limit=100):
 
 
 def fetch_ohlcv_yahoo(symbol, timeframe, limit=100):
-    """Fetch recent OHLCV bars from Yahoo Finance (180-day window for indicator warm-up)."""
+    """Fetch recent OHLCV bars from Yahoo Finance (730-day window for indicator warm-up).
+
+    730 days gives ~520 daily bars and ~104 weekly bars — enough for ATR14/EMA21/RSI14
+    to fully converge with SMA-seeded initialisation, even for recently-listed assets.
+    """
     interval_map = {'1d': '1d', '1w': '1wk', '1M': '1mo'}
     interval = interval_map.get(timeframe, '1d')
-    start = datetime.now() - timedelta(days=180)
+    start = datetime.now() - timedelta(days=730)
 
     def _fetch():
         data = yf.download(symbol, start=start, interval=interval, progress=False)
