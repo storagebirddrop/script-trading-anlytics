@@ -33,7 +33,7 @@ ASSET_CONFIG = {
     'REZ':    {'source': 'yahoo', 'symbol': 'REZ-USD'},
     'RSR':    {'source': 'yahoo', 'symbol': 'RSR-USD'},
     'NEAR':   {'source': 'yahoo', 'symbol': 'NEAR-USD'},
-    'RENDER': {'source': 'yahoo', 'symbol': 'RNDR-USD'},
+    'RENDER': {'source': 'yahoo', 'symbol': 'RENDER-USD'},
     'ONDO':   {'source': 'yahoo', 'symbol': 'ONDO-USD'},
     'ACH':    {'source': 'yahoo', 'symbol': 'ACH-USD'},
     'BNB':    {'source': 'yahoo', 'symbol': 'BNB-USD'},

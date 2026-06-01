@@ -121,7 +121,7 @@ def fetch_historical_yahoo(symbol, start_date, end_date, timeframe='1d'):
     interval = interval_map.get(timeframe, '1d')
 
     try:
-        data = yf.download(symbol, start=start_date, end=end_date, interval=interval, progress=False)
+        data = yf.download(symbol, start=start_date, end=end_date, interval=interval, progress=False, auto_adjust=False)
         if data.empty:
             print(f"No data returned for {symbol}")
             return None

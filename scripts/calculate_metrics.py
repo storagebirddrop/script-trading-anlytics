@@ -110,9 +110,16 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
     )
 
     latest = df.sort_values('Date', ascending=False).groupby(['Asset', 'Timeframe']).first()
+    global_latest_date = pd.Timestamp(df['Date'].max())
 
     for (asset, timeframe), row in latest.iterrows():
         if pd.isna(timeframe):
+            continue
+
+        # Skip entries whose most-recent data is more than 60 days behind the global
+        # latest date — these are tickers that stopped refreshing (e.g. delisted / renamed).
+        row_date = pd.Timestamp(str(row['Date']))
+        if (global_latest_date - row_date).days > 60:
             continue
 
         tf_norm = _norm_timeframe(str(timeframe))

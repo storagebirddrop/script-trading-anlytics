@@ -112,7 +112,7 @@ def fetch_ohlcv_yahoo(symbol, timeframe, limit=100):
     start = datetime.now() - timedelta(days=730)
 
     def _fetch():
-        data = yf.download(symbol, start=start, interval=interval, progress=False)
+        data = yf.download(symbol, start=start, interval=interval, progress=False, auto_adjust=False)
         if data.empty:
             return None
 
