@@ -146,12 +146,34 @@ Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (
 - **Drilldown tab:** Key Takeaways panel (2–4 auto-generated insights from ATR percentile, RSI status, weekly regime alignment, and recent ATR trend direction), then Chart.js line charts (Price vs EMA21, ATR Distance, RSI, Weekly ATR Distance) plus summary metrics grid
 
 **Signal strength tiers** (used in Opportunity/Risk panels and Rankings):
-- Oversold: Extreme Oversold (P≤5%), Deep Oversold (P≤15%), Oversold (P≤30%), Mild Dip (P>30%)
-- Extended: Extreme Extended (P≥95%), High Extended (P≥85%), Extended (P≥70%), Mild Extension (P<70%)
-- All tiers require `sample_size ≥ 30`; assets with thin history fall back to a generic label.
+Uses the **more severe** of two independent signals — whichever gives the stronger label wins:
+1. Percentile rank (how historically rare is this reading for this specific asset)
+2. Absolute ATR Distance threshold (how far is price stretched in universal terms)
+
+| Tier | Percentile condition | ATR Distance condition |
+|---|---|---|
+| Extreme Oversold | P ≤ 5% | dist < −4 |
+| Deep Oversold | P ≤ 15% | dist < −3 |
+| Oversold | P ≤ 30% | dist < −2 |
+| Mild Dip | P > 30% | dist ≥ −2 |
+| Mild Extension | P < 70% | dist ≤ +2 |
+| Extended | P ≥ 70% | dist > +2 |
+| High Extended | P ≥ 85% | dist > +3 |
+| Extreme Extended | P ≥ 95% | dist > +4 |
+
+Percentile tiers require `sample_size ≥ 30`; assets with thin history fall back to ATR Distance tiers only.
+
+Example: YMST at ATR Distance −3.35 (P16%) → ATR tier = Deep Oversold, pct tier = Oversold → label = **Deep Oversold**. BTC at −2.39 (P4%) → ATR tier = Oversold, pct tier = Extreme Oversold → label = **Extreme Oversold**.
+
+**Extremes tab gauge — percentile-based positioning:**
+The gauge x-axis represents the empirical distribution, not a linear ATR Distance scale. `toPos()` uses piecewise linear interpolation between the known P0/P25/P50/P75/P90/P100 breakpoints:
+- P25/P50/P75/P90 tick marks are always at exactly 25%/50%/75%/90% of the gauge width
+- Regime zone widths reflect how often the asset spends in each regime (wide Trend zone = rarely extreme)
+- Extreme outliers (e.g. a single mania spike) no longer compress the rest of the gauge
+- Falls back to linear scaling if percentile breakpoints are missing
 
 **Key JS functions in `dashboard/js/dashboard.js`:**
-- `getSignalStrength(pct, direction, sampleSize)` — returns `{ label, cssClass }` for signal badges
+- `getSignalStrength(pct, direction, sampleSize, atrDistance)` — returns `{ label, cssClass }` using max-severity of percentile and ATR Distance tiers
 - `getAtrColorClass(atrDistance)` — returns semantic CSS class for ATR Distance coloring
 - `renderPortfolioHealthBar()` — populates the health summary bar
 - `renderOpportunityPanels()` — populates top-3 oversold / extended panels
