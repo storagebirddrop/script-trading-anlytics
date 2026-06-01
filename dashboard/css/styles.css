@@ -90,7 +90,7 @@ body {
 
 .tab-content.active {
     display: block;
-    animation: tabFadeIn var(--transition-fast) ease forwards;
+    animation: tabFadeIn var(--transition-fast) forwards;
 }
 
 @keyframes tabFadeIn {
