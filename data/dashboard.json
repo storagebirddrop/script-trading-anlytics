@@ -1,7 +1,7 @@
 {
   "metadata": {
     "last_updated": "2026-06-01T08:56:07.798257Z",
-    "assets_count": 31,
+    "assets_count": 28,
     "records_count": 18844,
     "date_range": {
       "start": "2024-01-01",
@@ -946,110 +946,6 @@
         }
       }
     },
-    "SCP": {
-      "1d": {
-        "historical": {
-          "atr_max": -0.9999999999999998,
-          "atr_min": -0.9999999999999998,
-          "atr_mean": -0.9999999999999999,
-          "atr_std": 1.2161883888976234e-16,
-          "atr_percentile_25": -0.9999999999999998,
-          "atr_percentile_50": -0.9999999999999998,
-          "atr_percentile_75": -0.9999999999999998,
-          "atr_percentile_90": -0.9999999999999998,
-          "sample_size": 6
-        },
-        "current": {
-          "date": "2026-05-31",
-          "price": 0.0079,
-          "ema21": 0.0082,
-          "atr": 0.0003,
-          "rsi": 45.0,
-          "rsi_z_score": -0.3333333333333333,
-          "atr_distance": -0.9999999999999998,
-          "pct_above_ema": -3.658536585365852,
-          "regime": "Trend",
-          "atr_percentile": 0.0
-        }
-      },
-      "1w": {
-        "historical": {
-          "atr_max": -0.2499999999999984,
-          "atr_min": -0.2499999999999984,
-          "atr_mean": -0.24999999999999842,
-          "atr_std": 3.0404709722440586e-17,
-          "atr_percentile_25": -0.2499999999999984,
-          "atr_percentile_50": -0.2499999999999984,
-          "atr_percentile_75": -0.2499999999999984,
-          "atr_percentile_90": -0.2499999999999984,
-          "sample_size": 6
-        },
-        "current": {
-          "date": "2026-05-31",
-          "price": 0.0079,
-          "ema21": 0.008,
-          "atr": 0.0004,
-          "rsi": 50.0,
-          "rsi_z_score": 0.0,
-          "atr_distance": -0.2499999999999984,
-          "pct_above_ema": -1.2499999999999925,
-          "regime": "Trend",
-          "atr_percentile": 0.0
-        }
-      }
-    },
-    "D2X": {
-      "1d": {
-        "historical": {
-          "atr_max": 1.0000000000000004,
-          "atr_min": 1.0000000000000004,
-          "atr_mean": 1.0000000000000002,
-          "atr_std": 2.432376777795247e-16,
-          "atr_percentile_25": 1.0000000000000004,
-          "atr_percentile_50": 1.0000000000000004,
-          "atr_percentile_75": 1.0000000000000004,
-          "atr_percentile_90": 1.0000000000000004,
-          "sample_size": 6
-        },
-        "current": {
-          "date": "2026-05-31",
-          "price": 0.0018,
-          "ema21": 0.0017,
-          "atr": 0.0001,
-          "rsi": 55.0,
-          "rsi_z_score": 0.3333333333333333,
-          "atr_distance": 1.0000000000000004,
-          "pct_above_ema": 5.882352941176474,
-          "regime": "Trend",
-          "atr_percentile": 0.0
-        }
-      },
-      "1w": {
-        "historical": {
-          "atr_max": 0.9999999999999992,
-          "atr_min": 0.9999999999999992,
-          "atr_mean": 0.9999999999999992,
-          "atr_std": 0.0,
-          "atr_percentile_25": 0.9999999999999992,
-          "atr_percentile_50": 0.9999999999999992,
-          "atr_percentile_75": 0.9999999999999992,
-          "atr_percentile_90": 0.9999999999999992,
-          "sample_size": 6
-        },
-        "current": {
-          "date": "2026-05-31",
-          "price": 0.0018,
-          "ema21": 0.0016,
-          "atr": 0.0002,
-          "rsi": 60.0,
-          "rsi_z_score": 0.6666666666666666,
-          "atr_distance": 0.9999999999999992,
-          "pct_above_ema": 12.499999999999991,
-          "regime": "Trend",
-          "atr_percentile": 0.0
-        }
-      }
-    },
     "MSTY": {
       "1d": {
         "historical": {
@@ -1255,58 +1151,6 @@
           "pct_above_ema": 71.32604133059955,
           "regime": "Extended",
           "atr_percentile": 99.20634920634922
-        }
-      }
-    },
-    "RENDER": {
-      "1d": {
-        "historical": {
-          "atr_max": 3.038002655975886,
-          "atr_min": -2.1808130248827062,
-          "atr_mean": 0.05849074319150114,
-          "atr_std": 1.196903616820356,
-          "atr_percentile_25": -0.9019342340802992,
-          "atr_percentile_50": -0.0583624928601588,
-          "atr_percentile_75": 0.8695880241192501,
-          "atr_percentile_90": 1.7784811980311808,
-          "sample_size": 204
-        },
-        "current": {
-          "date": "2024-07-22",
-          "price": 7.03,
-          "ema21": 6.824739298705888,
-          "atr": 0.5457879611757477,
-          "rsi": 61.42131979695431,
-          "rsi_z_score": 2.0309286937180544,
-          "atr_distance": 0.3760814013778092,
-          "pct_above_ema": 3.007597687035961,
-          "regime": "Trend",
-          "atr_percentile": 64.70588235294117
-        }
-      },
-      "1w": {
-        "historical": {
-          "atr_max": 3.0666301373516607,
-          "atr_min": -0.9191198351563596,
-          "atr_mean": 0.6896589825475755,
-          "atr_std": 1.03110905486765,
-          "atr_percentile_25": 0.020273498399074625,
-          "atr_percentile_50": 0.6711439644621489,
-          "atr_percentile_75": 1.1701599099000803,
-          "atr_percentile_90": 2.134688303578492,
-          "sample_size": 30
-        },
-        "current": {
-          "date": "2024-07-22",
-          "price": 7.03,
-          "ema21": 7.815934606246817,
-          "atr": 1.637517968581105,
-          "rsi": 40.74872071101535,
-          "rsi_z_score": null,
-          "atr_distance": -0.4799547982534945,
-          "pct_above_ema": -10.055542245947978,
-          "regime": "Trend",
-          "atr_percentile": 10.0
         }
       }
     },

@@ -47,6 +47,10 @@ def calculate_historical_metrics(df: pd.DataFrame) -> Dict[str, Any]:
     
     # Group by asset and timeframe
     for (asset, timeframe), group in df.groupby(['Asset', 'Timeframe']):
+        # Guard against NaN timeframe
+        if pd.isna(timeframe):
+            continue
+        
         # Normalize timeframe
         timeframe_norm = timeframe.lower()
         if timeframe_norm == 'daily':
@@ -101,6 +105,10 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
     latest = df.sort_values('Date', ascending=False).groupby(['Asset', 'Timeframe']).first()
     
     for (asset, timeframe), row in latest.iterrows():
+        # Guard against NaN timeframe
+        if pd.isna(timeframe):
+            continue
+        
         # Normalize timeframe
         timeframe_norm = timeframe.lower()
         if timeframe_norm == 'daily':

@@ -106,22 +106,22 @@ def remove_duplicates(new_data: pd.DataFrame, existing_history: pd.DataFrame) ->
     
     # Normalize timeframe for comparison
     new_data_norm = new_data.copy()
-    new_data_norm['Timeframe'] = new_data_norm['Timeframe'].str.lower().replace({'daily': '1d', 'weekly': '1w'})
+    new_data_norm['Timeframe'] = new_data_norm['Timeframe'].fillna('').str.lower().replace({'daily': '1d', 'weekly': '1w'})
     
     existing_norm = existing_history.copy()
-    existing_norm['Timeframe'] = existing_norm['Timeframe'].str.lower().replace({'daily': '1d', 'weekly': '1w'})
+    existing_norm['Timeframe'] = existing_norm['Timeframe'].fillna('').str.lower().replace({'daily': '1d', 'weekly': '1w'})
     
     # Create composite key
     new_data_norm['composite_key'] = (
-        new_data_norm['Date'].astype(str) + '|' + 
-        new_data_norm['Asset'].astype(str) + '|' + 
-        new_data_norm['Timeframe'].astype(str)
+        new_data_norm['Date'].fillna('').astype(str) + '|' + 
+        new_data_norm['Asset'].fillna('').astype(str) + '|' + 
+        new_data_norm['Timeframe'].fillna('').astype(str)
     )
     
     existing_norm['composite_key'] = (
-        existing_norm['Date'].astype(str) + '|' + 
-        existing_norm['Asset'].astype(str) + '|' + 
-        existing_norm['Timeframe'].astype(str)
+        existing_norm['Date'].fillna('').astype(str) + '|' + 
+        existing_norm['Asset'].fillna('').astype(str) + '|' + 
+        existing_norm['Timeframe'].fillna('').astype(str)
     )
     
     # Filter out records that already exist

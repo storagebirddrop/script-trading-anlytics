@@ -4,6 +4,19 @@ let dashboardData = null;
 // Load dashboard data on page load
 document.addEventListener('DOMContentLoaded', async () => {
     await loadDashboardData();
+    if (!dashboardData) {
+        const mainContent = document.querySelector('.tab-content.active') || document.querySelector('.main-content');
+        if (mainContent) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = 'Error loading dashboard data';
+            mainContent.innerHTML = '';
+            mainContent.appendChild(errorDiv);
+        }
+        const navButtons = document.querySelectorAll('.nav-btn');
+        navButtons.forEach(btn => btn.disabled = true);
+        return;
+    }
     setupNavigation();
     setupAssetSelectors();
     renderPortfolio();

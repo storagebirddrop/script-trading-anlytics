@@ -29,6 +29,27 @@ def main():
         print("Please run calculate_metrics.py first to generate dashboard.json")
         sys.exit(1)
     
+    # Validate dashboard.json structure before copying
+    print("Validating dashboard.json structure...")
+    try:
+        with open(DASHBOARD_JSON_PATH, 'r', encoding='utf-8') as f:
+            dashboard_data = json.load(f)
+        
+        if 'metadata' not in dashboard_data:
+            print("ERROR: dashboard.json missing 'metadata' section")
+            sys.exit(1)
+        
+        if 'assets' not in dashboard_data:
+            print("ERROR: dashboard.json missing 'assets' section")
+            sys.exit(1)
+        
+        print(f"✓ Valid dashboard.json with {len(dashboard_data['assets'])} assets")
+        print(f"✓ Last updated: {dashboard_data['metadata'].get('last_updated', 'Unknown')}")
+    except json.JSONDecodeError as e:
+        print(f"ERROR: Invalid JSON in dashboard.json: {e}")
+        sys.exit(1)
+    print()
+    
     # Create output directories
     print("Creating output directories...")
     os.makedirs(ASSETS_OUTPUT_DIR, exist_ok=True)
@@ -72,33 +93,12 @@ def main():
         sys.exit(1)
     print()
     
-    # Validate dashboard.json structure
-    print("Validating dashboard.json structure...")
-    try:
-        with open(DASHBOARD_JSON_PATH, 'r') as f:
-            dashboard_data = json.load(f)
-        
-        if 'metadata' not in dashboard_data:
-            print("ERROR: dashboard.json missing 'metadata' section")
-            sys.exit(1)
-        
-        if 'assets' not in dashboard_data:
-            print("ERROR: dashboard.json missing 'assets' section")
-            sys.exit(1)
-        
-        print(f"✓ Valid dashboard.json with {len(dashboard_data['assets'])} assets")
-        print(f"✓ Last updated: {dashboard_data['metadata'].get('last_updated', 'Unknown')}")
-    except json.JSONDecodeError as e:
-        print(f"ERROR: Invalid JSON in dashboard.json: {e}")
-        sys.exit(1)
-    print()
-    
     # Print summary
     print("=" * 60)
     print("Dashboard build completed successfully")
     print("=" * 60)
     print(f"Output directory: {DASHBOARD_OUTPUT_DIR}")
-    print(f"Files generated:")
+    print("Files generated:")
     print(f"  - {DASHBOARD_OUTPUT_DIR}/index.html")
     print(f"  - {ASSETS_OUTPUT_DIR}/data.json")
     print(f"  - {DASHBOARD_OUTPUT_DIR}/css/styles.css")

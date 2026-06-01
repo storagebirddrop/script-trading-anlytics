@@ -60,6 +60,23 @@ def validate_columns(df: pd.DataFrame, result: ValidationResult):
         print(f"✓ All required columns present: {', '.join(required_columns)}")
 
 
+def validate_key_nulls(df: pd.DataFrame, result: ValidationResult):
+    """Validate that key columns have no null/NaN values."""
+    key_columns = ['Date', 'Asset', 'Timeframe']
+    
+    for col in key_columns:
+        if col not in df.columns:
+            continue
+        
+        null_mask = df[col].isna()
+        null_count = null_mask.sum()
+        
+        if null_count > 0:
+            result.add_error(f"Column '{col}' contains {null_count} null/NaN value(s)")
+        else:
+            print(f"✓ Column '{col}' has no null values")
+
+
 def validate_numeric_fields(df: pd.DataFrame, result: ValidationResult):
     """Validate that numeric fields contain numeric data."""
     numeric_columns = ['Price', 'EMA21', 'ATR', 'RSI']
@@ -68,8 +85,9 @@ def validate_numeric_fields(df: pd.DataFrame, result: ValidationResult):
         if col not in df.columns:
             continue
         
-        # Check for non-numeric values
-        non_numeric = df[~df[col].apply(lambda x: pd.api.types.is_numeric_dtype(type(x)) or pd.isna(x))]
+        # Check for non-numeric values by coercing to numeric
+        coerced = pd.to_numeric(df[col], errors='coerce')
+        non_numeric = df[coerced.isna() & df[col].notna()]
         
         if len(non_numeric) > 0:
             result.add_error(f"Column '{col}' contains non-numeric values in {len(non_numeric)} row(s)")
@@ -135,11 +153,19 @@ def validate_duplicates(df: pd.DataFrame, result: ValidationResult):
         result.add_warning(f"Cannot check duplicates: missing columns {', '.join(missing)}")
         return
     
+    # Check for rows with missing required columns
+    missing_values_mask = df[required_cols].isna().any(axis=1)
+    if missing_values_mask.any():
+        result.add_warning(f"Found {missing_values_mask.sum()} row(s) with missing Date/Asset/Timeframe values, excluding from duplicate check")
+    
     # Normalize timeframe to lowercase for comparison
     df_normalized = df.copy()
-    df_normalized['Timeframe'] = df_normalized['Timeframe'].str.lower().replace({'daily': '1d', 'weekly': '1w'})
+    df_normalized['Timeframe'] = df_normalized['Timeframe'].fillna('').str.lower().replace({'daily': '1d', 'weekly': '1w'})
     
-    duplicates = df_normalized[df_normalized.duplicated(subset=required_cols, keep=False)]
+    # Exclude rows with missing values from duplicate check
+    df_clean = df_normalized[~df[required_cols].isna().any(axis=1)]
+    
+    duplicates = df_clean[df_clean.duplicated(subset=required_cols, keep=False)]
     
     if len(duplicates) > 0:
         result.add_error(f"Found {len(duplicates)} duplicate Date+Asset+Timeframe record(s)")
@@ -159,6 +185,7 @@ def validate_dataframe(df: pd.DataFrame) -> ValidationResult:
     print()
     
     validate_columns(df, result)
+    validate_key_nulls(df, result)
     validate_numeric_fields(df, result)
     validate_atr(df, result)
     validate_rsi(df, result)

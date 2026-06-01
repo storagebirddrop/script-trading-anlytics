@@ -34,7 +34,7 @@ ASSET_CONFIG = {
     'REZ': {'source': 'binance', 'symbol': 'REZ/USDT'},
     'RSR': {'source': 'binance', 'symbol': 'RSR/USDT'},
     'NEAR': {'source': 'binance', 'symbol': 'NEAR/USDT'},
-    'RENDER': {'source': 'binance', 'symbol': 'RNDR/USDT'},
+    'RENDER': {'source': 'binance', 'symbol': 'RENDER/USDT'},
     'ONDO': {'source': 'binance', 'symbol': 'ONDO/USDT'},
     'ACH': {'source': 'binance', 'symbol': 'ACH/USDT'},
     'BNB': {'source': 'binance', 'symbol': 'BNB/USDT'},
