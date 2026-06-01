@@ -49,14 +49,8 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add ATR_Tracker_Dashboard.xlsx data/master.csv data/history.csv data/dashboard.json data/metadata.json
+          git add ATR_Tracker_Dashboard.xlsx data/master.csv data/history.csv data/dashboard.json data/metadata.json dashboard/assets/data.json
           git diff --staged --quiet || git commit -m "Update crypto tracker data"
           gh auth setup-git
           git push
-      
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3.9.3  # v3.9.3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dashboard
-          publish_branch: gh-pages
+      # Cloudflare Pages deploys automatically via Git integration on every push to master.
