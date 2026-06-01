@@ -31,10 +31,29 @@ jobs:
       - name: Run crypto tracker
         run: python crypto_tracker.py
       
+      - name: Validate data
+        run: python scripts/validate_data.py ATR_Tracker_Dashboard.xlsx
+      
+      - name: Update history
+        run: python scripts/update_history.py
+      
+      - name: Calculate metrics
+        run: python scripts/calculate_metrics.py
+      
+      - name: Build dashboard
+        run: python scripts/build_dashboard.py
+      
       - name: Commit and push changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add ATR_Tracker_Dashboard.xlsx data/master.csv data/history.csv
+          git add ATR_Tracker_Dashboard.xlsx data/master.csv data/history.csv data/dashboard.json data/metadata.json
           git diff --staged --quiet || git commit -m "Update crypto tracker data"
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+      
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dashboard
+          publish_branch: gh-pages

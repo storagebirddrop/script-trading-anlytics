@@ -22,9 +22,7 @@ ASSETS = [
     # NASDAQ stocks (Yahoo Finance)
     'MSTR', 'XXI', 'RIOT', 'MARA', 'IREN', 'BMNR', 'HUT', 'WULF', 'HIVE', 'CLSK', 'SLNH',
     # LSE ETFs (Yahoo Finance with .L suffix)
-    'MSTY', 'YMST', 'MARY', 'RIOY', 'IREY', 'BMNY',
-    # Manually inserted assets (Solana tokens) - skip for backfill
-    # 'SCP', 'D2X'
+    'MSTY', 'YMST', 'MARY', 'RIOY', 'IREY', 'BMNY'
 ]
 
 ASSET_CONFIG = {
@@ -153,10 +151,10 @@ def calculate_atr(df, period):
 
 
 def calculate_rsi(df, period):
-    """Calculate Relative Strength Index."""
+    """Calculate Relative Strength Index using Wilder's smoothing."""
     delta = df['close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    gain = (delta.where(delta > 0, 0)).ewm(span=period, adjust=False).mean()
+    loss = (-delta.where(delta < 0, 0)).ewm(span=period, adjust=False).mean()
     
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))

@@ -19,7 +19,6 @@ Automated script that fetches OHLCV data from multiple sources (Binance for cryp
   - Crypto: BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP
   - NASDAQ stocks: MSTR, XXI, RIOT, MARA, IREN, BMNR, HUT, WULF, HIVE, CLSK, SLNH
   - LSE ETFs: MSTY, YMST, MARY, RIOY, IREY, BMNY
-  - Manual: SCP, D2X (Solana tokens from TradingView/Birdeye)
 - Runs on both daily and weekly timeframes
 - **Accumulates historical data** in Daily_Data and Weekly_Data sheets for 12-24 month analysis
 
@@ -94,8 +93,6 @@ Edit the following constants in `crypto_tracker.py`:
 
 - RENDER is mapped to RNDR on Binance
 - LSE ETFs use the '.L' suffix for Yahoo Finance
-- Manual assets require updating the `MANUAL_DATA` dictionary before each run
 - Some assets may not be available and will be skipped with a warning
 - The script preserves existing sheets and graphs in the spreadsheet
 - Weekly timeframe for some newer ETFs may return NaN for indicators due to insufficient historical data
-- For manual assets, RSI Z-score is calculated using a simple normalization since historical data is not available

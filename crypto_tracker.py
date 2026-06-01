@@ -23,9 +23,7 @@ ASSETS = [
     # NASDAQ stocks (Yahoo Finance)
     'MSTR', 'XXI', 'RIOT', 'MARA', 'IREN', 'BMNR', 'HUT', 'WULF', 'HIVE', 'CLSK', 'SLNH',
     # LSE ETFs (Yahoo Finance with .L suffix)
-    'MSTY', 'YMST', 'MARY', 'RIOY', 'IREY', 'BMNY',
-    # Manually inserted assets (Solana tokens)
-    'SCP', 'D2X'
+    'MSTY', 'YMST', 'MARY', 'RIOY', 'IREY', 'BMNY'
 ]
 TIMEFRAMES = ['1d', '1w']  # Daily and Weekly
 SPREADSHEET_PATH = 'ATR_Tracker_Dashboard.xlsx'
@@ -66,29 +64,74 @@ ASSET_CONFIG = {
     'RIOY': {'source': 'yahoo', 'symbol': 'RIOY.L'},
     'IREY': {'source': 'yahoo', 'symbol': 'IREY.L'},
     'BMNY': {'source': 'yahoo', 'symbol': 'BMNY.L'},
-    # Manually inserted assets (Solana tokens - data from TradingView/Birdeye)
-    'SCP': {'source': 'manual'},
-    'D2X': {'source': 'manual'},
 }
 
 # Manual data configuration - update these values from TradingView or Birdeye
 # Format: {asset: {timeframe: {price, ema21, atr, rsi}}}
-MANUAL_DATA = {
-    'SCP': {
-        '1d': {'price': 0.0079, 'ema21': 0.0082, 'atr': 0.0003, 'rsi': 45.0},
-        '1w': {'price': 0.0079, 'ema21': 0.0080, 'atr': 0.0004, 'rsi': 50.0},
-    },
-    'D2X': {
-        '1d': {'price': 0.0018, 'ema21': 0.0017, 'atr': 0.0001, 'rsi': 55.0},
-        '1w': {'price': 0.0018, 'ema21': 0.0016, 'atr': 0.0002, 'rsi': 60.0},
-    },
-}
+MANUAL_DATA = {}
 
 # Indicator parameters
 EMA_PERIOD = 21
 ATR_PERIOD = 14
 RSI_PERIOD = 14
 Z_SCORE_PERIOD = 20
+
+def calculate_ema(df, period):
+    """Calculate Exponential Moving Average."""
+    return df['close'].ewm(span=period, adjust=False).mean()
+
+def calculate_atr(df, period):
+    """Calculate Average True Range."""
+    high = df['high']
+    low = df['low']
+    close = df['close']
+    
+    tr1 = high - low
+    tr2 = (high - close.shift()).abs()
+    tr3 = (low - close.shift()).abs()
+    
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    atr = tr.ewm(span=period, adjust=False).mean()
+    
+    return atr
+
+def calculate_rsi(df, period):
+    """Calculate Relative Strength Index using Wilder's smoothing."""
+    delta = df['close'].diff()
+    gain = (delta.where(delta > 0, 0)).ewm(span=period, adjust=False).mean()
+    loss = (-delta.where(delta < 0, 0)).ewm(span=period, adjust=False).mean()
+    
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    
+    return rsi
+
+def calculate_z_score(series, period):
+    """Calculate Z-score of a series."""
+    rolling_mean = series.rolling(window=period).mean()
+    rolling_std = series.rolling(window=period).std()
+    z_score = (series - rolling_mean) / rolling_std
+    return z_score
+
+def calculate_indicators(df):
+    """Calculate all technical indicators."""
+    df = df.copy()
+    
+    # Calculate indicators
+    df['EMA21'] = calculate_ema(df, EMA_PERIOD)
+    df['ATR'] = calculate_atr(df, ATR_PERIOD)
+    df['RSI'] = calculate_rsi(df, RSI_PERIOD)
+    df['RSI_Z_Score'] = calculate_z_score(df['RSI'], Z_SCORE_PERIOD)
+    
+    # Calculate derived metrics
+    close = df['close'].squeeze() if isinstance(df['close'], pd.DataFrame) else df['close']
+    atr_series = df['ATR'].squeeze() if isinstance(df['ATR'], pd.DataFrame) else df['ATR']
+    ema_series = df['EMA21'].squeeze() if isinstance(df['EMA21'], pd.DataFrame) else df['EMA21']
+    
+    df['ATR_Distance'] = (close - ema_series) / atr_series
+    df['Pct_Above_EMA'] = ((close - ema_series) / ema_series) * 100
+    
+    return df
 
 def fetch_ohlcv_binance(symbol, timeframe, limit=100):
     """Fetch OHLCV data from Binance for crypto assets."""
@@ -185,3 +228,63 @@ def get_manual_data(asset, timeframe):
         'Pct_Above_EMA': pct_above_ema,
         'Timeframe': timeframe
     }
+
+def get_data(asset, timeframe):
+    """Fetch and calculate indicators for current data."""
+    config = ASSET_CONFIG.get(asset)
+    if not config:
+        print(f"Configuration not found for {asset}")
+        return None
+    
+    source = config['source']
+    symbol = config['symbol']
+    
+    if source == 'manual':
+        return get_manual_data(asset, timeframe)
+    
+    df = fetch_ohlcv(source, symbol, timeframe)
+    if df is None or df.empty:
+        return None
+    
+    df = calculate_indicators(df)
+    
+    # Get the latest row
+    latest_row = df.iloc[-1]
+    
+    return {
+        'Date': df.index[-1].strftime('%Y-%m-%d') if hasattr(df.index[-1], 'strftime') else str(df.index[-1]),
+        'Asset': asset,
+        'Price': float(latest_row['close']),
+        'EMA21': float(latest_row['EMA21']),
+        'ATR': float(latest_row['ATR']),
+        'RSI': float(latest_row['RSI']),
+        'RSI_Z_Score': float(latest_row['RSI_Z_Score']),
+        'ATR_Distance': float(latest_row['ATR_Distance']),
+        'Pct_Above_EMA': float(latest_row['Pct_Above_EMA']),
+        'Timeframe': timeframe
+    }
+
+def main():
+    """Main execution function."""
+    all_data = []
+    
+    print(f"Fetching data for {len(ASSETS)} assets across {len(TIMEFRAMES)} timeframes...")
+    
+    for asset in ASSETS:
+        for timeframe in TIMEFRAMES:
+            print(f"Processing {asset} ({timeframe})...")
+            data = get_data(asset, timeframe)
+            if data:
+                all_data.append(data)
+    
+    # Save to master CSV
+    if all_data:
+        df = pd.DataFrame(all_data)
+        df.to_csv(MASTER_CSV_PATH, index=False)
+        print(f"Data saved to {MASTER_CSV_PATH}")
+        print(f"Total records: {len(df)}")
+    
+    return all_data
+
+if __name__ == "__main__":
+    main()
