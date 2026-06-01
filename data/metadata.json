@@ -1,7 +1,7 @@
 {
-  "last_updated": "2026-06-01T12:53:01.030666Z",
-  "records_count": 18860,
-  "assets_count": 31,
-  "history_file": "/home/runner/work/script-trading-anlytics/script-trading-anlytics/data/history.csv",
-  "master_file": "/home/runner/work/script-trading-anlytics/script-trading-anlytics/data/master.csv"
+  "last_updated": "2026-06-01T14:06:08.268184Z",
+  "records_count": 19396,
+  "assets_count": 29,
+  "history_file": "/home/dribble0335/dev/script-trading-anlytics/data/history.csv",
+  "master_file": "/home/dribble0335/dev/script-trading-anlytics/data/master.csv"
 }
