@@ -59,22 +59,53 @@ function escapeHtml(str) {
 }
 
 // Returns { label, cssClass } signal strength for ranking/panel badges.
+// Uses the MORE SEVERE of two independent signals:
+//   1. Percentile rank (how rare is this reading historically for this asset)
+//   2. Absolute ATR Distance threshold (how far is price stretched right now)
 // direction: 'oversold' | 'extended'
-function getSignalStrength(atrPercentile, direction, sampleSize) {
-    if (sampleSize == null || sampleSize < 30 || atrPercentile == null) {
-        return direction === 'oversold'
-            ? { label: 'Oversold',  cssClass: 'signal-oversold' }
-            : { label: 'Extended',  cssClass: 'signal-extended' };
+function getSignalStrength(atrPercentile, direction, sampleSize, atrDistance) {
+    // Severity tiers: 0=mild, 1=regular, 2=deep/high, 3=extreme
+
+    // Percentile-based tier (requires sufficient history)
+    let pctTier = 0;
+    if (sampleSize != null && sampleSize >= 30 && atrPercentile != null) {
+        if (direction === 'oversold') {
+            if (atrPercentile <= 5)       pctTier = 3;
+            else if (atrPercentile <= 15) pctTier = 2;
+            else if (atrPercentile <= 30) pctTier = 1;
+        } else {
+            if (atrPercentile >= 95)      pctTier = 3;
+            else if (atrPercentile >= 85) pctTier = 2;
+            else if (atrPercentile >= 70) pctTier = 1;
+        }
     }
+
+    // Absolute ATR Distance tier (always applicable, no history required)
+    let atrTier = 0;
+    if (atrDistance != null) {
+        if (direction === 'oversold') {
+            if (atrDistance < -4)      atrTier = 3;
+            else if (atrDistance < -3) atrTier = 2;
+            else if (atrDistance < -2) atrTier = 1;
+        } else {
+            if (atrDistance > 4)      atrTier = 3;
+            else if (atrDistance > 3) atrTier = 2;
+            else if (atrDistance > 2) atrTier = 1;
+        }
+    }
+
+    // Take the more severe signal
+    const tier = Math.max(pctTier, atrTier);
+
     if (direction === 'oversold') {
-        if (atrPercentile <= 5)  return { label: 'Extreme Oversold', cssClass: 'signal-extreme-oversold' };
-        if (atrPercentile <= 15) return { label: 'Deep Oversold',    cssClass: 'signal-deep-oversold' };
-        if (atrPercentile <= 30) return { label: 'Oversold',         cssClass: 'signal-oversold' };
+        if (tier === 3) return { label: 'Extreme Oversold', cssClass: 'signal-extreme-oversold' };
+        if (tier === 2) return { label: 'Deep Oversold',    cssClass: 'signal-deep-oversold' };
+        if (tier === 1) return { label: 'Oversold',         cssClass: 'signal-oversold' };
         return { label: 'Mild Dip', cssClass: 'signal-oversold' };
     } else {
-        if (atrPercentile >= 95) return { label: 'Extreme Extended', cssClass: 'signal-extreme-extended' };
-        if (atrPercentile >= 85) return { label: 'High Extended',    cssClass: 'signal-high-extended' };
-        if (atrPercentile >= 70) return { label: 'Extended',         cssClass: 'signal-extended' };
+        if (tier === 3) return { label: 'Extreme Extended', cssClass: 'signal-extreme-extended' };
+        if (tier === 2) return { label: 'High Extended',    cssClass: 'signal-high-extended' };
+        if (tier === 1) return { label: 'Extended',         cssClass: 'signal-extended' };
         return { label: 'Mild Extension', cssClass: 'signal-extended' };
     }
 }
@@ -338,7 +369,7 @@ function renderOpportunityPanels() {
 
     const buildItem = (item, direction) => {
         const { symbol, atrDistance, atrPercentile, sampleSize } = item;
-        const sig    = getSignalStrength(atrPercentile, direction, sampleSize);
+        const sig    = getSignalStrength(atrPercentile, direction, sampleSize, atrDistance);
         const extreme = (direction === 'oversold' && atrDistance < -4) || (direction === 'extended' && atrDistance > 4);
         const atrCls = extreme ? 'panel-item-atr--extreme'
             : direction === 'oversold' ? 'panel-item-atr--oversold'
@@ -571,7 +602,7 @@ function renderRankings() {
     const extended = rankings.slice(-10).reverse().filter(r => r.atrDistance > 0);
 
     const renderItem = (container, { asset, atrDistance, regime, atrPercentile, sampleSize }, direction) => {
-        const sig      = getSignalStrength(atrPercentile, direction, sampleSize);
+        const sig      = getSignalStrength(atrPercentile, direction, sampleSize, atrDistance);
         const atrCls   = direction === 'oversold' ? 'oversold' : 'extended';
         const pctLabel = (sampleSize > 30 && atrPercentile != null)
             ? `P${Math.round(atrPercentile)}%`
