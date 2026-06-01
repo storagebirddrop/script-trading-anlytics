@@ -24,7 +24,7 @@ _exchange = ccxt.binance({'enableRateLimit': True})
 
 
 def _with_retry(fn, *args, retries=3, backoff=5, **kwargs):
-    """Call fn(*args, **kwargs) up to `retries` times with exponential backoff."""
+    """Call fn(*args, **kwargs) with initial attempt plus `retries` retries (up to `retries + 1` total attempts) using exponential backoff. With default `retries=3` it will attempt 4 times. The `retries` parameter counts only the additional retry attempts."""
     last_exc = None
     for attempt in range(retries + 1):
         try:
@@ -69,9 +69,13 @@ def fetch_ohlcv_yahoo(symbol, timeframe, limit=100):
         if data.empty:
             return None
 
-        # Handle MultiIndex columns from yf.download
+        # yfinance >= 0.2 returns a (Price, Ticker) MultiIndex for single-ticker
+        # downloads. Level 0 holds the price-field names ('Close', 'High', …).
+        # droplevel(0) would wrongly discard those labels; get_level_values
+        # extracts them explicitly regardless of level ordering.
         if isinstance(data.columns, pd.MultiIndex):
-            data.columns = data.columns.droplevel(0)
+            price_level = 'Price' if 'Price' in data.columns.names else 0
+            data.columns = data.columns.get_level_values(price_level)
 
         data = data.rename(columns={
             'Open': 'open',

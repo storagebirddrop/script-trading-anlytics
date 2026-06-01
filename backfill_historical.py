@@ -82,6 +82,11 @@ def fetch_historical_yahoo(symbol, start_date, end_date, timeframe='1d'):
             print(f"No data returned for {symbol}")
             return None
 
+        # yfinance >= 0.2 returns a (Price, Ticker) MultiIndex for single-ticker downloads.
+        if isinstance(data.columns, pd.MultiIndex):
+            price_level = 'Price' if 'Price' in data.columns.names else 0
+            data.columns = data.columns.get_level_values(price_level)
+
         data = data.rename(columns={
             'Open': 'open', 'High': 'high', 'Low': 'low',
             'Close': 'close', 'Volume': 'volume',

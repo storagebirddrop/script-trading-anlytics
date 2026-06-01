@@ -92,7 +92,7 @@ Shared library used by both `crypto_tracker.py` and `backfill_historical.py`. Av
 ### Tracked Assets
 
 29 assets across 3 categories, both daily (`1d`) and weekly (`1w`) timeframes:
-- **Crypto (12):** BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP
+- **Crypto (12):** BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP — fetched via Yahoo Finance (symbol format: `BTC-USD`; RENDER uses `RNDR-USD`). REZ and ONDO may not be listed on Yahoo Finance and will fail gracefully.
 - **NASDAQ stocks (11):** MSTR, XXI, RIOT, MARA, IREN, BMNR, HUT, WULF, HIVE, CLSK, SLNH
 - **LSE ETFs (6):** MSTY, YMST, MARY, RIOY, IREY, BMNY — fetched via Yahoo Finance with `.L` suffix
 
@@ -120,7 +120,7 @@ EMA uses `ewm(span=period)` (standard). ATR and RSI use `ewm(com=period-1)` (Wil
 
 ### Resilience Behaviour
 
-- **API retries:** `_with_retry` in `trading_utils/data_sources.py` retries each fetch up to 3 times with exponential backoff (5s, 10s, 20s). If more than 3 assets fail in `crypto_tracker.py`, it exits with code 1 and the CI job fails visibly.
+- **API retries:** `_with_retry` in `trading_utils/data_sources.py` retries each fetch up to 3 times with exponential backoff (5s, 10s, 20s). If more than 8 (asset, timeframe) pairs fail in `crypto_tracker.py`, it exits with code 1 and the CI job fails visibly. The threshold is 8 (not 3) to allow for up to 4 assets that may be unlisted on Yahoo Finance.
 - **Binance pagination:** `backfill_historical.py:fetch_historical_binance` loops with `since` offsets to handle histories longer than 1000 bars.
 - **ATR = 0:** `ATR_Distance` is set to `NaN` rather than `inf`/`-inf`.
 - **JSON safety:** `_sanitise()` in `calculate_metrics.py` replaces all `NaN`/`inf` with `null` before writing `dashboard.json`.

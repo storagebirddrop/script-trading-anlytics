@@ -18,19 +18,21 @@ ASSETS = [
 TIMEFRAMES = ['1d', '1w']
 
 ASSET_CONFIG = {
-    # Crypto assets (Binance)
-    'BTC': {'source': 'binance', 'symbol': 'BTC/USDT'},
-    'ETH': {'source': 'binance', 'symbol': 'ETH/USDT'},
-    'SOL': {'source': 'binance', 'symbol': 'SOL/USDT'},
-    'XLM': {'source': 'binance', 'symbol': 'XLM/USDT'},
-    'REZ': {'source': 'binance', 'symbol': 'REZ/USDT'},
-    'RSR': {'source': 'binance', 'symbol': 'RSR/USDT'},
-    'NEAR': {'source': 'binance', 'symbol': 'NEAR/USDT'},
-    'RENDER': {'source': 'binance', 'symbol': 'RENDER/USDT'},
-    'ONDO': {'source': 'binance', 'symbol': 'ONDO/USDT'},
-    'ACH': {'source': 'binance', 'symbol': 'ACH/USDT'},
-    'BNB': {'source': 'binance', 'symbol': 'BNB/USDT'},
-    'XRP': {'source': 'binance', 'symbol': 'XRP/USDT'},
+    # Crypto assets — Yahoo Finance avoids Binance geo-restrictions on CI runners.
+    # REZ, ONDO, RENDER/RNDR may not be available on Yahoo Finance; they will fail
+    # gracefully and can be added to MANUAL_DATA if needed.
+    'BTC':    {'source': 'yahoo', 'symbol': 'BTC-USD'},
+    'ETH':    {'source': 'yahoo', 'symbol': 'ETH-USD'},
+    'SOL':    {'source': 'yahoo', 'symbol': 'SOL-USD'},
+    'XLM':    {'source': 'yahoo', 'symbol': 'XLM-USD'},
+    'REZ':    {'source': 'yahoo', 'symbol': 'REZ-USD'},
+    'RSR':    {'source': 'yahoo', 'symbol': 'RSR-USD'},
+    'NEAR':   {'source': 'yahoo', 'symbol': 'NEAR-USD'},
+    'RENDER': {'source': 'yahoo', 'symbol': 'RNDR-USD'},
+    'ONDO':   {'source': 'yahoo', 'symbol': 'ONDO-USD'},
+    'ACH':    {'source': 'yahoo', 'symbol': 'ACH-USD'},
+    'BNB':    {'source': 'yahoo', 'symbol': 'BNB-USD'},
+    'XRP':    {'source': 'yahoo', 'symbol': 'XRP-USD'},
     # NASDAQ stocks (Yahoo Finance)
     'MSTR': {'source': 'yahoo', 'symbol': 'MSTR'},
     'XXI': {'source': 'yahoo', 'symbol': 'XXI'},

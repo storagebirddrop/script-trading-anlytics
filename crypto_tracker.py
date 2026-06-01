@@ -39,7 +39,7 @@ _EXCEL_HEADERS = [
     'RSI', 'RSI_Z_Score', 'ATR_Distance', 'Pct_Above_EMA',
 ]
 
-_MAX_FAILED_ASSETS = 3
+_MAX_FAILED_ASSETS = 8  # allow up to 4 assets × 2 timeframes missing from Yahoo Finance
 
 
 def get_data(asset, timeframe):
