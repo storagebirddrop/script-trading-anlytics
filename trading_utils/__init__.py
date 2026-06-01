@@ -28,6 +28,7 @@ from .indicators import (
 from .data_sources import (
     fetch_ohlcv_binance,
     fetch_ohlcv_yahoo,
+    fetch_ohlcv_geckoterminal,
     fetch_ohlcv,
     get_manual_data
 )
@@ -54,6 +55,7 @@ __all__ = [
     # Data sources
     'fetch_ohlcv_binance',
     'fetch_ohlcv_yahoo',
+    'fetch_ohlcv_geckoterminal',
     'fetch_ohlcv',
     'get_manual_data'
 ]

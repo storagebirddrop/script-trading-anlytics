@@ -7,12 +7,14 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 ASSETS = [
-    # Crypto assets (Binance)
+    # Crypto assets (Yahoo Finance)
     'BTC', 'ETH', 'SOL', 'XLM', 'REZ', 'RSR', 'NEAR', 'RENDER', 'ONDO', 'ACH', 'BNB', 'XRP',
     # NASDAQ stocks (Yahoo Finance)
     'MSTR', 'XXI', 'RIOT', 'MARA', 'IREN', 'BMNR', 'HUT', 'WULF', 'HIVE', 'CLSK', 'SLNH',
     # LSE ETFs (Yahoo Finance with .L suffix)
-    'MSTY', 'YMST', 'MARY', 'RIOY', 'IREY', 'BMNY'
+    'MSTY', 'YMST', 'MARY', 'RIOY', 'IREY', 'BMNY',
+    # Solana DEX assets (GeckoTerminal)
+    'D2X', 'SCP',
 ]
 
 TIMEFRAMES = ['1d', '1w']
@@ -52,6 +54,9 @@ ASSET_CONFIG = {
     'RIOY': {'source': 'yahoo', 'symbol': 'RIOY.L'},
     'IREY': {'source': 'yahoo', 'symbol': 'IREY.L'},
     'BMNY': {'source': 'yahoo', 'symbol': 'BMNY.L'},
+    # Solana DEX assets (GeckoTerminal) — pool address of most liquid pair
+    'D2X': {'source': 'geckoterminal', 'network': 'solana', 'pool': '7cftYyBzNWFWB6JDa2wKZZqjZMZXMhtLWpUzG4xbDezf'},  # Orca D2X/SOL
+    'SCP': {'source': 'geckoterminal', 'network': 'solana', 'pool': 'CzDozKhnvTUMmNFjBQevKjx3jzt8KiGFwkcznq1XfEYx'},   # user-specified pool
 }
 
 # Manual data — update from TradingView / Birdeye

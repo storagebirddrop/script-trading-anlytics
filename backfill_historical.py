@@ -25,6 +25,7 @@ from trading_utils import (
     MASTER_CSV_PATH,
     HISTORY_CSV_PATH,
     calculate_indicators,
+    fetch_ohlcv_geckoterminal,
 )
 
 _PROJECT_ROOT = Path(__file__).resolve().parent
@@ -108,12 +109,16 @@ def get_historical_data(asset, start_date, end_date, timeframe):
         return None
 
     source = config['source']
-    symbol = config['symbol']
 
     if source == 'binance':
-        df = fetch_historical_binance(symbol, start_date, end_date, timeframe)
+        df = fetch_historical_binance(config['symbol'], start_date, end_date, timeframe)
     elif source == 'yahoo':
-        df = fetch_historical_yahoo(symbol, start_date, end_date, timeframe)
+        df = fetch_historical_yahoo(config['symbol'], start_date, end_date, timeframe)
+    elif source == 'geckoterminal':
+        # GeckoTerminal returns all available history in one call; filter to requested range
+        df = fetch_ohlcv_geckoterminal(config['network'], config['pool'], timeframe)
+        if df is not None and not df.empty:
+            df = df[(df.index >= pd.Timestamp(start_date)) & (df.index <= pd.Timestamp(end_date))]
     else:
         return None
 

@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 
 import ccxt
 import pandas as pd
+import requests
 import yfinance as yf
 
 warnings.filterwarnings('ignore', category=FutureWarning, module='yfinance')
@@ -131,6 +132,73 @@ def get_manual_data(asset, timeframe):
     }
 
 
+_GECKO_BASE = "https://api.geckoterminal.com/api/v2"
+_GECKO_HEADERS = {"Accept": "application/json;version=20230302"}
+
+
+def _fetch_gecko_daily(network: str, pool_address: str, limit: int = 1000) -> pd.DataFrame | None:
+    """Fetch raw daily OHLCV from GeckoTerminal (aggregate=1 only supported on free tier)."""
+    url = f"{_GECKO_BASE}/networks/{network}/pools/{pool_address}/ohlcv/day"
+    params = {"aggregate": 1, "limit": limit, "currency": "usd", "token": "base"}
+
+    def _fetch():
+        resp = requests.get(url, headers=_GECKO_HEADERS, params=params, timeout=30)
+        resp.raise_for_status()
+        ohlcv_list = resp.json()["data"]["attributes"]["ohlcv_list"]
+        if not ohlcv_list:
+            return None
+        df = pd.DataFrame(ohlcv_list, columns=["timestamp", "open", "high", "low", "close", "volume"])
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s", utc=True).dt.tz_localize(None)
+        df = df.sort_values("timestamp").set_index("timestamp")
+        for col in ["open", "high", "low", "close", "volume"]:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        return df
+
+    try:
+        return _with_retry(_fetch)
+    except Exception as e:
+        print(f"Error fetching daily OHLCV for pool {pool_address}: {e}")
+        return None
+
+
+def fetch_ohlcv_geckoterminal(network: str, pool_address: str, timeframe: str, limit: int = 1000):
+    """Fetch OHLCV from GeckoTerminal for a DEX pool.
+
+    GeckoTerminal free tier only supports aggregate=1 on the 'day' timeframe.
+    Weekly candles are built by resampling daily data (week-ending Sunday,
+    matching TradingView's weekly bar convention).
+
+    Args:
+        network:      GeckoTerminal network id, e.g. 'solana'
+        pool_address: DEX pool/pair address
+        timeframe:    '1d' or '1w'
+        limit:        max daily candles to fetch (free tier: up to 1000)
+
+    Returns a DataFrame with columns [open, high, low, close, volume]
+    indexed by UTC timestamp, sorted oldest-first.
+    """
+    if timeframe not in ('1d', '1w'):
+        print(f"Unsupported timeframe for GeckoTerminal: {timeframe}")
+        return None
+
+    df = _fetch_gecko_daily(network, pool_address, limit)
+    if df is None or df.empty:
+        print(f"No data for pool {pool_address} on {network}")
+        return None
+
+    if timeframe == '1w':
+        # Resample to weekly (week-ending Sunday) — matches TradingView weekly bars
+        df = df.resample('W').agg({
+            'open':   'first',
+            'high':   'max',
+            'low':    'min',
+            'close':  'last',
+            'volume': 'sum',
+        }).dropna(subset=['close'])
+
+    return df
+
+
 def fetch_ohlcv(asset, timeframe, limit=100):
     """Dispatch fetch to the correct source for a given asset."""
     config = ASSET_CONFIG.get(asset)
@@ -139,12 +207,13 @@ def fetch_ohlcv(asset, timeframe, limit=100):
         return None
 
     source = config['source']
-    symbol = config['symbol']
 
     if source == 'binance':
-        return fetch_ohlcv_binance(symbol, timeframe, limit)
+        return fetch_ohlcv_binance(config['symbol'], timeframe, limit)
     if source == 'yahoo':
-        return fetch_ohlcv_yahoo(symbol, timeframe, limit)
+        return fetch_ohlcv_yahoo(config['symbol'], timeframe, limit)
+    if source == 'geckoterminal':
+        return fetch_ohlcv_geckoterminal(config['network'], config['pool'], timeframe)
     if source == 'manual':
         return None  # Handled via get_manual_data
     print(f"Unknown data source: {source}")
