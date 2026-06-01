@@ -47,20 +47,23 @@ def _sanitise(obj):
 def classify_regime(atr_distance: float) -> str:
     """
     Classify market regime from ATR Distance:
-      < -2   → Accumulation
-      -2..2  → Trend
-      2..4   → Extended
-      > 4    → Euphoria
+      < -4   → Capitulation   (Panic / Capitulation)
+      -4..-2 → Accumulation   (Oversold)
+      -2..2  → Trend          (Balanced / Fair Value)
+      2..4   → Distribution   (Extended)
+      > 4    → Mania          (Euphoric / Blow-off)
     """
     if pd.isna(atr_distance):
         return 'Unknown'
+    if atr_distance < -4:
+        return 'Capitulation'
     if atr_distance < -2:
         return 'Accumulation'
     if atr_distance <= 2:
         return 'Trend'
     if atr_distance <= 4:
-        return 'Extended'
-    return 'Euphoria'
+        return 'Distribution'
+    return 'Mania'
 
 
 def calculate_historical_metrics(df: pd.DataFrame) -> Dict[str, Any]:

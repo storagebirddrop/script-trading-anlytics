@@ -8,6 +8,8 @@
     --text-secondary: #a0aec0;
     --accent-blue: #3b82f6;
     --accent-green: #10b981;
+    --accent-dark-green: #065f46;
+    --accent-orange: #f97316;
     --accent-red: #ef4444;
     --accent-yellow: #f59e0b;
     --accent-purple: #8b5cf6;
@@ -130,6 +132,11 @@ body {
     font-weight: 500;
 }
 
+.regime-capitulation {
+    background-color: var(--accent-dark-green);
+    color: white;
+}
+
 .regime-accumulation {
     background-color: var(--accent-green);
     color: white;
@@ -140,12 +147,12 @@ body {
     color: white;
 }
 
-.regime-extended {
-    background-color: var(--accent-yellow);
-    color: black;
+.regime-distribution {
+    background-color: var(--accent-orange);
+    color: white;
 }
 
-.regime-euphoria {
+.regime-mania {
     background-color: var(--accent-red);
     color: white;
 }
