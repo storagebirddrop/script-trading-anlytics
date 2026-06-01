@@ -11,7 +11,10 @@
 <body>
     <div class="app-container">
         <header class="header">
-            <h1>Trading Analytics</h1>
+            <div class="header-top">
+                <h1>Trading Analytics</h1>
+                <a href="landing.html" class="header-home-link" aria-label="About this dashboard">About</a>
+            </div>
             <p class="header-subtitle">ATR Distance · Regime Classification</p>
             <div class="last-updated" id="lastUpdated">Loading...</div>
         </header>
@@ -20,7 +23,26 @@
             <!-- Portfolio Overview Tab -->
             <section id="portfolio-tab" class="tab-content active" role="tabpanel" tabindex="-1" aria-labelledby="tab-portfolio">
                 <h2>Portfolio Overview</h2>
+                <div id="portfolio-health-bar" class="portfolio-health-bar" aria-label="Portfolio health summary">
+                    <div class="loading">Loading…</div>
+                </div>
                 <div id="regime-strip" class="regime-strip"></div>
+                <div class="portfolio-panels" id="portfolio-panels">
+                    <div class="panel panel--opportunity" id="opportunity-panel" aria-label="Top oversold opportunities">
+                        <h3 class="panel-title">
+                            <span class="panel-title-icon" aria-hidden="true">▼</span>
+                            Opportunity — Most Oversold
+                        </h3>
+                        <div class="panel-items" id="opportunity-items"></div>
+                    </div>
+                    <div class="panel panel--risk" id="risk-panel" aria-label="Top extended risks">
+                        <h3 class="panel-title">
+                            <span class="panel-title-icon" aria-hidden="true">▲</span>
+                            Risk — Most Extended
+                        </h3>
+                        <div class="panel-items" id="risk-items"></div>
+                    </div>
+                </div>
                 <div class="filter-bar" id="portfolio-filter-bar">
                     <div class="filter-group">
                         <span class="filter-label">Category</span>
@@ -61,9 +83,9 @@
                 </div>
             </section>
 
-            <!-- Historical Context Tab -->
+            <!-- Extremes Tab -->
             <section id="historical-tab" class="tab-content" role="tabpanel" tabindex="-1" aria-labelledby="tab-historical">
-                <h2>Historical Context</h2>
+                <h2>Extremes</h2>
                 <div class="asset-selector">
                     <label for="asset-select">Select Asset:</label>
                     <select id="asset-select"></select>
@@ -93,6 +115,7 @@
                     <div class="drilldown-summary" id="drilldown-summary">
                         <div class="loading">Loading dashboard data...</div>
                     </div>
+                    <div class="drilldown-takeaways" id="drilldown-takeaways" aria-label="Key takeaways" aria-live="polite"></div>
                     <div class="chart-container">
                         <div id="price-ema-chart"></div>
                     </div>
@@ -118,9 +141,9 @@
                 <span class="nav-icon" aria-hidden="true">📈</span>
                 <span class="nav-label">Rankings</span>
             </button>
-            <button id="tab-historical" class="nav-btn" data-tab="historical-tab" role="tab" aria-selected="false" aria-label="Historical Context" aria-controls="historical-tab">
+            <button id="tab-historical" class="nav-btn" data-tab="historical-tab" role="tab" aria-selected="false" aria-label="Extremes — historical percentile context" aria-controls="historical-tab">
                 <span class="nav-icon" aria-hidden="true">📉</span>
-                <span class="nav-label">Historical</span>
+                <span class="nav-label">Extremes</span>
             </button>
             <button id="tab-drilldown" class="nav-btn" data-tab="drilldown-tab" role="tab" aria-selected="false" aria-label="Asset Drilldown" aria-controls="drilldown-tab">
                 <span class="nav-icon" aria-hidden="true">🔍</span>

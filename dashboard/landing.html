@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Analytics — ATR Distance Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="landing-container">
+
+        <!-- Hero -->
+        <header class="landing-hero">
+            <h1 class="landing-title">Trading Analytics</h1>
+            <p class="landing-tagline">Know where every asset stands in its statistical history — at a glance.</p>
+            <a href="index.html" class="landing-cta-btn">Open Dashboard</a>
+        </header>
+
+        <!-- Value Proposition -->
+        <section class="landing-section" aria-labelledby="vp-heading">
+            <h2 id="vp-heading">What this dashboard tells you</h2>
+            <div class="landing-cards-grid">
+                <div class="landing-feature-card">
+                    <span class="landing-feature-icon" aria-hidden="true">📊</span>
+                    <h3>Portfolio State at a Glance</h3>
+                    <p>See every tracked asset's ATR Distance, RSI, regime classification, and historical percentile on one screen. The health bar tells you instantly how much of the market is oversold, neutral, or extended.</p>
+                </div>
+                <div class="landing-feature-card">
+                    <span class="landing-feature-icon" aria-hidden="true">🔍</span>
+                    <h3>Opportunity Discovery</h3>
+                    <p>The Opportunity and Risk panels surface the top three most oversold and most extended setups, ranked by signal strength — Extreme Oversold through Mild Dip — so you can act on what matters first.</p>
+                </div>
+                <div class="landing-feature-card">
+                    <span class="landing-feature-icon" aria-hidden="true">📈</span>
+                    <h3>Historical Validation</h3>
+                    <p>Every reading is placed on a gauge showing where it sits across the full price history. A P4% reading means the asset has only been this oversold 4% of all trading days — genuinely rare.</p>
+                </div>
+                <div class="landing-feature-card">
+                    <span class="landing-feature-icon" aria-hidden="true">📉</span>
+                    <h3>Deep Asset Analysis</h3>
+                    <p>Drill into any asset for Key Takeaways (generated from current data), 90 days of ATR Distance and RSI charts, Price vs EMA21, and weekly ATR Distance — with regime zones pre-drawn.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- How It Works -->
+        <section class="landing-section landing-section--alt" aria-labelledby="how-heading">
+            <h2 id="how-heading">How to use it</h2>
+            <ol class="landing-steps">
+                <li class="landing-step">
+                    <span class="landing-step-num" aria-hidden="true">1</span>
+                    <div>
+                        <strong>Portfolio Overview</strong>
+                        <p>Start here. Check the health summary bar for the market-wide snapshot: what percentage of assets are oversold, neutral, or extended. Then scan the Opportunity and Risk panels for standout setups. Filter by category (Crypto, NASDAQ, LSE) or click a regime pill to focus.</p>
+                    </div>
+                </li>
+                <li class="landing-step">
+                    <span class="landing-step-num" aria-hidden="true">2</span>
+                    <div>
+                        <strong>Rankings</strong>
+                        <p>Visit the ATR Rankings tab to see the full ranked list with signal-strength labels — Extreme Oversold, Deep Oversold, High Extended, and so on. Each item also shows its historical percentile so you can compare setups across different assets.</p>
+                    </div>
+                </li>
+                <li class="landing-step">
+                    <span class="landing-step-num" aria-hidden="true">3</span>
+                    <div>
+                        <strong>Extremes (Historical Context)</strong>
+                        <p>Select any asset to see a percentile gauge showing where its current ATR Distance sits across its full history. A contextual interpretation tells you how frequently the asset has been at this level and what it has historically implied.</p>
+                    </div>
+                </li>
+                <li class="landing-step">
+                    <span class="landing-step-num" aria-hidden="true">4</span>
+                    <div>
+                        <strong>Drilldown</strong>
+                        <p>Read the Key Takeaways summary first — it distils the most important signals into plain language. Then examine the 90-day charts to confirm context: ATR Distance history with regime zones, RSI with overbought/oversold lines, Price vs EMA21, and Weekly ATR Distance.</p>
+                    </div>
+                </li>
+            </ol>
+        </section>
+
+        <!-- Methodology -->
+        <section class="landing-section" aria-labelledby="method-heading">
+            <h2 id="method-heading">Methodology</h2>
+            <div class="landing-methodology-grid">
+                <div class="landing-method-item">
+                    <h3>ATR Distance</h3>
+                    <p>The core metric: <code>(Price &minus; EMA21) &divide; ATR</code>. Measures how far price has stretched from its 21-period exponential moving average, expressed in units of Average True Range. A value of &minus;3 means price is 3 ATRs below the EMA. Both EMA and ATR use Wilder&rsquo;s smoothing, seeded with a simple moving average, matching TradingView exactly.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>Regime Classification</h3>
+                    <p>ATR Distance maps directly to five market regimes:</p>
+                    <ul class="landing-regime-list">
+                        <li><span class="asset-regime regime-capitulation">Capitulation</span> ATR Distance &lt; &minus;4</li>
+                        <li><span class="asset-regime regime-accumulation">Accumulation</span> &minus;4 to &minus;2</li>
+                        <li><span class="asset-regime regime-trend">Trend</span> &minus;2 to +2</li>
+                        <li><span class="asset-regime regime-distribution">Distribution</span> +2 to +4</li>
+                        <li><span class="asset-regime regime-mania">Mania</span> &gt; +4</li>
+                    </ul>
+                </div>
+                <div class="landing-method-item">
+                    <h3>Percentile Rank</h3>
+                    <p>Each ATR Distance reading is ranked against every historical bar for that asset. A P4% reading means price has been this oversold on only 4% of all recorded trading days — a statistically rare setup. Percentile cards appear on portfolio cards and ranking items when sufficient history (&ge;30 bars) is available.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>RSI &amp; RSI Z-Score</h3>
+                    <p>14-period RSI with Wilder smoothing. The RSI Z-Score normalises RSI over a 20-period rolling window — useful for identifying when RSI is unusually high or low relative to its own recent behaviour, which differs across assets and market conditions.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Coverage -->
+        <section class="landing-section" aria-labelledby="coverage-heading">
+            <h2 id="coverage-heading">Coverage</h2>
+            <div class="landing-methodology-grid">
+                <div class="landing-method-item">
+                    <h3>Crypto (16 assets)</h3>
+                    <p>BTC, ETH, SOL, BNB, XRP, ADA, XLM, NEAR, RENDER, ONDO, RSR, ACH, REZ, D2X, SCP, NIGHT — fetched from Yahoo Finance and specialised DEX/CEX sources.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>NASDAQ Stocks (11 assets)</h3>
+                    <p>Bitcoin-adjacent equities: MSTR, XXI, RIOT, MARA, IREN, BMNR, HUT, WULF, HIVE, CLSK, SLNH.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>LSE ETFs (6 assets)</h3>
+                    <p>Income-focused ETFs: MSTY, YMST, MARY, RIOY, IREY, BMNY — quoted in GBp (pence). Prices use unadjusted historical data to prevent dividend-adjustment distortion.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>Timeframes</h3>
+                    <p>All assets tracked on both <strong>Daily (1d)</strong> and <strong>Weekly (1w)</strong> timeframes. History goes back to January 2024 (or listing date if later). Data refreshes daily at ~09:00 UTC.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <section class="landing-cta-section" aria-labelledby="cta-heading">
+            <h2 id="cta-heading">Ready to explore?</h2>
+            <p>33 assets. Daily and weekly timeframes. Full historical context since 2024.</p>
+            <a href="index.html" class="landing-cta-btn">Open Dashboard</a>
+        </section>
+
+        <footer class="landing-footer">
+            <p>Data updates daily at ~09:00 UTC. Not financial advice.</p>
+        </footer>
+
+    </div>
+</body>
+</html>

@@ -133,12 +133,30 @@ All three indicators use SMA of the first `period` bars as the seed value, then 
 
 ### Web Dashboard
 
-Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (copied from `data/dashboard.json`) and `dashboard/assets/chart_history.json` via `fetch()`. Four tabs: Portfolio, Rankings, Historical, Drilldown. Uses Chart.js (CDN) for charts.
+Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (copied from `data/dashboard.json`) and `dashboard/assets/chart_history.json` via `fetch()`. Five pages, four tabs. Uses Chart.js (CDN) for charts.
 
-- **Portfolio tab:** asset cards showing ATR Distance (daily + weekly), RSI, RSI Z-Score, Price, and Chg%; filterable by regime and category
-- **Rankings tab:** top 10 most oversold / most extended assets by ATR Distance
-- **Historical tab:** percentile gauge showing current ATR Distance position within historical range, with coloured regime zones; metrics grid including RSI Z-Score
-- **Drilldown tab:** Chart.js line charts (ATR Distance, RSI, Price vs EMA21, Weekly ATR Distance) plus summary metrics grid
+**Pages:**
+- `dashboard/landing.html` — static landing page (no JS, no data fetch); explains ATR Distance, regime classification, and the four-step workflow. Linked from the "About" button in the dashboard header.
+- `dashboard/index.html` — main single-page app
+
+**Tabs:**
+- **Portfolio tab:** Portfolio Health Bar (oversold%/neutral%/extended%/sentiment), Opportunity panel (top-3 most oversold with signal-strength labels), Risk panel (top-3 most extended), then asset cards with ATR Distance (semantically coloured: green=oversold, orange=extended, red=extreme) and inline historical percentile badge (P8%); filterable by regime and category
+- **Rankings tab:** top 10 most oversold / most extended assets with historical percentile rank and signal-strength label (Extreme Oversold → Mild Dip / Extreme Extended → Mild Extension)
+- **Extremes tab** (formerly "Historical"): percentile gauge showing current ATR Distance position within historical range, with coloured regime zones; contextual interpretation paragraph explaining how frequently the asset has been at this level; metrics grid including RSI Z-Score
+- **Drilldown tab:** Key Takeaways panel (2–4 auto-generated insights from ATR percentile, RSI status, weekly regime alignment, and recent ATR trend direction), then Chart.js line charts (Price vs EMA21, ATR Distance, RSI, Weekly ATR Distance) plus summary metrics grid
+
+**Signal strength tiers** (used in Opportunity/Risk panels and Rankings):
+- Oversold: Extreme Oversold (P≤5%), Deep Oversold (P≤15%), Oversold (P≤30%), Mild Dip (P>30%)
+- Extended: Extreme Extended (P≥95%), High Extended (P≥85%), Extended (P≥70%), Mild Extension (P<70%)
+- All tiers require `sample_size ≥ 30`; assets with thin history fall back to a generic label.
+
+**Key JS functions in `dashboard/js/dashboard.js`:**
+- `getSignalStrength(pct, direction, sampleSize)` — returns `{ label, cssClass }` for signal badges
+- `getAtrColorClass(atrDistance)` — returns semantic CSS class for ATR Distance coloring
+- `renderPortfolioHealthBar()` — populates the health summary bar
+- `renderOpportunityPanels()` — populates top-3 oversold / extended panels
+- `buildGaugeInterpretation(current, historical)` — returns plain-language gauge interpretation text
+- `generateKeyTakeaways(symbol, tfData, allData, chartHistory)` — generates drilldown insight array
 
 ### CI/CD
 

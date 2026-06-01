@@ -58,6 +58,36 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
+// Returns { label, cssClass } signal strength for ranking/panel badges.
+// direction: 'oversold' | 'extended'
+function getSignalStrength(atrPercentile, direction, sampleSize) {
+    if (sampleSize == null || sampleSize < 30 || atrPercentile == null) {
+        return direction === 'oversold'
+            ? { label: 'Oversold',  cssClass: 'signal-oversold' }
+            : { label: 'Extended',  cssClass: 'signal-extended' };
+    }
+    if (direction === 'oversold') {
+        if (atrPercentile <= 5)  return { label: 'Extreme Oversold', cssClass: 'signal-extreme-oversold' };
+        if (atrPercentile <= 15) return { label: 'Deep Oversold',    cssClass: 'signal-deep-oversold' };
+        if (atrPercentile <= 30) return { label: 'Oversold',         cssClass: 'signal-oversold' };
+        return { label: 'Mild Dip', cssClass: 'signal-oversold' };
+    } else {
+        if (atrPercentile >= 95) return { label: 'Extreme Extended', cssClass: 'signal-extreme-extended' };
+        if (atrPercentile >= 85) return { label: 'High Extended',    cssClass: 'signal-high-extended' };
+        if (atrPercentile >= 70) return { label: 'Extended',         cssClass: 'signal-extended' };
+        return { label: 'Mild Extension', cssClass: 'signal-extended' };
+    }
+}
+
+// Returns CSS class for ATR Distance semantic color on cards/summaries.
+function getAtrColorClass(atrDistance) {
+    if (atrDistance == null) return '';
+    if (atrDistance < -4 || atrDistance > 4) return 'atr-extreme';
+    if (atrDistance < -2) return 'atr-oversold';
+    if (atrDistance > 2)  return 'atr-extended';
+    return '';
+}
+
 // ─── Data loading ─────────────────────────────────────────────────────────────
 
 async function loadDashboardData() {
@@ -221,10 +251,150 @@ function setupPortfolioFilters() {
     });
 }
 
+// ─── Portfolio health bar ─────────────────────────────────────────────────────
+
+function renderPortfolioHealthBar() {
+    if (!dashboardData) return;
+    const bar = document.getElementById('portfolio-health-bar');
+    if (!bar) return;
+
+    let total = 0, oversoldCount = 0, extendedCount = 0, neutralCount = 0;
+    const regimeCounts = {};
+
+    Object.values(dashboardData.assets).forEach(ad => {
+        const c = ad['1d']?.current;
+        if (!c) return;
+        total++;
+        const atr = c.atr_distance ?? 0;
+        const r = c.regime || 'Unknown';
+        regimeCounts[r] = (regimeCounts[r] || 0) + 1;
+        if (atr < -2)      oversoldCount++;
+        else if (atr > 2)  extendedCount++;
+        else               neutralCount++;
+    });
+
+    if (total === 0) { bar.innerHTML = ''; return; }
+
+    const oversoldPct = Math.round(100 * oversoldCount / total);
+    const extendedPct = Math.round(100 * extendedCount / total);
+    const neutralPct  = Math.round(100 * neutralCount  / total);
+
+    const notablePriority = ['Capitulation', 'Mania', 'Accumulation', 'Distribution', 'Trend', 'Unknown'];
+    const notableRegime   = notablePriority.find(r => regimeCounts[r] > 0) || 'Trend';
+    const notableCount    = regimeCounts[notableRegime] || 0;
+
+    let sentiment;
+    if (regimeCounts['Capitulation'] > 0)                                                     sentiment = 'Extreme Fear';
+    else if (regimeCounts['Mania'] > 0)                                                       sentiment = 'Extreme Greed';
+    else if ((regimeCounts['Accumulation'] || 0) > (regimeCounts['Distribution'] || 0) * 1.5) sentiment = 'Fear Dominates';
+    else if ((regimeCounts['Distribution'] || 0) > (regimeCounts['Accumulation'] || 0) * 1.5) sentiment = 'Greed Dominates';
+    else if ((regimeCounts['Accumulation'] || 0) > 0 || (regimeCounts['Distribution'] || 0) > 0) sentiment = 'Mixed';
+    else                                                                                       sentiment = 'Neutral';
+
+    bar.innerHTML = `
+        <div class="health-stat">
+            <span class="health-dot health-dot--oversold" aria-hidden="true"></span>
+            <span>Oversold: <strong>${oversoldPct}%</strong></span>
+            <span class="sr-only">(${oversoldCount} of ${total} assets)</span>
+        </div>
+        <div class="health-divider" aria-hidden="true"></div>
+        <div class="health-stat">
+            <span class="health-dot health-dot--neutral" aria-hidden="true"></span>
+            <span>Neutral: <strong>${neutralPct}%</strong></span>
+        </div>
+        <div class="health-divider" aria-hidden="true"></div>
+        <div class="health-stat">
+            <span class="health-dot health-dot--extended" aria-hidden="true"></span>
+            <span>Extended: <strong>${extendedPct}%</strong></span>
+        </div>
+        <div class="health-divider" aria-hidden="true"></div>
+        <div class="health-stat">
+            <span>Notable: <strong>${escapeHtml(notableRegime)}</strong> (${notableCount})</span>
+        </div>
+        <div class="health-sentiment" aria-label="Market sentiment: ${escapeHtml(sentiment)}">${escapeHtml(sentiment)}</div>
+    `;
+}
+
+// ─── Opportunity / Risk panels ────────────────────────────────────────────────
+
+function renderOpportunityPanels() {
+    if (!dashboardData) return;
+    const oppItems  = document.getElementById('opportunity-items');
+    const riskItems = document.getElementById('risk-items');
+    if (!oppItems || !riskItems) return;
+
+    const ranked = [];
+    Object.entries(dashboardData.assets).forEach(([symbol, ad]) => {
+        const c = ad['1d']?.current;
+        const n = ad['1d']?.historical?.sample_size ?? 0;
+        if (c?.atr_distance != null) {
+            ranked.push({ symbol, atrDistance: c.atr_distance, atrPercentile: c.atr_percentile, sampleSize: n });
+        }
+    });
+    ranked.sort((a, b) => a.atrDistance - b.atrDistance);
+
+    const top3Oversold = ranked.filter(r => r.atrDistance < 0).slice(0, 3);
+    const top3Extended = ranked.filter(r => r.atrDistance > 0).slice(-3).reverse();
+
+    const buildItem = (item, direction) => {
+        const { symbol, atrDistance, atrPercentile, sampleSize } = item;
+        const sig    = getSignalStrength(atrPercentile, direction, sampleSize);
+        const extreme = (direction === 'oversold' && atrDistance < -4) || (direction === 'extended' && atrDistance > 4);
+        const atrCls = extreme ? 'panel-item-atr--extreme'
+            : direction === 'oversold' ? 'panel-item-atr--oversold'
+            : 'panel-item-atr--extended';
+        const div = document.createElement('div');
+        div.className = 'panel-item';
+        div.dataset.asset = symbol;
+        div.setAttribute('role', 'button');
+        div.setAttribute('tabindex', '0');
+        div.setAttribute('aria-label', `${symbol}: ATR Distance ${atrDistance.toFixed(2)}, ${sig.label}. Open drilldown.`);
+        div.innerHTML = `
+            <span class="panel-item-symbol">${escapeHtml(symbol)}</span>
+            <span class="panel-item-atr ${atrCls}" aria-hidden="true">${atrDistance.toFixed(2)}</span>
+            <span class="panel-item-signal ${sig.cssClass}" aria-hidden="true">${escapeHtml(sig.label)}</span>
+        `;
+        return div;
+    };
+
+    oppItems.innerHTML  = '';
+    riskItems.innerHTML = '';
+
+    if (top3Oversold.length === 0) {
+        oppItems.innerHTML = '<div class="ranking-empty">No assets currently oversold</div>';
+    } else {
+        top3Oversold.forEach(item => oppItems.appendChild(buildItem(item, 'oversold')));
+    }
+
+    if (top3Extended.length === 0) {
+        riskItems.innerHTML = '<div class="ranking-empty">No assets currently extended</div>';
+    } else {
+        top3Extended.forEach(item => riskItems.appendChild(buildItem(item, 'extended')));
+    }
+
+    const handlePanelNav = container => {
+        container.addEventListener('click', e => {
+            const item = e.target.closest('.panel-item[data-asset]');
+            if (item) navigateTo('drilldown-tab', item.dataset.asset);
+        });
+        container.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                const item = e.target.closest('.panel-item[data-asset]');
+                if (item) { e.preventDefault(); navigateTo('drilldown-tab', item.dataset.asset); }
+            }
+        });
+    };
+    handlePanelNav(oppItems);
+    handlePanelNav(riskItems);
+}
+
 // ─── Portfolio rendering ──────────────────────────────────────────────────────
 
 function renderPortfolio() {
     if (!dashboardData) return;
+
+    renderPortfolioHealthBar();
+    renderOpportunityPanels();
 
     const container = document.getElementById('portfolio-cards');
     container.innerHTML = '';
@@ -304,10 +474,17 @@ function renderPortfolio() {
         const chg      = dailyData.price_change_pct;
         const regime   = dailyData.regime || 'Unknown';
 
-        const latestDate = dashboardData.metadata?.date_range?.end;
+        const latestDate  = dashboardData.metadata?.date_range?.end;
         const isStale = latestDate && dailyData.date
             ? Math.floor((new Date(latestDate) - new Date(dailyData.date)) / 86400000) >= 3
             : false;
+
+        const sampleSize  = assetData['1d']?.historical?.sample_size ?? 0;
+        const atrPct      = dailyData.atr_percentile;
+        const atrColorCls = getAtrColorClass(atrDistD);
+        const badgeHtml   = (sampleSize > 30 && atrPct != null)
+            ? `<span class="metric-percentile-badge" aria-label="${Math.round(atrPct)}th percentile">P${Math.round(atrPct)}%</span>`
+            : '';
 
         const ea = escapeHtml(asset);
         const er = escapeHtml(regime);
@@ -322,8 +499,8 @@ function renderPortfolio() {
             <div class="asset-metrics">
                 <div class="metric">
                     <span class="metric-label">ATR Dist.</span>
-                    <span class="metric-value ${signClass(atrDistD)}">
-                        ${atrDistD?.toFixed(2) ?? 'N/A'}
+                    <span class="metric-value ${atrColorCls || signClass(atrDistD)}">
+                        ${atrDistD?.toFixed(2) ?? 'N/A'}${badgeHtml}
                     </span>
                 </div>
                 <div class="metric">
@@ -379,7 +556,13 @@ function renderRankings() {
     Object.entries(dashboardData.assets).forEach(([asset, assetData]) => {
         const d = assetData['1d']?.current;
         if (d?.atr_distance != null) {
-            rankings.push({ asset, atrDistance: d.atr_distance, regime: d.regime || 'Unknown' });
+            rankings.push({
+                asset,
+                atrDistance:   d.atr_distance,
+                regime:        d.regime || 'Unknown',
+                atrPercentile: d.atr_percentile ?? null,
+                sampleSize:    assetData['1d']?.historical?.sample_size ?? 0
+            });
         }
     });
     rankings.sort((a, b) => a.atrDistance - b.atrDistance);
@@ -387,14 +570,21 @@ function renderRankings() {
     const oversold = rankings.slice(0, 10).filter(r => r.atrDistance < 0);
     const extended = rankings.slice(-10).reverse().filter(r => r.atrDistance > 0);
 
-    const renderItem = (container, { asset, atrDistance, regime }, cssClass) => {
+    const renderItem = (container, { asset, atrDistance, regime, atrPercentile, sampleSize }, direction) => {
+        const sig      = getSignalStrength(atrPercentile, direction, sampleSize);
+        const atrCls   = direction === 'oversold' ? 'oversold' : 'extended';
+        const pctLabel = (sampleSize > 30 && atrPercentile != null)
+            ? `P${Math.round(atrPercentile)}%`
+            : '';
         const item = document.createElement('div');
         item.className = 'ranking-item';
         item.dataset.asset = asset;
         item.innerHTML = `
             <span class="ranking-asset">${escapeHtml(asset)}</span>
             <span class="asset-regime ${regimeClass(regime)}">${escapeHtml(regime)}</span>
-            <span class="ranking-value ${cssClass}">${atrDistance.toFixed(2)}</span>
+            ${pctLabel ? `<span class="ranking-percentile" aria-label="${Math.round(atrPercentile)}th percentile">${pctLabel}</span>` : ''}
+            <span class="ranking-signal ${sig.cssClass}" aria-label="Signal: ${escapeHtml(sig.label)}">${escapeHtml(sig.label)}</span>
+            <span class="ranking-value ${atrCls}">${atrDistance.toFixed(2)}</span>
         `;
         container.appendChild(item);
     };
@@ -421,6 +611,47 @@ function renderRankings() {
 }
 
 // ─── Historical Context ───────────────────────────────────────────────────────
+
+// Returns { frequencyText, actionText } or null if insufficient data.
+function buildGaugeInterpretation(current, historical) {
+    const pct = current?.atr_percentile;
+    const n   = historical?.sample_size;
+    if (pct == null || n == null || n < 30) return null;
+
+    const approxCount = Math.round(pct / 100 * n);
+
+    let frequencyText;
+    if (pct <= 5) {
+        frequencyText = `In ${n.toLocaleString()} bars of history, ATR Distance has been this low or lower only ${approxCount} times (${pct.toFixed(1)}%) — a genuinely rare oversold extreme.`;
+    } else if (pct <= 15) {
+        frequencyText = `ATR Distance has been this low or lower ${approxCount} times out of ${n.toLocaleString()} bars (${pct.toFixed(1)}%) — a deep oversold reading.`;
+    } else if (pct <= 30) {
+        frequencyText = `ATR Distance is in the lower ${pct.toFixed(0)}th percentile — below-average but not at an extreme (${approxCount} of ${n.toLocaleString()} bars).`;
+    } else if (pct >= 95) {
+        const above = Math.round((100 - pct) / 100 * n);
+        frequencyText = `ATR Distance has been this high or higher only ${above} times out of ${n.toLocaleString()} bars (${(100 - pct).toFixed(1)}%) — a rare extended extreme.`;
+    } else if (pct >= 85) {
+        const above = Math.round((100 - pct) / 100 * n);
+        frequencyText = `ATR Distance is in the top ${(100 - pct).toFixed(0)}% historically — highly extended (above this level ${above} of ${n.toLocaleString()} bars).`;
+    } else if (pct >= 70) {
+        frequencyText = `ATR Distance is above the 70th percentile — above-average extension relative to historical norms.`;
+    } else {
+        frequencyText = `ATR Distance is at the ${pct.toFixed(0)}th percentile — within its normal historical range for this asset.`;
+    }
+
+    let actionText = null;
+    if (pct <= 10) {
+        actionText = 'Mean-reversion setups at this level have historically offered the highest probability of recovery.';
+    } else if (pct <= 25) {
+        actionText = 'Below-average ATR Distance — worth monitoring for further oversold development.';
+    } else if (pct >= 90) {
+        actionText = 'Extension at this level has historically preceded consolidation or pullback.';
+    } else if (pct >= 75) {
+        actionText = 'Elevated extension — maintain caution on new long entries.';
+    }
+
+    return { frequencyText, actionText };
+}
 
 function renderHistoricalContext() {
     if (!dashboardData) return;
@@ -563,7 +794,16 @@ function renderHistoricalContext() {
             </div>
         `;
 
-        pane.innerHTML += gaugeHtml + metricsHtml;
+        // Interpretation block
+        const interp = buildGaugeInterpretation(current, historical);
+        const interpretationHtml = interp ? `
+            <div class="gauge-interpretation" role="note">
+                <p class="gauge-interpretation-text">${escapeHtml(interp.frequencyText)}</p>
+                ${interp.actionText ? `<p class="gauge-interpretation-action">${escapeHtml(interp.actionText)}</p>` : ''}
+            </div>
+        ` : '';
+
+        pane.innerHTML += gaugeHtml + interpretationHtml + metricsHtml;
         dual.appendChild(pane);
     });
 
@@ -571,6 +811,107 @@ function renderHistoricalContext() {
 }
 
 // ─── Drilldown ────────────────────────────────────────────────────────────────
+
+// Returns array of { text, type: 'positive'|'negative'|'neutral' }, capped at 4.
+// chartHistory: array of 90 bars [{d, a, r, p, e}] or null.
+function generateKeyTakeaways(symbol, timeframeData, assetAllData, chartHistory) {
+    const current    = timeframeData?.current;
+    const historical = timeframeData?.historical;
+    if (!current) return [];
+
+    const takeaways = [];
+    const pct    = current.atr_percentile;
+    const n      = historical?.sample_size ?? 0;
+    const dist   = current.atr_distance;
+    const rsi    = current.rsi;
+    const rsiZ   = current.rsi_z_score;
+    const regime = current.regime || 'Unknown';
+
+    // Insight 1: ATR Distance historical position
+    if (n >= 30 && pct != null && dist != null) {
+        if (pct <= 5) {
+            takeaways.push({ text: `ATR Distance is in the lowest ${pct.toFixed(0)}% of its ${n.toLocaleString()}-bar history — a rare oversold extreme.`, type: 'positive' });
+        } else if (pct <= 15) {
+            takeaways.push({ text: `ATR Distance at the ${pct.toFixed(0)}th percentile — deep in its historical oversold range.`, type: 'positive' });
+        } else if (pct <= 30) {
+            takeaways.push({ text: `ATR Distance at the ${pct.toFixed(0)}th percentile — below-average, modest oversold conditions.`, type: 'positive' });
+        } else if (pct >= 95) {
+            takeaways.push({ text: `ATR Distance is in the top ${(100 - pct).toFixed(0)}% of its ${n.toLocaleString()}-bar history — a rare extended extreme.`, type: 'negative' });
+        } else if (pct >= 85) {
+            takeaways.push({ text: `ATR Distance at the ${pct.toFixed(0)}th percentile — highly extended historically.`, type: 'negative' });
+        } else if (pct >= 70) {
+            takeaways.push({ text: `ATR Distance at the ${pct.toFixed(0)}th percentile — above-average extension.`, type: 'negative' });
+        } else {
+            takeaways.push({ text: `ATR Distance at the ${pct.toFixed(0)}th percentile — within its normal historical range.`, type: 'neutral' });
+        }
+    } else if (dist != null) {
+        if (dist < -4)      takeaways.push({ text: `ATR Distance of ${dist.toFixed(2)} is in Capitulation zone (< −4) — extreme panic level.`, type: 'positive' });
+        else if (dist < -2) takeaways.push({ text: `ATR Distance of ${dist.toFixed(2)} is in Accumulation zone (−4 to −2) — oversold.`, type: 'positive' });
+        else if (dist > 4)  takeaways.push({ text: `ATR Distance of ${dist.toFixed(2)} is in Mania zone (> +4) — extreme euphoria.`, type: 'negative' });
+        else if (dist > 2)  takeaways.push({ text: `ATR Distance of ${dist.toFixed(2)} is in Distribution zone (+2 to +4) — extended.`, type: 'negative' });
+        else                takeaways.push({ text: `ATR Distance of ${dist.toFixed(2)} — in Trend zone (fair value range).`, type: 'neutral' });
+    }
+
+    // Insight 2: RSI condition
+    if (rsi != null) {
+        const recentHistory = Array.isArray(chartHistory) ? chartHistory.slice(-7) : [];
+        const prevRsiVals   = recentHistory.slice(0, -1).map(r => r.r);
+        const wasOversold   = prevRsiVals.some(r => r < 30);
+        const wasOverbought = prevRsiVals.some(r => r > 70);
+
+        if (rsi < 30) {
+            takeaways.push({ text: `RSI ${rsi.toFixed(1)} is in oversold territory (below 30)${rsiZ != null ? ` — Z-Score ${rsiZ.toFixed(2)}` : ''}.`, type: 'positive' });
+        } else if (wasOversold && rsi >= 30) {
+            takeaways.push({ text: `RSI recovering from oversold — climbed from below 30 to ${rsi.toFixed(1)} over the last week.`, type: 'positive' });
+        } else if (rsi > 70) {
+            takeaways.push({ text: `RSI ${rsi.toFixed(1)} is in overbought territory (above 70)${rsiZ != null ? ` — Z-Score ${rsiZ.toFixed(2)}` : ''}.`, type: 'negative' });
+        } else if (wasOverbought && rsi <= 70) {
+            takeaways.push({ text: `RSI pulling back from overbought — retreated from above 70 to ${rsi.toFixed(1)}.`, type: 'neutral' });
+        } else if (rsiZ != null && Math.abs(rsiZ) > 1.5) {
+            const dir = rsiZ < 0 ? 'below' : 'above';
+            takeaways.push({ text: `RSI Z-Score of ${rsiZ.toFixed(2)} — RSI is ${dir} its 20-period average by more than 1.5 standard deviations.`, type: rsiZ < 0 ? 'positive' : 'negative' });
+        }
+    }
+
+    // Insight 3: Weekly regime context
+    const weekly = assetAllData?.['1w']?.current;
+    if (weekly?.regime) {
+        const wRegime = weekly.regime;
+        const wDist   = weekly.atr_distance;
+        if (wRegime === 'Capitulation') {
+            takeaways.push({ text: `Weekly regime: Capitulation — higher-timeframe confirms extreme oversold.`, type: 'positive' });
+        } else if (wRegime === 'Mania') {
+            takeaways.push({ text: `Weekly regime: Mania — higher-timeframe confirms extreme extension.`, type: 'negative' });
+        } else if (wRegime === 'Accumulation' && (regime === 'Accumulation' || regime === 'Capitulation')) {
+            takeaways.push({ text: `Multi-timeframe alignment: Weekly and Daily both in oversold regimes.`, type: 'positive' });
+        } else if (wRegime === 'Distribution' && (regime === 'Distribution' || regime === 'Mania')) {
+            takeaways.push({ text: `Multi-timeframe alignment: Weekly and Daily both in extended regimes.`, type: 'negative' });
+        } else {
+            takeaways.push({ text: `Weekly regime: ${wRegime}${wDist != null ? ` (ATR Distance: ${wDist.toFixed(2)})` : ''}.`, type: 'neutral' });
+        }
+    }
+
+    // Insight 4: Recent ATR Distance trend direction
+    if (Array.isArray(chartHistory) && chartHistory.length >= 5 && dist != null) {
+        const last5Atr = chartHistory.slice(-5).map(r => r.a).filter(v => v != null);
+        if (last5Atr.length >= 3) {
+            const first = last5Atr[0];
+            const last  = last5Atr[last5Atr.length - 1];
+            const delta = last - first;
+            if (dist < 0 && delta > 0.15) {
+                takeaways.push({ text: `ATR Distance trending toward zero over the last 5 sessions (${first.toFixed(2)} → ${last.toFixed(2)}) — mean reversion in progress.`, type: 'positive' });
+            } else if (dist < 0 && delta < -0.15) {
+                takeaways.push({ text: `ATR Distance deepening over the last 5 sessions (${first.toFixed(2)} → ${last.toFixed(2)}) — oversold extending further.`, type: 'negative' });
+            } else if (dist > 0 && delta < -0.15) {
+                takeaways.push({ text: `ATR Distance retracing over the last 5 sessions (${first.toFixed(2)} → ${last.toFixed(2)}) — extension easing.`, type: 'positive' });
+            } else if (dist > 0 && delta > 0.15) {
+                takeaways.push({ text: `ATR Distance extending further over the last 5 sessions (${first.toFixed(2)} → ${last.toFixed(2)}) — momentum continues.`, type: 'negative' });
+            }
+        }
+    }
+
+    return takeaways.slice(0, 4);
+}
 
 function renderDrilldown() {
     if (!dashboardData) return;
@@ -606,7 +947,7 @@ function renderDrilldown() {
             </div>
             <div class="summary-item">
                 <span class="summary-label">ATR Distance</span>
-                <span class="summary-value ${signClass(current?.atr_distance)}">${current?.atr_distance?.toFixed(2) ?? 'N/A'}</span>
+                <span class="summary-value ${getAtrColorClass(current?.atr_distance) || signClass(current?.atr_distance)}">${current?.atr_distance?.toFixed(2) ?? 'N/A'}</span>
             </div>
             <div class="summary-item">
                 <span class="summary-label">% Above EMA</span>
@@ -630,6 +971,32 @@ function renderDrilldown() {
             </div>
         </div>
     `;
+
+    // ── Key Takeaways ─────────────────────────────────────────────────────────
+    const takeawaysContainer = document.getElementById('drilldown-takeaways');
+    if (takeawaysContainer) {
+        const chartHistForAsset = chartHistoryData?.[selectedAsset]?.[selectedTimeframe] ?? null;
+        const takeaways = generateKeyTakeaways(selectedAsset, timeframeData, assetData, chartHistForAsset);
+        if (takeaways.length > 0) {
+            const iconMap  = { positive: '▲', negative: '▼', neutral: '●' };
+            const ariaMap  = { positive: 'bullish signal', negative: 'bearish signal', neutral: 'neutral observation' };
+            takeawaysContainer.innerHTML = `
+                <div class="takeaways-panel">
+                    <h4 class="takeaways-title">Key Takeaways</h4>
+                    <ul class="takeaways-list">
+                        ${takeaways.map(t => `
+                            <li class="takeaway-item takeaway-item--${t.type}">
+                                <span class="takeaway-icon" aria-label="${ariaMap[t.type]}">${iconMap[t.type]}</span>
+                                <span class="takeaway-text">${escapeHtml(t.text)}</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `;
+        } else {
+            takeawaysContainer.innerHTML = '';
+        }
+    }
 
     // ── Charts ────────────────────────────────────────────────────────────────
     if (chartHistoryData) {
