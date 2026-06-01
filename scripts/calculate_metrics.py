@@ -136,6 +136,15 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
         else:
             percentile = None
 
+        # Price momentum: % change vs the previous bar
+        _prices = asset_data[['Date', 'Price']].dropna(subset=['Price']).sort_values('Date', ascending=True)
+        if len(_prices) >= 2:
+            _curr_p = float(_prices.iloc[-1]['Price'])
+            _prev_p = float(_prices.iloc[-2]['Price'])
+            price_change_pct: float | None = (_curr_p - _prev_p) / _prev_p * 100 if _prev_p != 0 else None
+        else:
+            price_change_pct = None
+
         metrics[asset][tf_norm]['current'] = {
             'date': str(row['Date']),
             'price': float(row['Price']) if pd.notna(row['Price']) else None,
@@ -147,6 +156,7 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
             'pct_above_ema': float(row['Pct_Above_EMA']) if pd.notna(row.get('Pct_Above_EMA')) else None,
             'regime': regime,
             'atr_percentile': percentile,
+            'price_change_pct': price_change_pct,
         }
 
     return metrics

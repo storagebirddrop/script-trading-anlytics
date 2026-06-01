@@ -234,7 +234,9 @@ function renderPortfolio() {
     // ── Regime strip ──────────────────────────────────────────────────────────
     const regimeCounts = {};
     assets.forEach(a => {
-        const r = dashboardData.assets[a]['1d']?.current?.regime || 'Unknown';
+        const current = dashboardData.assets[a]['1d']?.current;
+        if (!current) return; // no current snapshot — don't inflate Unknown count
+        const r = current.regime || 'Unknown';
         regimeCounts[r] = (regimeCounts[r] || 0) + 1;
     });
 
@@ -298,6 +300,8 @@ function renderPortfolio() {
         const atrDistD = dailyData.atr_distance;
         const atrDistW = weeklyData?.atr_distance;
         const rsi      = dailyData.rsi;
+        const rsiZ     = dailyData.rsi_z_score;
+        const chg      = dailyData.price_change_pct;
         const regime   = dailyData.regime || 'Unknown';
 
         const latestDate = dashboardData.metadata?.date_range?.end;
@@ -333,8 +337,16 @@ function renderPortfolio() {
                     <span class="metric-value ${rsiClass(rsi)}">${rsi?.toFixed(1) ?? 'N/A'}</span>
                 </div>
                 <div class="metric">
+                    <span class="metric-label">RSI Z-Score</span>
+                    <span class="metric-value ${signClass(rsiZ)}">${rsiZ?.toFixed(2) ?? 'N/A'}</span>
+                </div>
+                <div class="metric">
                     <span class="metric-label">Price</span>
                     <span class="metric-value">${formatPrice(asset, dailyData.price)}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Chg%</span>
+                    <span class="metric-value ${signClass(chg)}">${chg != null ? (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%' : 'N/A'}</span>
                 </div>
             </div>
             <div class="asset-card-footer">
@@ -607,6 +619,14 @@ function renderDrilldown() {
             <div class="summary-item">
                 <span class="summary-label">Percentile</span>
                 <span class="summary-value">${current?.atr_percentile?.toFixed(0) ?? 'N/A'}th</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">RSI Z-Score</span>
+                <span class="summary-value ${signClass(current?.rsi_z_score)}">${current?.rsi_z_score?.toFixed(2) ?? 'N/A'}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Chg% (${selectedTimeframe === '1d' ? 'Day' : 'Week'})</span>
+                <span class="summary-value ${signClass(current?.price_change_pct)}">${current?.price_change_pct != null ? (current.price_change_pct >= 0 ? '+' : '') + current.price_change_pct.toFixed(2) + '%' : 'N/A'}</span>
             </div>
         </div>
     `;

@@ -481,7 +481,7 @@ body {
     position: relative;
     height: 10px;
     border-radius: 5px;
-    background-color: var(--bg-primary);
+    background-color: var(--bg-secondary);
     overflow: visible;
 }
 
@@ -492,21 +492,22 @@ body {
     border-radius: 3px;
 }
 
-.gauge-zone-capitulation  { background-color: rgba(153, 27, 27, 0.35); }
-.gauge-zone-accumulation  { background-color: rgba(16, 185, 129, 0.25); }
-.gauge-zone-trend         { background-color: rgba(59, 130, 246, 0.15); }
-.gauge-zone-distribution  { background-color: rgba(249, 115, 22, 0.30); }
-.gauge-zone-mania         { background-color: rgba(239, 68, 68, 0.35); }
+.gauge-zone-capitulation  { background-color: rgba(153, 27, 27, 0.75); }
+.gauge-zone-accumulation  { background-color: rgba(16, 185, 129, 0.60); }
+.gauge-zone-trend         { background-color: rgba(59, 130, 246, 0.45); }
+.gauge-zone-distribution  { background-color: rgba(249, 115, 22, 0.70); }
+.gauge-zone-mania         { background-color: rgba(239, 68, 68, 0.75); }
 
 .gauge-marker {
     position: absolute;
     top: -5px;
     width: 3px;
     height: 20px;
-    background-color: white;
+    background-color: #ffffff;
     border-radius: 2px;
     transform: translateX(-50%);
-    box-shadow: 0 0 4px rgba(255,255,255,0.6);
+    box-shadow: 0 0 6px rgba(255,255,255,0.9), 0 0 2px #ffffff;
+    z-index: 2;
 }
 
 .gauge-tick {

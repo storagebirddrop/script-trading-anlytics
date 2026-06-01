@@ -86,15 +86,17 @@ Shared library used by both `crypto_tracker.py` and `backfill_historical.py`. Av
 | `data/master.csv` | Latest snapshot per Asset+Timeframe — derived from history |
 | `data/history.csv` | Full historical accumulation (authoritative record) |
 | `data/dashboard.json` | Computed metrics consumed by the web UI |
+| `data/chart_history.json` | Last 90 bars of ATR Distance, RSI, Price, EMA21 per asset+timeframe; used by Drilldown charts |
 
-`history.csv` is the source of truth. `master.csv` and `dashboard.json` are both derived from it.
+`history.csv` is the source of truth. `master.csv`, `dashboard.json`, and `chart_history.json` are all derived from it.
 
 ### Tracked Assets
 
-29 assets across 3 categories, both daily (`1d`) and weekly (`1w`) timeframes:
-- **Crypto (12):** BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP — fetched via Yahoo Finance (symbol format: `BTC-USD`; RENDER uses `RNDR-USD`). REZ and ONDO may not be listed on Yahoo Finance and will fail gracefully.
+33 assets across 4 categories, both daily (`1d`) and weekly (`1w`) timeframes:
+- **Crypto (14):** BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP, ADA, NIGHT — fetched via Yahoo Finance (symbol format: `BTC-USD`, `RENDER-USD`). REZ, ONDO, NIGHT may not be listed on Yahoo Finance and will fail gracefully.
 - **NASDAQ stocks (11):** MSTR, XXI, RIOT, MARA, IREN, BMNR, HUT, WULF, HIVE, CLSK, SLNH
-- **LSE ETFs (6):** MSTY, YMST, MARY, RIOY, IREY, BMNY — fetched via Yahoo Finance with `.L` suffix
+- **LSE ETFs (6):** MSTY, YMST, MARY, RIOY, IREY, BMNY — fetched via Yahoo Finance with `.L` suffix. These pay large regular distributions; **always use `auto_adjust=False`** in `yf.download()` calls or historical EMA/ATR will be corrupted each time a dividend is paid.
+- **DEX / CEX (2):** D2X (Solana via GeckoTerminal), SCP (CoinEx via CCXT)
 
 ### Key Indicators
 
@@ -106,6 +108,7 @@ All calculations live in `trading_utils/indicators.py`.
 - **RSI_Z_Score:** 20-period rolling Z-score of RSI
 - **ATR_Distance:** `(Price - EMA21) / ATR` — core metric for regime classification; `NaN` when `ATR = 0`
 - **Pct_Above_EMA:** `((Price - EMA21) / EMA21) * 100`
+- **price_change_pct** *(derived in `calculate_metrics.py`)*: `(current_price - prev_price) / prev_price × 100` — momentum indicator added to `dashboard.json` `current` objects; displayed as "Chg%" on portfolio cards and in the drilldown summary
 
 All three indicators use SMA of the first `period` bars as the seed value, then apply exponential smoothing. This matches TradingView exactly. Do not replace with pandas `ewm(adjust=False)` — that initialisation diverges significantly for short-history assets.
 
@@ -125,10 +128,17 @@ All three indicators use SMA of the first `period` bars as the seed value, then 
 - **Binance pagination:** `backfill_historical.py:fetch_historical_binance` loops with `since` offsets to handle histories longer than 1000 bars.
 - **ATR = 0:** `ATR_Distance` is set to `NaN` rather than `inf`/`-inf`.
 - **JSON safety:** `_sanitise()` in `calculate_metrics.py` replaces all `NaN`/`inf` with `null` before writing `dashboard.json`.
+- **Yahoo Finance dividend adjustment:** All `yf.download()` calls use `auto_adjust=False`. The default (`True`) retroactively rescales every historical close price on each new dividend, corrupting EMA/ATR for income assets (especially LSE ETFs). If you ever add a new `yf.download()` call, always include `auto_adjust=False`.
+- **Staleness filter:** `calculate_current_metrics()` skips the `current` snapshot for any asset whose latest row is more than 60 days behind the global dataset maximum. This prevents delisted or renamed tickers from showing stale data on the dashboard.
 
 ### Web Dashboard
 
-Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (copied from `data/dashboard.json`) via `fetch()`. Four tabs: Portfolio, Rankings, Historical, Drilldown. Uses Plotly for charts.
+Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (copied from `data/dashboard.json`) and `dashboard/assets/chart_history.json` via `fetch()`. Four tabs: Portfolio, Rankings, Historical, Drilldown. Uses Chart.js (CDN) for charts.
+
+- **Portfolio tab:** asset cards showing ATR Distance (daily + weekly), RSI, RSI Z-Score, Price, and Chg%; filterable by regime and category
+- **Rankings tab:** top 10 most oversold / most extended assets by ATR Distance
+- **Historical tab:** percentile gauge showing current ATR Distance position within historical range, with coloured regime zones; metrics grid including RSI Z-Score
+- **Drilldown tab:** Chart.js line charts (ATR Distance, RSI, Price vs EMA21, Weekly ATR Distance) plus summary metrics grid
 
 ### CI/CD
 
