@@ -100,23 +100,24 @@ Shared library used by both `crypto_tracker.py` and `backfill_historical.py`. Av
 
 All calculations live in `trading_utils/indicators.py`.
 
-- **EMA21:** 21-period EMA using standard smoothing (`alpha = 2/22`)
-- **ATR:** 14-period Average True Range using **Wilder's smoothing** (`com=13`, `alpha = 1/14`)
-- **RSI:** 14-period RSI using **Wilder's smoothing** (`com=13`, `alpha = 1/14`)
+- **EMA21:** 21-period EMA, SMA-seeded (matches TradingView `ta.ema()`)
+- **ATR:** 14-period Average True Range, Wilder's RMA, SMA-seeded (matches TradingView `ta.atr()`)
+- **RSI:** 14-period RSI, Wilder's RMA, SMA-seeded (matches TradingView `ta.rsi()`)
 - **RSI_Z_Score:** 20-period rolling Z-score of RSI
 - **ATR_Distance:** `(Price - EMA21) / ATR` — core metric for regime classification; `NaN` when `ATR = 0`
 - **Pct_Above_EMA:** `((Price - EMA21) / EMA21) * 100`
 
-EMA uses `ewm(span=period)` (standard). ATR and RSI use `ewm(com=period-1)` (Wilder's RMA). These are different smoothing methods — do not change them to match each other.
+All three indicators use SMA of the first `period` bars as the seed value, then apply exponential smoothing. This matches TradingView exactly. Do not replace with pandas `ewm(adjust=False)` — that initialisation diverges significantly for short-history assets.
 
 ### Regime Classification (ATR_Distance thresholds)
 
-| Regime | Condition |
-|--------|-----------|
-| Accumulation | ATR_Distance < -2 |
-| Trend | -2 ≤ ATR_Distance ≤ 2 |
-| Extended | 2 < ATR_Distance ≤ 4 |
-| Euphoria | ATR_Distance > 4 |
+| Regime | Condition | Sentiment |
+|--------|-----------|-----------|
+| Capitulation | ATR_Distance < -4 | Panic / Capitulation |
+| Accumulation | -4 ≤ ATR_Distance < -2 | Oversold |
+| Trend | -2 ≤ ATR_Distance ≤ 2 | Balanced / Fair Value |
+| Distribution | 2 < ATR_Distance ≤ 4 | Extended |
+| Mania | ATR_Distance > 4 | Euphoric / Blow-off |
 
 ### Resilience Behaviour
 
