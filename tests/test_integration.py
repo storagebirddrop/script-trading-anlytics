@@ -3,17 +3,13 @@
 Integration tests for the trading analytics pipeline.
 """
 
-import pytest
-import pandas as pd
 import json
 import os
-import sys
-import tempfile
 import shutil
-from pathlib import Path
+import tempfile
 
-# Add scripts directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+import pandas as pd
+import pytest
 
 
 class TestPipelineIntegration:

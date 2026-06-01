@@ -6,11 +6,6 @@ Unit tests for metrics calculation.
 import pytest
 import pandas as pd
 import numpy as np
-import sys
-import os
-
-# Add scripts directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 from calculate_metrics import (
     classify_regime,
     calculate_historical_metrics,

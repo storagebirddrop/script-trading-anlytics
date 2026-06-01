@@ -1,26 +1,23 @@
 # Multi-Asset ATR Tracker
 
-Automated script that fetches OHLCV data from multiple sources (Binance for crypto, Yahoo Finance for stocks/ETFs, manual input for Solana tokens), calculates technical indicators, and updates an Excel spreadsheet with historical data accumulation.
+Automated pipeline that fetches daily and weekly OHLCV data from Binance (crypto) and Yahoo Finance (stocks/ETFs), calculates technical indicators, accumulates historical data, and serves an interactive web dashboard via Cloudflare Pages.
 
 ## Features
 
-- Fetches OHLCV data from multiple sources:
-  - Binance for crypto assets (no API key required)
-  - Yahoo Finance for stocks and ETFs
-  - Manual input for assets without API access (e.g., Solana DEX tokens)
-- Calculates technical indicators:
-  - EMA21 (Exponential Moving Average)
-  - ATR (Average True Range, 14-period)
-  - RSI (Relative Strength Index, 14-period)
-  - RSI Z-score (20-period)
-  - ATR Distance
-  - % Above EMA
-- Supports multiple asset classes:
-  - Crypto: BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP
-  - NASDAQ stocks: MSTR, XXI, RIOT, MARA, IREN, BMNR, HUT, WULF, HIVE, CLSK, SLNH
-  - LSE ETFs: MSTY, YMST, MARY, RIOY, IREY, BMNY
-- Runs on both daily and weekly timeframes
-- **Accumulates historical data** in Daily_Data and Weekly_Data sheets for 12-24 month analysis
+- **Data sources:** Binance (no API key required) and Yahoo Finance; manual fallback for assets without API access
+- **Indicators:** EMA21, ATR (14-period, Wilder's smoothing), RSI (14-period, Wilder's smoothing), RSI Z-score (20-period), ATR Distance, % Above EMA
+- **Timeframes:** Daily (`1d`) and Weekly (`1w`)
+- **Regime classification** based on ATR Distance thresholds
+- **29 tracked assets** across crypto, NASDAQ stocks, and LSE ETFs
+- **Automated daily pipeline** via GitHub Actions
+
+## Assets
+
+| Category | Symbols |
+|----------|---------|
+| Crypto (Binance) | BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP |
+| NASDAQ stocks | MSTR, XXI, RIOT, MARA, IREN, BMNR, HUT, WULF, HIVE, CLSK, SLNH |
+| LSE ETFs | MSTY, YMST, MARY, RIOY, IREY, BMNY |
 
 ## Installation
 
@@ -30,69 +27,90 @@ pip install -r requirements.txt
 
 ## Usage
 
-### Manual Run
+### Daily tracker (current data only)
 
 ```bash
 python crypto_tracker.py
 ```
 
-### GitHub Actions
+Writes to `data/master.csv` and `ATR_Tracker_Dashboard.xlsx`.
 
-The workflow is configured to:
-- Run daily at 9:00 AM UTC
-- Allow manual triggering via GitHub Actions UI
+### Full pipeline
 
-The workflow will:
-1. Install dependencies
-2. Run the crypto tracker script
-3. Commit and push the updated spreadsheet to the repository
+```bash
+python crypto_tracker.py
+python scripts/validate_data.py ATR_Tracker_Dashboard.xlsx
+python scripts/update_history.py
+python scripts/calculate_metrics.py
+python scripts/build_dashboard.py
+```
 
-## Spreadsheet Format
+### Backfill (Jan 2024 to present)
 
-Each new sheet contains the following columns:
+```bash
+python backfill_historical.py
+```
 
-| Date | Asset | Price | EMA21 | ATR | RSI | ATR Distance | % Above EMA | Timeframe |
-|------|-------|-------|-------|-----|-----|--------------|-------------|-----------|
+Re-run this after any change to ATR or RSI calculation to regenerate `data/history.csv` with corrected values.
 
 ## Configuration
 
-Edit the following constants in `crypto_tracker.py`:
+All shared configuration lives in `trading_utils/config.py`:
 
-- `ASSETS`: List of assets to track (crypto, stocks, ETFs, manual)
-- `TIMEFRAMES`: Timeframes to fetch (e.g., '1d', '1w')
-- `SPREADSHEET_PATH`: Path to the Excel file
-- `ASSET_CONFIG`: Mapping of asset names to data source and symbol
-- `MANUAL_DATA`: Manual data input for assets without API access
-- Indicator periods: `EMA_PERIOD`, `ATR_PERIOD`, `RSI_PERIOD`, `Z_SCORE_PERIOD`
+- `ASSETS` — list of asset names to track
+- `ASSET_CONFIG` — maps each asset to its data source and symbol
+- `MANUAL_DATA` — manual price/indicator values for assets without API access
+- `EMA_PERIOD`, `ATR_PERIOD`, `RSI_PERIOD`, `Z_SCORE_PERIOD` — indicator parameters
 
 ## Adding New Assets
 
-### Automated Assets (Binance/Yahoo Finance)
+**Binance or Yahoo Finance:**
 
-1. Add the asset name to the `ASSETS` list
-2. Add an entry to `ASSET_CONFIG` with:
-   - `source`: 'binance' for crypto, 'yahoo' for stocks/ETFs
-   - `symbol`: The trading symbol (e.g., 'BTC/USDT' for Binance, 'AAPL' for Yahoo Finance)
-   - For LSE stocks, append '.L' to the symbol (e.g., 'MSTY.L')
-
-### Manual Assets
-
-1. Add the asset name to the `ASSETS` list
-2. Add an entry to `ASSET_CONFIG` with:
-   - `source`: 'manual'
-3. Add data to `MANUAL_DATA` dictionary:
+1. Add the asset name to `ASSETS` in `trading_utils/config.py`
+2. Add an entry to `ASSET_CONFIG`:
    ```python
-   'ASSET_NAME': {
-       '1d': {'price': 0.0079, 'ema21': 0.0082, 'atr': 0.0003, 'rsi': 45.0},
-       '1w': {'price': 0.0079, 'ema21': 0.0080, 'atr': 0.0004, 'rsi': 50.0},
-   },
+   'MSTR': {'source': 'yahoo', 'symbol': 'MSTR'},
+   'BTC':  {'source': 'binance', 'symbol': 'BTC/USDT'},
+   'MSTY': {'source': 'yahoo', 'symbol': 'MSTY.L'},  # LSE: append .L
    ```
-4. Update values from TradingView, Birdeye, or other sources before each run
+
+**Manual assets (no API):**
+
+1. Add to `ASSETS` and `ASSET_CONFIG` with `'source': 'manual'`
+2. Add values to `MANUAL_DATA`:
+   ```python
+   MANUAL_DATA = {
+       'MYTOKEN': {
+           '1d': {'price': 0.0079, 'ema21': 0.0082, 'atr': 0.0003, 'rsi': 45.0},
+           '1w': {'price': 0.0079, 'ema21': 0.0080, 'atr': 0.0004, 'rsi': 50.0},
+       },
+   }
+   ```
+3. Update values from TradingView or Birdeye before each run
+
+## Data Files
+
+| File | Description |
+|------|-------------|
+| `ATR_Tracker_Dashboard.xlsx` | Excel workbook (single `Data` sheet); written by tracker and backfill |
+| `data/history.csv` | Full historical accumulation — authoritative source |
+| `data/master.csv` | Latest row per Asset+Timeframe — derived from history |
+| `data/dashboard.json` | Processed metrics for the web dashboard |
+
+## GitHub Actions
+
+The workflow (`.github/workflows/crypto-tracker.yml`) runs daily at 09:00 UTC and on manual dispatch:
+
+1. Fetch current OHLCV data (`crypto_tracker.py`)
+2. Validate Excel output (`validate_data.py`)
+3. Append to history CSV (`update_history.py`)
+4. Calculate metrics and regime classification (`calculate_metrics.py`)
+5. Build dashboard assets (`build_dashboard.py`)
+6. Commit data files and deploy to Cloudflare Pages
 
 ## Notes
 
-- RENDER is mapped to RNDR on Binance
-- LSE ETFs use the '.L' suffix for Yahoo Finance
-- Some assets may not be available and will be skipped with a warning
-- The script preserves existing sheets and graphs in the spreadsheet
-- Weekly timeframe for some newer ETFs may return NaN for indicators due to insufficient historical data
+- LSE ETFs require the `.L` suffix for Yahoo Finance (e.g., `MSTY.L`)
+- Assets unavailable from the API are skipped with a warning; if more than 3 fail, the CI job exits non-zero
+- The pipeline is idempotent — re-running does not create duplicate rows in `history.csv`
+- `data/history.csv` is the source of truth; all other data files are derived from it

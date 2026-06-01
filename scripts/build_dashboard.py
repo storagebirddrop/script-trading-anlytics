@@ -4,16 +4,18 @@ Dashboard Build Script
 Generates the dashboard by copying templates and data to the output directory.
 """
 
+import json
 import os
 import shutil
-import json
 import sys
 from pathlib import Path
 
-DASHBOARD_JSON_PATH = 'data/dashboard.json'
-DASHBOARD_OUTPUT_DIR = 'dashboard'
-TEMPLATES_DIR = 'dashboard/templates'
-ASSETS_OUTPUT_DIR = 'dashboard/assets'
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+DASHBOARD_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'dashboard.json')
+DASHBOARD_OUTPUT_DIR = str(_PROJECT_ROOT / 'dashboard')
+TEMPLATES_DIR = str(_PROJECT_ROOT / 'dashboard' / 'templates')
+ASSETS_OUTPUT_DIR = str(_PROJECT_ROOT / 'dashboard' / 'assets')
 
 
 def main():
