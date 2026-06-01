@@ -32,7 +32,7 @@ _MASTER_CSV = Path(MASTER_CSV_PATH)
 _HISTORY_CSV = Path(HISTORY_CSV_PATH)
 _SPREADSHEET = Path(SPREADSHEET_PATH)
 
-START_DATE = datetime(2024, 1, 1)
+START_DATE = datetime(2010, 1, 1)  # Yahoo Finance returns data from listing date if earlier
 END_DATE = datetime.now()
 
 _EXCEL_HEADERS = [
