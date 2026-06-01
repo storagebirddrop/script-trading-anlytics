@@ -1,6 +1,4 @@
-Verify each finding against current code. Fix only still-valid issues, skip the rest with a brief reason, keep changes minimal, and validate.
-
-In @tests/test_metrics.py around lines 12 - 19, The test currently mutates sys.path in tests/test_metrics.py to import classify_regime, calculate_historical_metrics, calculate_current_metrics, and generate_dashboard_json from scripts; instead create a tests/conftest.py that centralizes the path injection (e.g., compute the absolute path to ../scripts and insert it into sys.path at import time) or preferably package scripts so normal imports work, then remove the sys.path.insert lines from tests/test_metrics.py; this keeps test discovery stable and lets tests import the four functions directly without per-test path manipulation.#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Unit tests for metrics calculation.
 """
