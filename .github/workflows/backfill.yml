@@ -1,0 +1,49 @@
+name: Backfill Historical Data
+
+on:
+  workflow_dispatch:
+    # Manually triggered from Actions tab.
+    # Regenerates history.csv with High, Low, Volume columns,
+    # then rebuilds dashboard.json and deploys to Cloudflare Pages.
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run backfill
+        run: python backfill_historical.py
+
+      - name: Calculate metrics
+        run: python scripts/calculate_metrics.py
+
+      - name: Build dashboard
+        run: python scripts/build_dashboard.py
+
+      - name: Commit and push changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add ATR_Tracker_Dashboard.xlsx data/master.csv data/history.csv data/dashboard.json data/metadata.json dashboard/assets/data.json
+          git add data/chart_history.json dashboard/assets/chart_history.json 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "Backfill history with High/Low/Volume columns"
+          gh auth setup-git
+          git push
