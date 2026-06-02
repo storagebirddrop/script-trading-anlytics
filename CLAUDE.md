@@ -27,7 +27,7 @@ python scripts/build_dashboard.py                                 # Copy assets 
 python backfill_historical.py
 ```
 
-Run backfill after any change to the ATR or RSI calculation to regenerate `history.csv` with corrected values.
+Run backfill after any change to the ATR or RSI calculation to regenerate `history.csv` with corrected values. Can also be triggered via GitHub Actions: **Actions → Backfill Historical Data → Run workflow** (use this when running locally is not possible, e.g. in a remote environment without external network access).
 
 **Run tests:**
 ```bash
@@ -58,6 +58,7 @@ Manual input ─────────┘                      └──→ AT
                                           (percentiles, regime classification)
                                                         ↓
                                           data/dashboard.json
+                                          data/chart_history.json
                                                         ↓
                                           scripts/build_dashboard.py
                                                         ↓
@@ -71,7 +72,7 @@ Shared library used by both `crypto_tracker.py` and `backfill_historical.py`. Av
 | Submodule | Contents |
 |-----------|----------|
 | `trading_utils/config.py` | `ASSETS`, `ASSET_CONFIG`, `MANUAL_DATA`, all path constants, indicator periods |
-| `trading_utils/indicators.py` | `calculate_ema`, `calculate_atr`, `calculate_rsi`, `calculate_z_score`, `calculate_indicators` |
+| `trading_utils/indicators.py` | `calculate_ema`, `calculate_atr`, `calculate_rsi`, `calculate_z_score`, `calculate_indicators`, `calculate_volume_profile` |
 | `trading_utils/data_sources.py` | `fetch_ohlcv_binance`, `fetch_ohlcv_yahoo`, `fetch_ohlcv`, `get_manual_data`, `_with_retry` |
 
 **Adding or changing assets/config:** edit `trading_utils/config.py` only — both scripts will pick it up automatically.
@@ -111,6 +112,41 @@ All calculations live in `trading_utils/indicators.py`.
 
 All three indicators use SMA of the first `period` bars as the seed value, then apply exponential smoothing. This matches TradingView exactly. Do not replace with pandas `ewm(adjust=False)` — that initialisation diverges significantly for short-history assets.
 
+### Volume Profile (VP)
+
+Computed by `calculate_volume_profile()` in `trading_utils/indicators.py`. Called from `scripts/calculate_metrics.py` when `history.csv` contains `High`, `Low`, `Volume` columns (added by `crypto_tracker.py` and `backfill_historical.py`).
+
+**Algorithm** (per asset+timeframe snapshot, using last `VP_LOOKBACK_BARS` rows):
+1. Determine full price range: `min(low)` → `max(high)` across all bars
+2. Divide into `VP_N_BUCKETS = 24` equal-width price buckets
+3. Distribute each bar's volume proportionally across overlapping buckets (`overlap / bar_range`)
+4. **POC** = bucket with highest volume; price = bucket midpoint
+5. **Value Area** = expand outward from POC absorbing highest adjacent bucket until ≥ 70% of total volume is captured; **VAH** = top of uppermost included bucket, **VAL** = bottom of lowermost
+6. **Position** classification: `above_vah` | `below_val` | `at_poc` (within ±1.5 bucket widths) | `in_value_area`
+7. **dist_from_poc** = `(price − POC) / ATR` — distance in ATR units
+8. Returns `None` if: fewer than 20 bars with non-zero volume, or total volume = 0
+
+**Config constants** (in `trading_utils/config.py`):
+```python
+VP_LOOKBACK_BARS        = 90   # daily lookback (~4 months)
+VP_LOOKBACK_BARS_WEEKLY = 52   # weekly lookback (~1 year)
+VP_N_BUCKETS            = 24   # price distribution buckets
+```
+
+**Output fields** added to each `current` object in `dashboard.json`:
+- `vp_poc`, `vp_vah`, `vp_val` — key price levels
+- `vp_position` — one of the 4 position strings above
+- `vp_dist_from_poc` — ATR-normalised distance from POC
+- `vp_buckets` — list of 24 `{p, v, is_poc, in_va}` dicts for the VP chart
+
+All fields are `null` when `High`/`Low`/`Volume` columns are absent from `history.csv` (backward-compatible with pre-backfill data).
+
+**Known limitations:**
+- Daily bars distribute volume uniformly across H/L range — coarser than TradingView's tick-based VPVR
+- Weekly VP uses 52-bar lookback (~1 year); daily uses 90-bar (~4 months) — different windows by design
+- Assets with < 20 bars of non-zero volume return `null` VP fields; badges are hidden on cards
+- LSE ETF volume is share count, not monetary — valid for relative distribution within an asset, not cross-asset comparisons
+
 ### Regime Classification (ATR_Distance thresholds)
 
 | Regime | Condition | Sentiment |
@@ -139,10 +175,10 @@ Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (
 - `dashboard/index.html` — main single-page app
 
 **Tabs:**
-- **Portfolio tab:** Portfolio Health Bar (oversold%/neutral%/extended%/sentiment), Opportunity panel (top-3 most oversold with signal-strength labels), Risk panel (top-3 most extended), then asset cards with ATR Distance (semantically coloured: green=oversold, orange=extended, red=extreme) and inline historical percentile badge (P8%); filterable by regime and category
+- **Portfolio tab:** Portfolio Health Bar (oversold%/neutral%/extended%/sentiment), Opportunity panel (top-3 most oversold with signal-strength labels), Risk panel (top-3 most extended), then asset cards with ATR Distance (semantically coloured: green=oversold, orange=extended, red=extreme), inline historical percentile badge (P8%), and VP position badge when data is available; filterable by regime and category
 - **Rankings tab:** top 10 most oversold / most extended assets with historical percentile rank and signal-strength label (Extreme Oversold → Mild Dip / Extreme Extended → Mild Extension)
 - **Extremes tab** (formerly "Historical"): percentile gauge showing current ATR Distance position within historical range, with coloured regime zones; contextual interpretation paragraph explaining how frequently the asset has been at this level; metrics grid including RSI Z-Score
-- **Drilldown tab:** Key Takeaways panel (2–4 auto-generated insights from ATR percentile, RSI status, weekly regime alignment, and recent ATR trend direction), then Chart.js line charts (Price vs EMA21, ATR Distance, RSI, Weekly ATR Distance) plus summary metrics grid
+- **Drilldown tab:** Key Takeaways panel (up to 5 auto-generated insights: ATR percentile, RSI status, weekly regime alignment, recent ATR trend direction, and VP position), then Chart.js line charts (Price vs EMA21, ATR Distance, RSI, Weekly ATR Distance, Volume Profile horizontal bar chart) plus summary metrics grid (includes VP Zone, POC, VAH, VAL rows)
 
 **Signal strength tiers** (used in Opportunity/Risk panels and Rankings):
 Uses the **more severe** of two independent signals — whichever gives the stronger label wins:
@@ -183,14 +219,19 @@ The gauge x-axis represents the empirical distribution, not a linear ATR Distanc
 **Key JS functions in `dashboard/js/dashboard.js`:**
 - `getSignalStrength(pct, direction, sampleSize, atrDistance)` — returns `{ label, cssClass }` using max-severity of percentile and ATR Distance tiers
 - `getAtrColorClass(atrDistance)` — returns semantic CSS class for ATR Distance coloring
+- `vpPositionLabel(pos)` — returns `{ label, cls }` for a VP position string
+- `vpBadgeHtml(pos)` — returns badge `<span>` HTML for a VP position (empty string if null)
 - `renderPortfolioHealthBar()` — populates the health summary bar
 - `renderOpportunityPanels()` — populates top-3 oversold / extended panels
 - `buildGaugeInterpretation(current, historical)` — returns plain-language gauge interpretation text
-- `generateKeyTakeaways(symbol, tfData, allData, chartHistory)` — generates drilldown insight array
+- `generateKeyTakeaways(symbol, tfData, allData, chartHistory)` — generates drilldown insight array (up to 5, including VP)
+- `renderVolumeProfileChart(current, tf)` — renders horizontal bar VP chart; CSP-compliant legend via DOM API
 
 ### CI/CD
 
 `.github/workflows/crypto-tracker.yml` runs daily at 09:00 UTC and on manual dispatch. It executes the full pipeline in sequence, commits updated data files back to `master`, and deploys the `dashboard/` directory to Cloudflare Pages.
+
+`.github/workflows/backfill.yml` — manual-dispatch-only workflow that runs `backfill_historical.py` followed by `calculate_metrics.py` and `build_dashboard.py`. Use this after adding new assets or changing indicator calculations when a full history regeneration is needed and running locally isn't practical (e.g. in a remote environment with restricted network access).
 
 ## Data Validation Rules
 
