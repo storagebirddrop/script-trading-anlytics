@@ -2,7 +2,7 @@
 
 ## High signal, low effort — frontend only (no pipeline changes)
 
-- [ ] **Timeframe toggle on Portfolio cards**
+- [x] **Timeframe toggle on Portfolio cards**
   Cards are locked to daily view. Add a D / W toggle at the top of the Portfolio tab.
   Data already exists in `dashboard.json` for both timeframes — purely a rendering change in `dashboard.js`.
 
