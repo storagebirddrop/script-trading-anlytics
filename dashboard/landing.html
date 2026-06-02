@@ -23,7 +23,7 @@
                 <div class="landing-feature-card">
                     <span class="landing-feature-icon" aria-hidden="true">📊</span>
                     <h3>Portfolio State at a Glance</h3>
-                    <p>See every tracked asset's ATR Distance, RSI, regime classification, and historical percentile on one screen. The health bar tells you instantly how much of the market is oversold, neutral, or extended.</p>
+                    <p>See every tracked asset's ATR Distance, RSI, regime classification, historical percentile, and 14-bar ATR sparkline on one screen. The health bar tells you instantly how much of the market is oversold, neutral, or extended. Toggle between Daily and Weekly views.</p>
                 </div>
                 <div class="landing-feature-card">
                     <span class="landing-feature-icon" aria-hidden="true">🔍</span>
@@ -38,7 +38,12 @@
                 <div class="landing-feature-card">
                     <span class="landing-feature-icon" aria-hidden="true">📉</span>
                     <h3>Deep Asset Analysis</h3>
-                    <p>Drill into any asset for Key Takeaways (generated from current data), 90 days of ATR Distance and RSI charts, Price vs EMA21, and weekly ATR Distance — with regime zones pre-drawn.</p>
+                    <p>Drill into any asset for Key Takeaways (generated from current data), 90 days of ATR Distance and RSI charts, Price vs EMA21, Weekly ATR Distance, and a Volume Profile chart showing the 90-day price-by-volume distribution with POC and Value Area.</p>
+                </div>
+                <div class="landing-feature-card">
+                    <span class="landing-feature-icon" aria-hidden="true">🌐</span>
+                    <h3>Macro Context</h3>
+                    <p>A dedicated Macro tab covers 25 global assets across US, EU, and APAC indices, commodities (gold, oil, natgas, wheat, corn), and major forex pairs — all with the same ATR Distance regime analysis as the trading portfolio.</p>
                 </div>
             </div>
         </section>
@@ -51,7 +56,7 @@
                     <span class="landing-step-num" aria-hidden="true">1</span>
                     <div>
                         <strong>Portfolio Overview</strong>
-                        <p>Start here. Check the health summary bar for the market-wide snapshot: what percentage of assets are oversold, neutral, or extended. Then scan the Opportunity and Risk panels for standout setups. Filter by category (Crypto, NASDAQ, LSE) or click a regime pill to focus.</p>
+                        <p>Start here. Check the health summary bar for the market-wide snapshot: what percentage of assets are oversold, neutral, or extended. Scan the Opportunity and Risk panels for standout setups. Toggle Daily/Weekly at the top of the filter bar to switch the entire view to the weekly timeframe. Filter by category (Crypto, NASDAQ, LSE) or click a regime pill to focus. Each card shows an ATR Distance sparkline for quick trend direction at a glance.</p>
                     </div>
                 </li>
                 <li class="landing-step">
@@ -71,8 +76,15 @@
                 <li class="landing-step">
                     <span class="landing-step-num" aria-hidden="true">4</span>
                     <div>
+                        <strong>Macro</strong>
+                        <p>Check global macro context before acting on individual setups. The Macro tab groups indices, commodities, and forex into five sections with zone badges (Neutral / Oversold / Extended). Click any card to open its full Drilldown with charts and Volume Profile.</p>
+                    </div>
+                </li>
+                <li class="landing-step">
+                    <span class="landing-step-num" aria-hidden="true">5</span>
+                    <div>
                         <strong>Drilldown</strong>
-                        <p>Read the Key Takeaways summary first — it distils the most important signals into plain language. Then examine the 90-day charts to confirm context: ATR Distance history with regime zones, RSI with overbought/oversold lines, Price vs EMA21, and Weekly ATR Distance.</p>
+                        <p>Read the Key Takeaways summary first — it distils the most important signals into plain language, including Volume Profile position. Then examine the 90-day charts to confirm context: ATR Distance with regime zones, RSI, Price vs EMA21, Weekly ATR Distance, and the Volume Profile bar chart showing POC, VAH, and VAL.</p>
                     </div>
                 </li>
             </ol>
@@ -99,11 +111,15 @@
                 </div>
                 <div class="landing-method-item">
                     <h3>Percentile Rank</h3>
-                    <p>Each ATR Distance reading is ranked against every historical bar for that asset. A P4% reading means price has been this oversold on only 4% of all recorded trading days — a statistically rare setup. Percentile cards appear on portfolio cards and ranking items when sufficient history (&ge;30 bars) is available.</p>
+                    <p>Each ATR Distance reading is ranked against every historical bar for that asset. A P4% reading means price has been this oversold on only 4% of all recorded trading days — a statistically rare setup. Percentile badges appear on portfolio cards and ranking items when sufficient history (&ge;30 bars) is available.</p>
                 </div>
                 <div class="landing-method-item">
                     <h3>RSI &amp; RSI Z-Score</h3>
                     <p>14-period RSI with Wilder smoothing. The RSI Z-Score normalises RSI over a 20-period rolling window — useful for identifying when RSI is unusually high or low relative to its own recent behaviour, which differs across assets and market conditions.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>Volume Profile</h3>
+                    <p>Fixed-lookback price-by-volume distribution (90 daily bars / 52 weekly bars) divided into 24 price buckets. Identifies the Point of Control (POC — highest-volume price), Value Area High (VAH), and Value Area Low (VAL). Price position relative to these levels is surfaced as a badge on cards and as a Key Takeaway in Drilldown.</p>
                 </div>
             </div>
         </section>
@@ -113,8 +129,8 @@
             <h2 id="coverage-heading">Coverage</h2>
             <div class="landing-methodology-grid">
                 <div class="landing-method-item">
-                    <h3>Crypto (16 assets)</h3>
-                    <p>BTC, ETH, SOL, BNB, XRP, ADA, XLM, NEAR, RENDER, ONDO, RSR, ACH, REZ, D2X, SCP, NIGHT — fetched from Yahoo Finance and specialised DEX/CEX sources.</p>
+                    <h3>Crypto (28 assets)</h3>
+                    <p>BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP, ADA, NIGHT, VTHO, LINK, NEO, GAS, DRIFT, SEI, PEAQ, AEVO, EIGEN, W, WOO, JASMY — fetched from Yahoo Finance — plus D2X (Solana DEX via GeckoTerminal) and SCP (CoinEx via CCXT).</p>
                 </div>
                 <div class="landing-method-item">
                     <h3>NASDAQ Stocks (11 assets)</h3>
@@ -125,8 +141,12 @@
                     <p>Income-focused ETFs: MSTY, YMST, MARY, RIOY, IREY, BMNY — quoted in GBp (pence). Prices use unadjusted historical data to prevent dividend-adjustment distortion.</p>
                 </div>
                 <div class="landing-method-item">
+                    <h3>Macro (25 assets)</h3>
+                    <p>Global context: US indices (SPX, NDX, RTY, DJI), EU indices (DAX, CAC, FTSE), APAC indices (NIK, HSI, ASX), commodities (GOLD, SILVER, OIL, NATGAS, COPPER, WHEAT, CORN), and forex (DXY, EURUSD, GBPUSD, AUDUSD, NZDUSD, USDCAD, USDCHF, USDJPY).</p>
+                </div>
+                <div class="landing-method-item">
                     <h3>Timeframes</h3>
-                    <p>All assets tracked on both <strong>Daily (1d)</strong> and <strong>Weekly (1w)</strong> timeframes. History goes back to January 2024 (or listing date if later). Data refreshes daily at ~09:00 UTC.</p>
+                    <p>All 70 assets tracked on both <strong>Daily (1d)</strong> and <strong>Weekly (1w)</strong> timeframes. History goes back to January 2024 (or listing date if later). Data refreshes daily at ~09:00 UTC.</p>
                 </div>
             </div>
         </section>
@@ -134,7 +154,7 @@
         <!-- CTA -->
         <section class="landing-cta-section" aria-labelledby="cta-heading">
             <h2 id="cta-heading">Ready to explore?</h2>
-            <p>33 assets. Daily and weekly timeframes. Full historical context since 2024.</p>
+            <p>70 assets. Daily and weekly timeframes. Full historical context since 2024.</p>
             <a href="index.html" class="landing-cta-btn">Open Dashboard</a>
         </section>
 

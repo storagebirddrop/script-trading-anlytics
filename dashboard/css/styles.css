@@ -1475,3 +1475,14 @@ body {
 .zone-extended         { background-color: rgba(249,115,22,0.18); color: var(--accent-orange); }
 .zone-extreme-extended { background-color: rgba(239,68,68,0.18);  color: var(--accent-red); }
 .zone-unknown          { background-color: rgba(160,174,192,0.10); color: var(--text-secondary); }
+
+/* ── Portfolio card sparklines ───────────────────────────────────────────────── */
+.card-sparkline {
+    padding: 0.35rem 0.75rem 0;
+    line-height: 0;
+}
+.card-sparkline svg {
+    width: 100%;
+    height: 20px;
+    display: block;
+}

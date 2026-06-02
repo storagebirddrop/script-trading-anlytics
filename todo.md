@@ -6,7 +6,7 @@
   Cards are locked to daily view. Add a D / W toggle at the top of the Portfolio tab.
   Data already exists in `dashboard.json` for both timeframes — purely a rendering change in `dashboard.js`.
 
-- [ ] **ATR Distance sparklines on cards**
+- [x] **ATR Distance sparklines on cards**
   `chart_history.json` already stores 90 bars per asset. Render a small inline sparkline (last ~14 bars of ATR Distance) inside each portfolio card to show direction at a glance without opening Drilldown.
 
 - [ ] **Starred / watchlist**
