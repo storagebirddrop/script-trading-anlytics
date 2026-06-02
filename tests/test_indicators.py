@@ -16,6 +16,7 @@ from trading_utils.indicators import (
     calculate_indicators,
     calculate_rsi,
     calculate_z_score,
+    calculate_volume_profile,
 )
 
 
@@ -195,3 +196,142 @@ class TestCalculateIndicators:
         result = calculate_indicators(df)
         for col in ['EMA21', 'ATR', 'RSI', 'RSI_Z_Score', 'ATR_Distance', 'Pct_Above_EMA']:
             assert col in result.columns, f"Missing column: {col}"
+
+
+# ---------------------------------------------------------------------------
+# calculate_volume_profile
+# ---------------------------------------------------------------------------
+
+def _make_vp_df(n=50, base_price=100.0, bar_range=2.0, volumes=None):
+    """Build a minimal OHLCV DataFrame suitable for volume profile tests."""
+    closes  = [base_price + i * 0.1 for i in range(n)]
+    highs   = [c + bar_range / 2 for c in closes]
+    lows    = [c - bar_range / 2 for c in closes]
+    vols    = volumes if volumes is not None else [1000.0] * n
+    atr     = [bar_range * 0.7] * n
+    return pd.DataFrame({
+        'close':  closes,
+        'high':   highs,
+        'low':    lows,
+        'volume': vols,
+        'ATR':    atr,
+    })
+
+
+class TestCalculateVolumeProfile:
+
+    def test_returns_dict_with_required_keys(self):
+        """calculate_volume_profile returns dict with all required keys."""
+        df  = _make_vp_df()
+        vp  = calculate_volume_profile(df)
+        assert vp is not None
+        for key in ('poc', 'vah', 'val', 'position', 'dist_from_poc', 'buckets'):
+            assert key in vp, f"Missing key: {key}"
+
+    def test_buckets_count(self):
+        """buckets list has exactly n_buckets entries."""
+        df = _make_vp_df()
+        vp = calculate_volume_profile(df, n_buckets=24)
+        assert len(vp['buckets']) == 24
+
+    def test_bucket_fields(self):
+        """Each bucket has p, v, is_poc, in_va."""
+        df = _make_vp_df()
+        vp = calculate_volume_profile(df)
+        for b in vp['buckets']:
+            for key in ('p', 'v', 'is_poc', 'in_va'):
+                assert key in b, f"Missing bucket key: {key}"
+
+    def test_poc_is_highest_volume_bucket(self):
+        """POC price corresponds to the bucket that received the most volume."""
+        # Give bars 0-9 (low price zone) 10x volume — POC should be there
+        volumes = [10000.0] * 10 + [100.0] * 40
+        df  = _make_vp_df(n=50, volumes=volumes)
+        vp  = calculate_volume_profile(df)
+        poc_bucket = max(vp['buckets'], key=lambda b: b['v'])
+        assert poc_bucket['is_poc']
+        # POC should be in the lower portion of the price range
+        all_prices = [b['p'] for b in vp['buckets']]
+        median_price = sorted(all_prices)[len(all_prices) // 2]
+        assert vp['poc'] < median_price, "POC should be in the lower (high-volume) range"
+
+    def test_exactly_one_poc_bucket(self):
+        """Exactly one bucket is flagged is_poc=True."""
+        df = _make_vp_df()
+        vp = calculate_volume_profile(df)
+        poc_count = sum(1 for b in vp['buckets'] if b['is_poc'])
+        assert poc_count == 1
+
+    def test_value_area_covers_70pct_volume(self):
+        """Buckets in the value area contain at least 70% of total volume."""
+        df = _make_vp_df()
+        vp = calculate_volume_profile(df)
+        total_vol = sum(b['v'] for b in vp['buckets'])
+        va_vol    = sum(b['v'] for b in vp['buckets'] if b['in_va'])
+        assert va_vol / total_vol >= 0.70 - 1e-9
+
+    def test_vah_above_val(self):
+        """VAH must always be greater than VAL."""
+        df = _make_vp_df()
+        vp = calculate_volume_profile(df)
+        assert vp['vah'] > vp['val']
+
+    def test_position_above_vah(self):
+        """When current price is above VAH, position is 'above_vah'."""
+        df = _make_vp_df(base_price=100.0)
+        vp = calculate_volume_profile(df)
+        if vp is None:
+            pytest.skip("VP not computable for this fixture")
+        # Push the last close above VAH by patching
+        df2 = df.copy()
+        df2.loc[df2.index[-1], 'close'] = vp['vah'] + 10.0
+        vp2 = calculate_volume_profile(df2)
+        assert vp2 is not None
+        assert vp2['position'] == 'above_vah'
+
+    def test_position_below_val(self):
+        """When current price is below VAL, position is 'below_val'."""
+        df = _make_vp_df(base_price=100.0)
+        vp = calculate_volume_profile(df)
+        if vp is None:
+            pytest.skip("VP not computable for this fixture")
+        df2 = df.copy()
+        df2.loc[df2.index[-1], 'close'] = vp['val'] - 10.0
+        vp2 = calculate_volume_profile(df2)
+        assert vp2 is not None
+        assert vp2['position'] == 'below_val'
+
+    def test_zero_volume_returns_none(self):
+        """All-zero volume → returns None."""
+        df = _make_vp_df(volumes=[0.0] * 50)
+        assert calculate_volume_profile(df) is None
+
+    def test_insufficient_bars_returns_none(self):
+        """Fewer than 20 bars → returns None."""
+        df = _make_vp_df(n=10)
+        assert calculate_volume_profile(df, lookback_bars=90) is None
+
+    def test_missing_volume_column_returns_none(self):
+        """DataFrame without 'volume' column → returns None."""
+        df = _make_vp_df().drop(columns=['volume'])
+        assert calculate_volume_profile(df) is None
+
+    def test_missing_high_low_returns_none(self):
+        """DataFrame without 'high'/'low' columns → returns None."""
+        df = _make_vp_df().drop(columns=['high', 'low'])
+        assert calculate_volume_profile(df) is None
+
+    def test_nan_volume_treated_as_zero(self):
+        """NaN volume bars are treated as zero (not counted)."""
+        import numpy as np
+        volumes = [np.nan] * 10 + [1000.0] * 40
+        df = _make_vp_df(volumes=volumes)
+        vp = calculate_volume_profile(df)
+        assert vp is not None
+
+    def test_doji_bar_handled(self):
+        """Bars with high == low (doji) don't cause division by zero."""
+        df = _make_vp_df(n=30)
+        df.loc[df.index[5], 'high'] = df.loc[df.index[5], 'low']
+        vp = calculate_volume_profile(df, lookback_bars=30)
+        assert vp is not None

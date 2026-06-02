@@ -15,7 +15,7 @@ with only 20-30 weekly bars).
 import numpy as np
 import pandas as pd
 
-from .config import EMA_PERIOD, ATR_PERIOD, RSI_PERIOD, Z_SCORE_PERIOD
+from .config import EMA_PERIOD, ATR_PERIOD, RSI_PERIOD, Z_SCORE_PERIOD, VP_LOOKBACK_BARS, VP_N_BUCKETS
 
 
 def calculate_ema(df, period=EMA_PERIOD):
@@ -93,6 +93,121 @@ def calculate_z_score(series, period=Z_SCORE_PERIOD):
     rolling_mean = series.rolling(window=period).mean()
     rolling_std  = series.rolling(window=period).std()
     return (series - rolling_mean) / rolling_std
+
+
+def calculate_volume_profile(df, lookback_bars=VP_LOOKBACK_BARS, n_buckets=VP_N_BUCKETS):
+    """
+    Compute a fixed-lookback Volume Profile from OHLCV history.
+
+    Uses the last `lookback_bars` rows. Volume is distributed uniformly across
+    each bar's high-low range (standard daily-bar approximation). Returns None
+    when volume data is absent or insufficient.
+
+    Returns a dict with keys:
+      poc, vah, val, position, dist_from_poc, buckets
+    where buckets is a list of n_buckets dicts {p, v, is_poc, in_va}.
+    """
+    required = {'high', 'low', 'close', 'volume'}
+    if not required.issubset(df.columns):
+        return None
+
+    tail = df.tail(lookback_bars).copy()
+    tail['volume'] = pd.to_numeric(tail['volume'], errors='coerce').fillna(0.0)
+
+    if len(tail) < 20 or tail['volume'].sum() == 0:
+        return None
+
+    price_low  = float(tail['low'].min())
+    price_high = float(tail['high'].max())
+    if price_high <= price_low:
+        return None
+
+    bucket_size = (price_high - price_low) / n_buckets
+    buckets = np.zeros(n_buckets)
+
+    for _, row in tail.iterrows():
+        vol      = float(row['volume'])
+        if vol <= 0:
+            continue
+        bar_low  = float(row['low'])
+        bar_high = float(row['high'])
+        bar_range = bar_high - bar_low
+
+        if bar_range <= 0:
+            # Doji — assign all volume to the nearest bucket
+            idx = min(int((bar_low - price_low) / bucket_size), n_buckets - 1)
+            buckets[idx] += vol
+        else:
+            for b in range(n_buckets):
+                b_low  = price_low + b * bucket_size
+                b_high = b_low + bucket_size
+                overlap = min(bar_high, b_high) - max(bar_low, b_low)
+                if overlap > 0:
+                    buckets[b] += vol * overlap / bar_range
+
+    if buckets.sum() == 0:
+        return None
+
+    poc_idx   = int(np.argmax(buckets))
+    poc_price = price_low + (poc_idx + 0.5) * bucket_size
+
+    # Value Area: expand from POC until ≥ 70% of volume is enclosed
+    target    = buckets.sum() * 0.70
+    va_set    = {poc_idx}
+    accumulated = buckets[poc_idx]
+    lo_idx, hi_idx = poc_idx, poc_idx
+
+    while accumulated < target:
+        can_lo = lo_idx - 1 if lo_idx > 0 else None
+        can_hi = hi_idx + 1 if hi_idx < n_buckets - 1 else None
+        vol_lo = buckets[can_lo] if can_lo is not None else -1.0
+        vol_hi = buckets[can_hi] if can_hi is not None else -1.0
+        if vol_lo < 0 and vol_hi < 0:
+            break
+        if vol_lo >= vol_hi:
+            lo_idx = can_lo
+            va_set.add(lo_idx)
+            accumulated += vol_lo
+        else:
+            hi_idx = can_hi
+            va_set.add(hi_idx)
+            accumulated += vol_hi
+
+    val_price = price_low + lo_idx * bucket_size
+    vah_price = price_low + (hi_idx + 1) * bucket_size
+
+    current_price = float(tail['close'].iloc[-1])
+    if current_price > vah_price:
+        position = 'above_vah'
+    elif current_price < val_price:
+        position = 'below_val'
+    elif abs(current_price - poc_price) <= bucket_size * 1.5:
+        position = 'at_poc'
+    else:
+        position = 'in_value_area'
+
+    atr_col = tail['ATR'] if 'ATR' in tail.columns else None
+    current_atr = float(atr_col.iloc[-1]) if atr_col is not None and pd.notna(atr_col.iloc[-1]) else None
+    dist_from_poc = round((current_price - poc_price) / current_atr, 4) if current_atr and current_atr > 0 else None
+
+    bucket_list = [
+        {
+            'p':      round(price_low + (i + 0.5) * bucket_size, 6),
+            'v':      round(float(buckets[i]), 2),
+            'is_poc': i == poc_idx,
+            'in_va':  i in va_set,
+        }
+        for i in range(n_buckets)
+    ]
+
+    return {
+        'poc':          round(poc_price, 6),
+        'vah':          round(vah_price, 6),
+        'val':          round(val_price, 6),
+        'position':     position,
+        'dist_from_poc':dist_from_poc,
+        'buckets':      bucket_list,
+    }
 
 
 def calculate_indicators(df):

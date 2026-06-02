@@ -42,6 +42,7 @@ END_DATE = datetime.now()
 _EXCEL_HEADERS = [
     'Date', 'Asset', 'Timeframe', 'Price', 'EMA21', 'ATR',
     'RSI', 'RSI_Z_Score', 'ATR_Distance', 'Pct_Above_EMA',
+    'High', 'Low', 'Volume',
 ]
 
 
@@ -189,9 +190,12 @@ def get_historical_data(asset, start_date, end_date, timeframe):
             'ATR': to_scalar(row['ATR']),
             'RSI': to_scalar(row['RSI']),
             'RSI_Z_Score': to_scalar(row['RSI_Z_Score']),
-            'ATR_Distance': to_scalar(row['ATR_Distance']),
+            'ATR_Distance':  to_scalar(row['ATR_Distance']),
             'Pct_Above_EMA': to_scalar(row['Pct_Above_EMA']),
-            'Timeframe': timeframe,
+            'Timeframe':     timeframe,
+            'High':          to_scalar(row['high'])   if 'high'   in df.columns else None,
+            'Low':           to_scalar(row['low'])    if 'low'    in df.columns else None,
+            'Volume':        to_scalar(row['volume']) if 'volume' in df.columns else None,
         })
 
     return data
@@ -226,8 +230,11 @@ def write_to_sheet(wb, sheet_name, data):
         ws.cell(row=start_row, column=6, value=row_data['ATR'])
         ws.cell(row=start_row, column=7, value=row_data['RSI'])
         ws.cell(row=start_row, column=8, value=row_data['RSI_Z_Score'])
-        ws.cell(row=start_row, column=9, value=row_data['ATR_Distance'])
+        ws.cell(row=start_row, column=9,  value=row_data['ATR_Distance'])
         ws.cell(row=start_row, column=10, value=row_data['Pct_Above_EMA'])
+        ws.cell(row=start_row, column=11, value=row_data.get('High'))
+        ws.cell(row=start_row, column=12, value=row_data.get('Low'))
+        ws.cell(row=start_row, column=13, value=row_data.get('Volume'))
         existing_keys.add(key)
         start_row += 1
         new_count += 1

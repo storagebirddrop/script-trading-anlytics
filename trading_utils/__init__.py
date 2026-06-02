@@ -18,6 +18,9 @@ from .config import (
     ATR_PERIOD,
     RSI_PERIOD,
     Z_SCORE_PERIOD,
+    VP_LOOKBACK_BARS,
+    VP_LOOKBACK_BARS_WEEKLY,
+    VP_N_BUCKETS,
 )
 
 from .validation import ValidationResult, validate_dataframe
@@ -27,7 +30,8 @@ from .indicators import (
     calculate_atr,
     calculate_rsi,
     calculate_z_score,
-    calculate_indicators
+    calculate_indicators,
+    calculate_volume_profile,
 )
 
 from .data_sources import (
@@ -55,6 +59,9 @@ __all__ = [
     'ATR_PERIOD',
     'RSI_PERIOD',
     'Z_SCORE_PERIOD',
+    'VP_LOOKBACK_BARS',
+    'VP_LOOKBACK_BARS_WEEKLY',
+    'VP_N_BUCKETS',
     # Validation
     'ValidationResult',
     'validate_dataframe',
@@ -64,6 +71,7 @@ __all__ = [
     'calculate_rsi',
     'calculate_z_score',
     'calculate_indicators',
+    'calculate_volume_profile',
     # Data sources
     'fetch_ohlcv_binance',
     'fetch_ohlcv_yahoo',

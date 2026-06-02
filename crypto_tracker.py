@@ -39,6 +39,7 @@ _SPREADSHEET = Path(SPREADSHEET_PATH)
 _EXCEL_HEADERS = [
     'Date', 'Asset', 'Timeframe', 'Price', 'EMA21', 'ATR',
     'RSI', 'RSI_Z_Score', 'ATR_Distance', 'Pct_Above_EMA',
+    'High', 'Low', 'Volume',
 ]
 
 _MAX_FAILED_ASSETS = 8  # allow up to 4 assets × 2 timeframes missing from Yahoo Finance
@@ -85,6 +86,9 @@ def get_data(asset, timeframe):
         'ATR_Distance': float(latest['ATR_Distance']) if pd.notna(latest['ATR_Distance']) else None,
         'Pct_Above_EMA': float(latest['Pct_Above_EMA']),
         'Timeframe': timeframe,
+        'High':   float(df['high'].iloc[-1])   if 'high'   in df.columns and pd.notna(df['high'].iloc[-1])   else None,
+        'Low':    float(df['low'].iloc[-1])    if 'low'    in df.columns and pd.notna(df['low'].iloc[-1])    else None,
+        'Volume': float(df['volume'].iloc[-1]) if 'volume' in df.columns and pd.notna(df['volume'].iloc[-1]) else None,
     }
 
 
@@ -125,8 +129,11 @@ def write_to_excel(records):
         ws.cell(row=start_row, column=6, value=row_data['ATR'])
         ws.cell(row=start_row, column=7, value=row_data['RSI'])
         ws.cell(row=start_row, column=8, value=row_data['RSI_Z_Score'])
-        ws.cell(row=start_row, column=9, value=row_data['ATR_Distance'])
+        ws.cell(row=start_row, column=9,  value=row_data['ATR_Distance'])
         ws.cell(row=start_row, column=10, value=row_data['Pct_Above_EMA'])
+        ws.cell(row=start_row, column=11, value=row_data.get('High'))
+        ws.cell(row=start_row, column=12, value=row_data.get('Low'))
+        ws.cell(row=start_row, column=13, value=row_data.get('Volume'))
         existing_keys.add(key)
         start_row += 1
         new_count += 1
