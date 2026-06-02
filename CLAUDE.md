@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A trading analytics pipeline that fetches OHLCV data from Binance (crypto) and Yahoo Finance (stocks/ETFs), calculates technical indicators, stores historical data, classifies market regimes, and serves an interactive web dashboard via GitHub Actions + Cloudflare Pages.
+A trading analytics pipeline that fetches OHLCV data from Yahoo Finance (crypto, stocks, ETFs, macro), Binance/CCXT (SCP), and GeckoTerminal (D2X), calculates technical indicators, stores historical data, classifies market regimes, and serves an interactive web dashboard via GitHub Actions + Cloudflare Pages.
 
 ## Common Commands
 
@@ -71,7 +71,7 @@ Shared library used by both `crypto_tracker.py` and `backfill_historical.py`. Av
 
 | Submodule | Contents |
 |-----------|----------|
-| `trading_utils/config.py` | `ASSETS`, `ASSET_CONFIG`, `MANUAL_DATA`, all path constants, indicator periods |
+| `trading_utils/config.py` | `ASSETS`, `ASSET_CONFIG`, `MACRO_ASSETS`, `MANUAL_DATA`, all path constants, indicator periods |
 | `trading_utils/indicators.py` | `calculate_ema`, `calculate_atr`, `calculate_rsi`, `calculate_z_score`, `calculate_indicators`, `calculate_volume_profile` |
 | `trading_utils/data_sources.py` | `fetch_ohlcv_binance`, `fetch_ohlcv_yahoo`, `fetch_ohlcv`, `get_manual_data`, `_with_retry` |
 
@@ -93,10 +93,21 @@ Shared library used by both `crypto_tracker.py` and `backfill_historical.py`. Av
 
 ### Tracked Assets
 
-45 assets across 3 categories, both daily (`1d`) and weekly (`1w`) timeframes:
+70 assets across 4 categories (45 trading + 25 macro), both daily (`1d`) and weekly (`1w`) timeframes:
+
+**Trading portfolio (45 assets):**
 - **Crypto (28):** BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP, ADA, NIGHT, VTHO, LINK, NEO, GAS, DRIFT, SEI, PEAQ, AEVO, EIGEN, W, WOO, JASMY — fetched via Yahoo Finance (symbol format: `BTC-USD`, `LINK-USD`). REZ, ONDO, NIGHT and some newer tokens may not be listed on Yahoo Finance and will fail gracefully. Also includes D2X (Solana via GeckoTerminal) and SCP (CoinEx via CCXT) — all 28 are grouped as "Crypto" in the dashboard UI and `ASSET_CATEGORIES`.
 - **NASDAQ stocks (11):** MSTR, XXI, RIOT, MARA, IREN, BMNR, HUT, WULF, HIVE, CLSK, SLNH
 - **LSE ETFs (6):** MSTY, YMST, MARY, RIOY, IREY, BMNY — fetched via Yahoo Finance with `.L` suffix. These pay large regular distributions; **always use `auto_adjust=False`** in `yf.download()` calls or historical EMA/ATR will be corrupted each time a dividend is paid.
+
+**Macro assets (25 assets) — appear only on the Macro tab:**
+- **US Indices (4):** SPX (`^GSPC`), NDX (`^NDX`), RTY (`^RUT`), DJI (`^DJI`)
+- **EU Indices (3):** DAX (`^GDAXI`), CAC (`^FCHI`), FTSE (`^FTSE`)
+- **APAC Indices (3):** NIK (`^N225`), HSI (`^HSI`), ASX (`^AXJO`)
+- **Commodities (7):** GOLD (`GC=F`), SILVER (`SI=F`), OIL (`CL=F`), NATGAS (`NG=F`), COPPER (`HG=F`), WHEAT (`ZW=F`), CORN (`ZC=F`)
+- **Forex (8):** DXY (`DX-Y.NYB`), EURUSD, GBPUSD, AUDUSD, NZDUSD, USDCAD, USDCHF, USDJPY (all `=X` suffix)
+
+Macro assets are tracked identically to trading assets in the pipeline (OHLCV, ATR, RSI, VP) but are separated in the dashboard via `MACRO_ASSETS` in `config.py` and `ASSET_CATEGORIES.macro` in `dashboard.js`. They are excluded from Portfolio cards, Rankings, Opportunity/Risk panels, and the Extremes/Drilldown asset selectors. Natural gas is named `NATGAS` to avoid collision with the `GAS` crypto asset.
 
 ### Key Indicators
 
@@ -159,7 +170,7 @@ All fields are `null` when `High`/`Low`/`Volume` columns are absent from `histor
 
 ### Resilience Behaviour
 
-- **API retries:** `_with_retry` in `trading_utils/data_sources.py` retries each fetch up to 3 times with exponential backoff (5s, 10s, 20s). If more than 16 (asset, timeframe) pairs fail in `crypto_tracker.py`, it exits with code 1 and the CI job fails visibly. The threshold is 16 (not 3) to allow for up to 8 assets that may be unlisted on Yahoo Finance (several newer tokens may not be available).
+- **API retries:** `_with_retry` in `trading_utils/data_sources.py` retries each fetch up to 3 times with exponential backoff (5s, 10s, 20s). If more than 40 (asset, timeframe) pairs fail in `crypto_tracker.py`, it exits with code 1 and the CI job fails visibly. The threshold is 40 to allow for newer crypto tokens and macro assets that may be temporarily unavailable (Yahoo Finance futures contracts roll periodically).
 - **Binance pagination:** `backfill_historical.py:fetch_historical_binance` loops with `since` offsets to handle histories longer than 1000 bars.
 - **ATR = 0:** `ATR_Distance` is set to `NaN` rather than `inf`/`-inf`.
 - **JSON safety:** `_sanitise()` in `calculate_metrics.py` replaces all `NaN`/`inf` with `null` before writing `dashboard.json`.
@@ -168,17 +179,18 @@ All fields are `null` when `High`/`Low`/`Volume` columns are absent from `histor
 
 ### Web Dashboard
 
-Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (copied from `data/dashboard.json`) and `dashboard/assets/chart_history.json` via `fetch()`. Five pages, four tabs. Uses Chart.js (CDN) for charts.
+Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (copied from `data/dashboard.json`) and `dashboard/assets/chart_history.json` via `fetch()`. Two pages, five tabs. Uses Chart.js (CDN) for charts.
 
 **Pages:**
 - `dashboard/landing.html` — static landing page (no JS, no data fetch); explains ATR Distance, regime classification, and the four-step workflow. Linked from the "About" button in the dashboard header.
 - `dashboard/index.html` — main single-page app
 
 **Tabs:**
-- **Portfolio tab:** Portfolio Health Bar (oversold%/neutral%/extended%/sentiment), Opportunity panel (top-3 most oversold with signal-strength labels), Risk panel (top-3 most extended), then asset cards with ATR Distance (semantically coloured: green=oversold, orange=extended, red=extreme), inline historical percentile badge (P8%), and VP position badge when data is available; filterable by regime and category
-- **Rankings tab:** top 10 most oversold / most extended assets with historical percentile rank and signal-strength label (Extreme Oversold → Mild Dip / Extreme Extended → Mild Extension)
-- **Extremes tab** (formerly "Historical"): percentile gauge showing current ATR Distance position within historical range, with coloured regime zones; contextual interpretation paragraph explaining how frequently the asset has been at this level; metrics grid including RSI Z-Score
-- **Drilldown tab:** Key Takeaways panel (up to 5 auto-generated insights: ATR percentile, RSI status, weekly regime alignment, recent ATR trend direction, and VP position), then Chart.js line charts (Price vs EMA21, ATR Distance, RSI, Weekly ATR Distance, Volume Profile horizontal bar chart) plus summary metrics grid (includes VP Zone, POC, VAH, VAL rows)
+- **Portfolio tab:** Portfolio Health Bar (oversold%/neutral%/extended%/sentiment), Opportunity panel (top-3 most oversold with signal-strength labels), Risk panel (top-3 most extended), then asset cards with ATR Distance (semantically coloured: green=oversold, orange=extended, red=extreme), inline historical percentile badge (P8%), and VP position badge when data is available; filterable by regime and category. Macro assets are excluded from this tab.
+- **Rankings tab:** top 10 most oversold / most extended assets with historical percentile rank and signal-strength label (Extreme Oversold → Mild Dip / Extreme Extended → Mild Extension). Macro assets excluded.
+- **Extremes tab** (formerly "Historical"): percentile gauge showing current ATR Distance position within historical range, with coloured regime zones; contextual interpretation paragraph explaining how frequently the asset has been at this level; metrics grid including RSI Z-Score. Macro assets excluded from selector.
+- **Macro tab:** 25 macro assets grouped into 5 sections (US Indices, EU Indices, APAC Indices, Commodities, Forex). Each card shows symbol, zone badge (`macroZoneLabel()`), price, ATR Distance, and Chg%. Clicking any card navigates to the Drilldown for that asset. Zone badges use neutral labels (Neutral/Oversold/Extended) rather than the crypto-flavoured regime names.
+- **Drilldown tab:** Key Takeaways panel (up to 5 auto-generated insights: ATR percentile, RSI status, weekly regime alignment, recent ATR trend direction, and VP position), then Chart.js line charts (Price vs EMA21, ATR Distance, RSI, Weekly ATR Distance, Volume Profile horizontal bar chart) plus summary metrics grid (includes VP Zone, POC, VAH, VAL rows). Available for all 70 assets including macro.
 
 **Signal strength tiers** (used in Opportunity/Risk panels and Rankings):
 Uses the **more severe** of two independent signals — whichever gives the stronger label wins:
@@ -221,11 +233,18 @@ The gauge x-axis represents the empirical distribution, not a linear ATR Distanc
 - `getAtrColorClass(atrDistance)` — returns semantic CSS class for ATR Distance coloring
 - `vpPositionLabel(pos)` — returns `{ label, cls }` for a VP position string
 - `vpBadgeHtml(pos)` — returns badge `<span>` HTML for a VP position (empty string if null)
-- `renderPortfolioHealthBar()` — populates the health summary bar
-- `renderOpportunityPanels()` — populates top-3 oversold / extended panels
+- `macroZoneLabel(atrDistance)` — returns `{ label, cssClass }` for a macro zone badge; uses ATR Distance thresholds with neutral display names (Neutral/Oversold/Extended rather than crypto regime names)
+- `renderPortfolioHealthBar()` — populates the health summary bar (excludes macro assets)
+- `renderOpportunityPanels()` — populates top-3 oversold / extended panels (excludes macro assets)
+- `renderMacro()` — renders the Macro tab with 5 subcategory groups; builds cards via DOM API for CSP compliance
 - `buildGaugeInterpretation(current, historical)` — returns plain-language gauge interpretation text
 - `generateKeyTakeaways(symbol, tfData, allData, chartHistory)` — generates drilldown insight array (up to 5, including VP)
 - `renderVolumeProfileChart(current, tf)` — renders horizontal bar VP chart; CSP-compliant legend via DOM API
+
+**Key JS constants:**
+- `ASSET_CATEGORIES` — sets for `crypto`, `nasdaq`, `lse`, `macro`; used to filter assets across all tabs
+- `MACRO_SUBCATEGORIES` — ordered groupings for the Macro tab layout
+- `MACRO_FOREX_SYMBOLS` — set of forex/DXY symbols; controls price display format (4dp plain vs `$`-prefixed)
 
 ### CI/CD
 
