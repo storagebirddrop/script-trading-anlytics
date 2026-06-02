@@ -8,8 +8,21 @@ const charts = {};
 const ASSET_CATEGORIES = {
     crypto: new Set(['BTC','ETH','SOL','XLM','REZ','RSR','NEAR','RENDER','ONDO','ACH','BNB','XRP','ADA','NIGHT','VTHO','LINK','NEO','GAS','DRIFT','SEI','PEAQ','AEVO','EIGEN','W','WOO','JASMY','D2X','SCP']),
     nasdaq: new Set(['MSTR','XXI','RIOT','MARA','IREN','BMNR','HUT','WULF','HIVE','CLSK','SLNH']),
-    lse:    new Set(['MSTY','YMST','MARY','RIOY','IREY','BMNY'])
+    lse:    new Set(['MSTY','YMST','MARY','RIOY','IREY','BMNY']),
+    macro:  new Set(['SPX','NDX','RTY','DJI','DAX','CAC','FTSE','NIK','HSI','ASX','GOLD','SILVER','OIL','NATGAS','COPPER','WHEAT','CORN','DXY','EURUSD','GBPUSD','AUDUSD','NZDUSD','USDCAD','USDCHF','USDJPY']),
 };
+
+// Macro subcategory groupings for the Macro tab layout
+const MACRO_SUBCATEGORIES = {
+    'US Indices':   ['SPX', 'NDX', 'RTY', 'DJI'],
+    'EU Indices':   ['DAX', 'CAC', 'FTSE'],
+    'APAC Indices': ['NIK', 'HSI', 'ASX'],
+    'Commodities':  ['GOLD', 'SILVER', 'OIL', 'NATGAS', 'COPPER', 'WHEAT', 'CORN'],
+    'Forex':        ['DXY', 'EURUSD', 'GBPUSD', 'AUDUSD', 'NZDUSD', 'USDCAD', 'USDCHF', 'USDJPY'],
+};
+
+// Forex pairs shown with 4 decimal places (no $ prefix); DXY shown plain without $
+const MACRO_FOREX_SYMBOLS = new Set(['EURUSD','GBPUSD','AUDUSD','NZDUSD','USDCAD','USDCHF','USDJPY','DXY']);
 
 // LSE ETFs are quoted in GBp (pence) by Yahoo Finance
 const LSE_ASSETS = ASSET_CATEGORIES.lse;
@@ -153,6 +166,17 @@ function vpBadgeHtml(pos) {
     return `<span class="vp-badge ${escapeHtml(info.cls)}">${escapeHtml(info.label)}</span>`;
 }
 
+// Returns { label, cssClass } for a macro zone based on ATR Distance.
+// Same thresholds as regime classification but neutral display names.
+function macroZoneLabel(atrDistance) {
+    if (atrDistance == null) return { label: 'Unknown',          cssClass: 'zone-unknown' };
+    if (atrDistance < -4)   return { label: 'Extreme Oversold', cssClass: 'zone-extreme-oversold' };
+    if (atrDistance < -2)   return { label: 'Oversold',         cssClass: 'zone-oversold' };
+    if (atrDistance <= 2)   return { label: 'Neutral',          cssClass: 'zone-neutral' };
+    if (atrDistance <= 4)   return { label: 'Extended',         cssClass: 'zone-extended' };
+    return                         { label: 'Extreme Extended', cssClass: 'zone-extreme-extended' };
+}
+
 // ─── Data loading ─────────────────────────────────────────────────────────────
 
 async function loadDashboardData() {
@@ -223,6 +247,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderPortfolio();
     renderRankings();
     renderHistoricalContext();
+    renderMacro();
     await ensureChartHistory();
     renderDrilldown();
 });
@@ -264,6 +289,8 @@ function setupNavigation() {
             if (targetTab === 'drilldown-tab') {
                 await ensureChartHistory();
                 renderDrilldown();
+            } else if (targetTab === 'macro-tab') {
+                renderMacro();
             }
         });
     });
@@ -273,7 +300,8 @@ function setupNavigation() {
 
 function setupAssetSelectors() {
     if (!dashboardData) return;
-    const assets = Object.keys(dashboardData.assets).sort();
+    // Macro assets are on their own tab; exclude from the Extremes/Drilldown selectors
+    const assets = Object.keys(dashboardData.assets).filter(a => !ASSET_CATEGORIES.macro.has(a)).sort();
 
     const historicalSelect = document.getElementById('asset-select');
     assets.forEach(asset => {
@@ -327,7 +355,8 @@ function renderPortfolioHealthBar() {
     let total = 0, oversoldCount = 0, extendedCount = 0, neutralCount = 0;
     const regimeCounts = {};
 
-    Object.values(dashboardData.assets).forEach(ad => {
+    Object.entries(dashboardData.assets).forEach(([asset, ad]) => {
+        if (ASSET_CATEGORIES.macro.has(asset)) return;
         const c = ad['1d']?.current;
         if (!c) return;
         total++;
@@ -391,6 +420,7 @@ function renderOpportunityPanels() {
 
     const ranked = [];
     Object.entries(dashboardData.assets).forEach(([symbol, ad]) => {
+        if (ASSET_CATEGORIES.macro.has(symbol)) return;
         const c = ad['1d']?.current;
         const n = ad['1d']?.historical?.sample_size ?? 0;
         if (c?.atr_distance != null) {
@@ -467,7 +497,8 @@ function renderPortfolio() {
     const container = document.getElementById('portfolio-cards');
     container.innerHTML = '';
 
-    let assets = Object.keys(dashboardData.assets).sort();
+    // Macro assets live on their own tab — exclude from portfolio view entirely
+    let assets = Object.keys(dashboardData.assets).filter(a => !ASSET_CATEGORIES.macro.has(a)).sort();
 
     // ── Regime strip ──────────────────────────────────────────────────────────
     const regimeCounts = {};
@@ -632,6 +663,7 @@ function renderRankings() {
 
     const rankings = [];
     Object.entries(dashboardData.assets).forEach(([asset, assetData]) => {
+        if (ASSET_CATEGORIES.macro.has(asset)) return;
         const d = assetData['1d']?.current;
         if (d?.atr_distance != null) {
             rankings.push({
@@ -1424,6 +1456,90 @@ function renderPlaceholderChart(chartId, title, message) {
             </div>
         </div>
     `;
+}
+
+// ─── Macro tab ────────────────────────────────────────────────────────────────
+
+function renderMacro() {
+    if (!dashboardData) return;
+    const container = document.getElementById('macro-content');
+    if (!container) return;
+    container.innerHTML = '';
+
+    Object.entries(MACRO_SUBCATEGORIES).forEach(([groupName, symbols]) => {
+        const group = document.createElement('div');
+        group.className = 'macro-group';
+
+        const title = document.createElement('div');
+        title.className = 'macro-group-title';
+        title.textContent = groupName;
+        group.appendChild(title);
+
+        const cards = document.createElement('div');
+        cards.className = 'macro-group-cards';
+
+        symbols.forEach(symbol => {
+            const assetData = dashboardData.assets[symbol];
+            const daily = assetData?.['1d']?.current;
+            if (!daily) return;
+
+            const atrDist = daily.atr_distance;
+            const zone    = macroZoneLabel(atrDist);
+            const chg     = daily.price_change_pct;
+            const price   = daily.price;
+
+            // Forex/DXY: plain number (4dp for pairs, 2dp for DXY); indices/commodities: $-formatted
+            const priceStr = price == null ? 'N/A'
+                : symbol === 'DXY'              ? price.toFixed(2)
+                : MACRO_FOREX_SYMBOLS.has(symbol) ? price.toFixed(4)
+                : `$${price.toLocaleString()}`;
+
+            const chgStr = chg != null ? (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%' : '';
+            const chgCls = chg == null ? '' : chg >= 0 ? 'positive' : 'negative';
+            const atrStr = atrDist != null ? atrDist.toFixed(2) : 'N/A';
+            const atrCls = getAtrColorClass(atrDist) || signClass(atrDist);
+
+            const card = document.createElement('div');
+            card.className = 'macro-card';
+            card.dataset.asset = symbol;
+
+            const sym = document.createElement('span');
+            sym.className = 'macro-card-symbol';
+            sym.textContent = symbol;
+
+            const zoneBadge = document.createElement('span');
+            zoneBadge.className = `zone-badge ${zone.cssClass} macro-card-zone`;
+            zoneBadge.textContent = zone.label;
+
+            const priceEl = document.createElement('span');
+            priceEl.className = 'macro-card-price';
+            priceEl.textContent = priceStr;
+
+            const atrEl = document.createElement('span');
+            atrEl.className = `macro-card-atr ${atrCls}`;
+            atrEl.textContent = atrStr;
+
+            if (chgStr) {
+                const chgEl = document.createElement('span');
+                chgEl.className = `macro-card-chg ${chgCls}`;
+                chgEl.textContent = chgStr;
+                card.append(sym, zoneBadge, priceEl, atrEl, chgEl);
+            } else {
+                card.append(sym, zoneBadge, priceEl, atrEl);
+            }
+
+            cards.appendChild(card);
+        });
+
+        group.appendChild(cards);
+        container.appendChild(group);
+    });
+
+    // Click → open Drilldown for the selected macro asset
+    container.addEventListener('click', e => {
+        const card = e.target.closest('.macro-card[data-asset]');
+        if (card) navigateTo('drilldown-tab', card.dataset.asset);
+    });
 }
 
 function renderVolumeProfileChart(current, tf) {

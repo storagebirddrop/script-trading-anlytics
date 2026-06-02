@@ -95,6 +95,14 @@
                 </div>
             </section>
 
+            <!-- Macro Overview Tab -->
+            <section id="macro-tab" class="tab-content" role="tabpanel" tabindex="-1" aria-labelledby="tab-macro">
+                <h2>Macro Overview</h2>
+                <div id="macro-content" class="macro-content">
+                    <div class="loading">Loading dashboard data...</div>
+                </div>
+            </section>
+
             <!-- Asset Drilldown Tab -->
             <section id="drilldown-tab" class="tab-content" role="tabpanel" tabindex="-1" aria-labelledby="tab-drilldown">
                 <h2>Asset Drilldown</h2>
@@ -147,6 +155,10 @@
             <button id="tab-historical" class="nav-btn" data-tab="historical-tab" role="tab" aria-selected="false" aria-label="Extremes — historical percentile context" aria-controls="historical-tab">
                 <span class="nav-icon" aria-hidden="true">📉</span>
                 <span class="nav-label">Extremes</span>
+            </button>
+            <button id="tab-macro" class="nav-btn" data-tab="macro-tab" role="tab" aria-selected="false" aria-label="Macro Overview" aria-controls="macro-tab">
+                <span class="nav-icon" aria-hidden="true">🌐</span>
+                <span class="nav-label">Macro</span>
             </button>
             <button id="tab-drilldown" class="nav-btn" data-tab="drilldown-tab" role="tab" aria-selected="false" aria-label="Asset Drilldown" aria-controls="drilldown-tab">
                 <span class="nav-icon" aria-hidden="true">🔍</span>
