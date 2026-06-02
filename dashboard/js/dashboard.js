@@ -207,6 +207,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderPortfolio();
     renderRankings();
     renderHistoricalContext();
+    await ensureChartHistory();
     renderDrilldown();
 });
 
