@@ -43,6 +43,20 @@
                         <div class="panel-items" id="risk-items"></div>
                     </div>
                 </div>
+                <div id="portfolio-search-wrap" class="portfolio-search-wrap">
+                    <input type="search" id="portfolio-search" class="portfolio-search"
+                           placeholder="Search assets…" aria-label="Search assets" autocomplete="off">
+                </div>
+                <div id="transitions-section" class="transitions-section" hidden>
+                    <div class="transitions-title">&#9679; Recent Regime Transitions</div>
+                    <div id="transitions-list" class="transitions-list"></div>
+                </div>
+                <div id="breadth-section" class="breadth-section" hidden>
+                    <h3>Market Breadth — 60-Day Regime History</h3>
+                    <div class="breadth-chart-container">
+                        <canvas id="breadth-chart"></canvas>
+                    </div>
+                </div>
                 <div class="filter-bar" id="portfolio-filter-bar">
                     <div class="filter-group">
                         <span class="filter-label">Timeframe</span>
@@ -67,6 +81,7 @@
                             <option value="atr_asc">ATR Dist. ↑ (Oversold first)</option>
                             <option value="atr_desc">ATR Dist. ↓ (Extended first)</option>
                             <option value="rsi_asc">RSI ↑</option>
+                            <option value="mcap_asc">Market Cap ↓</option>
                         </select>
                     </div>
                 </div>

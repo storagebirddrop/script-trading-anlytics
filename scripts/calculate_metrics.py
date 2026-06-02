@@ -21,6 +21,7 @@ from trading_utils import (
     HISTORY_CSV_PATH, DASHBOARD_JSON_PATH, CHART_HISTORY_JSON_PATH, METADATA_JSON_PATH,
     MARKET_CAPS_JSON_PATH,
     calculate_volume_profile, VP_LOOKBACK_BARS, VP_LOOKBACK_BARS_WEEKLY,
+    MACRO_ASSETS,
 )
 
 
@@ -113,6 +114,28 @@ def _load_market_caps() -> dict:
         return {}
 
 
+def _compute_30d_returns(history_df: pd.DataFrame) -> dict:
+    """Compute 30-day price returns per (asset, timeframe)."""
+    returns: dict = {}
+    for (asset, tf), group in history_df.groupby(['Asset', 'Timeframe']):
+        if pd.isna(tf):
+            continue
+        tf_norm = _norm_timeframe(str(tf))
+        group = group.sort_values('Date', ascending=True).dropna(subset=['Price'])
+        if len(group) < 2:
+            continue
+        latest_date = pd.Timestamp(group['Date'].iloc[-1])
+        target_date = latest_date - pd.Timedelta(days=30)
+        past = group[pd.to_datetime(group['Date']) <= target_date]
+        if len(past) == 0:
+            continue
+        curr_price = float(group['Price'].iloc[-1])
+        past_price = float(past['Price'].iloc[-1])
+        if past_price > 0:
+            returns.setdefault(asset, {})[tf_norm] = (curr_price - past_price) / past_price
+    return returns
+
+
 def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
     """Calculate current snapshot metrics for each asset+timeframe."""
     metrics: Dict[str, Any] = {}
@@ -168,6 +191,33 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
             lookback = VP_LOOKBACK_BARS_WEEKLY if tf_norm == '1w' else VP_LOOKBACK_BARS
             vp = calculate_volume_profile(vp_df, lookback_bars=lookback)
 
+        # Regime transition — compare current regime to the previous bar
+        sorted_data = asset_data.sort_values('Date', ascending=True)
+        regime_changed = False
+        prev_regime = None
+        if len(sorted_data) >= 2:
+            prev_atr_d = sorted_data.iloc[-2].get('ATR_Distance')
+            if pd.notna(prev_atr_d):
+                prev_regime = classify_regime(float(prev_atr_d))
+                regime_changed = bool(prev_regime != regime)
+
+        # ATR compression — slope of last 10 ATR bars (relative to mean ATR)
+        atr_series = sorted_data['ATR'].dropna().values
+        atr_trend = None
+        if len(atr_series) >= 5:
+            last10 = atr_series[-10:]
+            if len(last10) >= 5:
+                x = np.arange(len(last10), dtype=float)
+                slope = float(np.polyfit(x, last10.astype(float), 1)[0])
+                mean_atr = float(last10.mean())
+                rel_slope = slope / mean_atr if mean_atr > 0 else 0.0
+                if rel_slope > 0.01:
+                    atr_trend = 'expanding'
+                elif rel_slope < -0.01:
+                    atr_trend = 'compressing'
+                else:
+                    atr_trend = 'flat'
+
         metrics[asset][tf_norm]['current'] = {
             'date': str(row['Date']),
             'price': float(row['Price']) if pd.notna(row['Price']) else None,
@@ -188,6 +238,9 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
             'vp_buckets':       vp['buckets']       if vp else None,
             'market_cap':       market_caps.get(asset, {}).get('market_cap'),
             'market_cap_rank':  market_caps.get(asset, {}).get('market_cap_rank'),
+            'regime_changed':   regime_changed,
+            'prev_regime':      prev_regime,
+            'atr_trend':        atr_trend,
         }
 
     return metrics
@@ -275,6 +328,44 @@ def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
             if asset in current_metrics and tf in current_metrics[asset]:
                 assets_data[asset][tf]['current'] = current_metrics[asset][tf]['current']
 
+    # ── Multi-timeframe alignment badge ─────────────────────────────────────────
+    _oversold_regimes  = {'Capitulation', 'Accumulation'}
+    _extended_regimes  = {'Distribution', 'Mania'}
+    for asset, tfs in assets_data.items():
+        c1d = tfs.get('1d', {}).get('current')
+        c1w = tfs.get('1w', {}).get('current')
+        if c1d and c1w:
+            r1d = c1d.get('regime')
+            r1w = c1w.get('regime')
+            if r1d and r1w and r1d != 'Unknown' and r1w != 'Unknown':
+                if r1d in _oversold_regimes and r1w in _oversold_regimes:
+                    alignment = 'aligned-bullish'
+                elif r1d in _extended_regimes and r1w in _extended_regimes:
+                    alignment = 'aligned-bearish'
+                else:
+                    alignment = 'diverging'
+                c1d['alignment'] = alignment
+                c1w['alignment'] = alignment
+
+    # ── Relative Strength vs BTC (crypto daily) ──────────────────────────────────
+    # Crypto assets (matches ASSET_CATEGORIES.crypto in dashboard.js)
+    _CRYPTO_ASSETS = {
+        'BTC', 'ETH', 'SOL', 'XLM', 'REZ', 'RSR', 'NEAR', 'RENDER', 'ONDO', 'ACH',
+        'BNB', 'XRP', 'ADA', 'NIGHT', 'VTHO', 'LINK', 'NEO', 'GAS', 'DRIFT', 'SEI',
+        'PEAQ', 'AEVO', 'EIGEN', 'W', 'WOO', 'JASMY', 'D2X', 'SCP',
+    }
+    _returns_30d = _compute_30d_returns(history_df)
+    _btc_ret = _returns_30d.get('BTC', {}).get('1d')
+    for asset in _CRYPTO_ASSETS:
+        c1d = assets_data.get(asset, {}).get('1d', {}).get('current')
+        if c1d is None:
+            continue
+        if _btc_ret and _btc_ret != 0:
+            asset_ret = _returns_30d.get(asset, {}).get('1d')
+            c1d['rs_vs_btc'] = float(asset_ret / _btc_ret) if asset_ret is not None else None
+        else:
+            c1d['rs_vs_btc'] = None
+
     dashboard = {
         'metadata': {
             'last_updated': datetime.now(timezone.utc).isoformat(),
@@ -290,6 +381,34 @@ def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
 
     # H5: sanitise all NaN/inf before JSON serialisation
     return _sanitise(dashboard)
+
+
+def generate_breadth_json(history_df: pd.DataFrame, n_days: int = 60) -> Dict[str, Any]:
+    """
+    Build breadth.json — daily count of portfolio (non-macro) assets per regime.
+    Only uses daily (1d) timeframe. Covers the last n_days calendar days.
+    Output: {"dates": [...], "capitulation": [...], "accumulation": [...], ...}
+    """
+    norm_series = history_df['Timeframe'].apply(
+        lambda t: _norm_timeframe(str(t)) if pd.notna(t) else ''
+    )
+    df = history_df[(norm_series == '1d') & (~history_df['Asset'].isin(MACRO_ASSETS))].copy()
+    df['regime_norm'] = df['ATR_Distance'].apply(
+        lambda x: classify_regime(float(x)).lower() if pd.notna(x) else 'unknown'
+    )
+    df['Date'] = pd.to_datetime(df['Date'])
+    grouped = df.groupby('Date')['regime_norm'].value_counts().unstack(fill_value=0)
+    grouped = grouped.sort_index().tail(n_days)
+
+    regimes = ['capitulation', 'accumulation', 'trend', 'distribution', 'mania']
+    result: Dict[str, Any] = {
+        'dates': [str(d)[:10] for d in grouped.index.tolist()],
+    }
+    for r in regimes:
+        col = grouped[r] if r in grouped.columns else pd.Series([0] * len(grouped))
+        result[r] = [int(v) for v in col.values]
+
+    return _sanitise(result)
 
 
 def main():
@@ -331,6 +450,14 @@ def main():
     with open(CHART_HISTORY_JSON_PATH, 'w') as f:
         json.dump(chart_history, f, separators=(',', ':'))  # compact — no indent
     print(f"✓ Saved chart_history.json to {CHART_HISTORY_JSON_PATH}")
+    print()
+
+    print("Generating breadth.json (daily regime counts)...")
+    breadth_path = str(Path(HISTORY_CSV_PATH).parent / 'breadth.json')
+    breadth = generate_breadth_json(history_df)
+    with open(breadth_path, 'w') as f:
+        json.dump(breadth, f, separators=(',', ':'))
+    print(f"✓ Saved breadth.json to {breadth_path}")
     print()
 
     print("=" * 60)
