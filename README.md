@@ -129,7 +129,7 @@ Use the backfill workflow after adding new assets or changing indicator calculat
 
 - LSE ETFs require the `.L` suffix for Yahoo Finance (e.g., `MSTY.L`)
 - All `yf.download()` calls use `auto_adjust=False` — required for LSE ETFs to prevent dividend payments from corrupting historical EMA/ATR values
-- If more than 8 (asset, timeframe) pairs fail, the CI job exits non-zero (allows up to 4 assets × 2 timeframes that may be unlisted on Yahoo Finance)
+- If more than 16 (asset, timeframe) pairs fail, the CI job exits non-zero (allows up to 8 assets × 2 timeframes that may be unlisted on Yahoo Finance)
 - The pipeline is idempotent — re-running does not create duplicate rows in `history.csv`
 - `data/history.csv` is the source of truth; all other data files are derived from it
 - Volume Profile uses daily OHLCV bar ranges (uniform volume distribution within H/L) — coarser than TradingView's tick-based VPVR but sufficient as a support/resistance zone signal

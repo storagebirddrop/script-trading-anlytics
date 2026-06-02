@@ -159,7 +159,7 @@ All fields are `null` when `High`/`Low`/`Volume` columns are absent from `histor
 
 ### Resilience Behaviour
 
-- **API retries:** `_with_retry` in `trading_utils/data_sources.py` retries each fetch up to 3 times with exponential backoff (5s, 10s, 20s). If more than 8 (asset, timeframe) pairs fail in `crypto_tracker.py`, it exits with code 1 and the CI job fails visibly. The threshold is 8 (not 3) to allow for up to 4 assets that may be unlisted on Yahoo Finance.
+- **API retries:** `_with_retry` in `trading_utils/data_sources.py` retries each fetch up to 3 times with exponential backoff (5s, 10s, 20s). If more than 16 (asset, timeframe) pairs fail in `crypto_tracker.py`, it exits with code 1 and the CI job fails visibly. The threshold is 16 (not 3) to allow for up to 8 assets that may be unlisted on Yahoo Finance (several newer tokens may not be available).
 - **Binance pagination:** `backfill_historical.py:fetch_historical_binance` loops with `since` offsets to handle histories longer than 1000 bars.
 - **ATR = 0:** `ATR_Distance` is set to `NaN` rather than `inf`/`-inf`.
 - **JSON safety:** `_sanitise()` in `calculate_metrics.py` replaces all `NaN`/`inf` with `null` before writing `dashboard.json`.

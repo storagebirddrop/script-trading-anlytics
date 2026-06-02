@@ -118,7 +118,7 @@ COINGECKO_IDS = {
     'PEAQ':   'peaq',
     'AEVO':   'aevo',
     'EIGEN':  'eigenlayer',
-    'W':      'wormhole',
+    'W':      'wormhole',  # Yahoo Finance W-USD = Wormhole; distinct from W (Wayfair NASDAQ)
     'WOO':    'woo-network',
     'JASMY':  'jasmycoin',
     'D2X':    'd2',
