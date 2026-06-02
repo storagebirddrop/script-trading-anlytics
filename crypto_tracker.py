@@ -46,7 +46,7 @@ _EXCEL_HEADERS = [
     'High', 'Low', 'Volume',
 ]
 
-_MAX_FAILED_ASSETS = 16  # allow up to 8 assets × 2 timeframes missing from Yahoo Finance
+_MAX_FAILED_ASSETS = 40  # allow up to 20 assets × 2 timeframes missing (newer tokens + macro may be unavailable)
 
 
 def get_data(asset, timeframe):

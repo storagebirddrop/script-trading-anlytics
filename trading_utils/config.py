@@ -19,6 +19,10 @@ ASSETS = [
     'D2X',
     # CEX-listed altcoins (CCXT)
     'SCP',
+    # Macro — indices, commodities, forex (Yahoo Finance)
+    'SPX', 'NDX', 'RTY', 'DJI', 'DXY',
+    'GOLD', 'SILVER', 'OIL', 'COPPER',
+    'EURUSD', 'GBPUSD', 'USDJPY',
 ]
 
 TIMEFRAMES = ['1d', '1w']
@@ -76,11 +80,33 @@ ASSET_CONFIG = {
     'D2X': {'source': 'geckoterminal', 'network': 'solana', 'pool': '7cftYyBzNWFWB6JDa2wKZZqjZMZXMhtLWpUzG4xbDezf'},  # Orca D2X/SOL
     # CEX-listed altcoins (CCXT) — ScPrime listed on CoinEx with full history
     'SCP': {'source': 'ccxt', 'exchange': 'coinex', 'symbol': 'SCP/USDT'},
+    # Macro — indices (Yahoo Finance)
+    'SPX':    {'source': 'yahoo', 'symbol': '^GSPC'},
+    'NDX':    {'source': 'yahoo', 'symbol': '^NDX'},
+    'RTY':    {'source': 'yahoo', 'symbol': '^RUT'},
+    'DJI':    {'source': 'yahoo', 'symbol': '^DJI'},
+    'DXY':    {'source': 'yahoo', 'symbol': 'DX-Y.NYB'},
+    # Macro — commodities (Yahoo Finance futures)
+    'GOLD':   {'source': 'yahoo', 'symbol': 'GC=F'},
+    'SILVER': {'source': 'yahoo', 'symbol': 'SI=F'},
+    'OIL':    {'source': 'yahoo', 'symbol': 'CL=F'},
+    'COPPER': {'source': 'yahoo', 'symbol': 'HG=F'},
+    # Macro — forex (Yahoo Finance)
+    'EURUSD': {'source': 'yahoo', 'symbol': 'EURUSD=X'},
+    'GBPUSD': {'source': 'yahoo', 'symbol': 'GBPUSD=X'},
+    'USDJPY': {'source': 'yahoo', 'symbol': 'USDJPY=X'},
 }
 
 # Manual data — update from TradingView / Birdeye
 # Format: {asset: {timeframe: {price, ema21, atr, rsi}}}
 MANUAL_DATA = {}
+
+# Macro assets set — used by dashboard to separate these from the trading portfolio
+MACRO_ASSETS = {
+    'SPX', 'NDX', 'RTY', 'DJI', 'DXY',
+    'GOLD', 'SILVER', 'OIL', 'COPPER',
+    'EURUSD', 'GBPUSD', 'USDJPY',
+}
 
 # Indicator parameters
 EMA_PERIOD = 21

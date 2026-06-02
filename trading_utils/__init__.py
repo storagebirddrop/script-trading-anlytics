@@ -23,6 +23,7 @@ from .config import (
     VP_N_BUCKETS,
     COINGECKO_IDS,
     MARKET_CAPS_JSON_PATH,
+    MACRO_ASSETS,
 )
 
 from .validation import ValidationResult, validate_dataframe
@@ -67,6 +68,7 @@ __all__ = [
     'VP_N_BUCKETS',
     'COINGECKO_IDS',
     'MARKET_CAPS_JSON_PATH',
+    'MACRO_ASSETS',
     # Validation
     'ValidationResult',
     'validate_dataframe',
