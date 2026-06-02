@@ -9,15 +9,20 @@ const ASSET_CATEGORIES = {
     crypto: new Set(['BTC','ETH','SOL','XLM','REZ','RSR','NEAR','RENDER','ONDO','ACH','BNB','XRP','ADA','NIGHT','VTHO','LINK','NEO','GAS','DRIFT','SEI','PEAQ','AEVO','EIGEN','W','WOO','JASMY','D2X','SCP']),
     nasdaq: new Set(['MSTR','XXI','RIOT','MARA','IREN','BMNR','HUT','WULF','HIVE','CLSK','SLNH']),
     lse:    new Set(['MSTY','YMST','MARY','RIOY','IREY','BMNY']),
-    macro:  new Set(['SPX','NDX','RTY','DJI','DXY','GOLD','SILVER','OIL','COPPER','EURUSD','GBPUSD','USDJPY']),
+    macro:  new Set(['SPX','NDX','RTY','DJI','DAX','CAC','FTSE','NIK','HSI','ASX','GOLD','SILVER','OIL','NATGAS','COPPER','WHEAT','CORN','DXY','EURUSD','GBPUSD','AUDUSD','NZDUSD','USDCAD','USDCHF','USDJPY']),
 };
 
 // Macro subcategory groupings for the Macro tab layout
 const MACRO_SUBCATEGORIES = {
-    'Indices':     ['SPX', 'NDX', 'RTY', 'DJI', 'DXY'],
-    'Commodities': ['GOLD', 'SILVER', 'OIL', 'COPPER'],
-    'Forex':       ['EURUSD', 'GBPUSD', 'USDJPY'],
+    'US Indices':   ['SPX', 'NDX', 'RTY', 'DJI'],
+    'EU Indices':   ['DAX', 'CAC', 'FTSE'],
+    'APAC Indices': ['NIK', 'HSI', 'ASX'],
+    'Commodities':  ['GOLD', 'SILVER', 'OIL', 'NATGAS', 'COPPER', 'WHEAT', 'CORN'],
+    'Forex':        ['DXY', 'EURUSD', 'GBPUSD', 'AUDUSD', 'NZDUSD', 'USDCAD', 'USDCHF', 'USDJPY'],
 };
+
+// Forex pairs shown with 4 decimal places (no $ prefix); DXY shown plain without $
+const MACRO_FOREX_SYMBOLS = new Set(['EURUSD','GBPUSD','AUDUSD','NZDUSD','USDCAD','USDCHF','USDJPY','DXY']);
 
 // LSE ETFs are quoted in GBp (pence) by Yahoo Finance
 const LSE_ASSETS = ASSET_CATEGORIES.lse;
@@ -1483,10 +1488,10 @@ function renderMacro() {
             const chg     = daily.price_change_pct;
             const price   = daily.price;
 
-            // Forex: 4 decimal places; others: dollar-formatted
-            const isForex = symbol.endsWith('USD') || symbol === 'USDJPY';
+            // Forex/DXY: plain number (4dp for pairs, 2dp for DXY); indices/commodities: $-formatted
             const priceStr = price == null ? 'N/A'
-                : isForex ? price.toFixed(4)
+                : symbol === 'DXY'              ? price.toFixed(2)
+                : MACRO_FOREX_SYMBOLS.has(symbol) ? price.toFixed(4)
                 : `$${price.toLocaleString()}`;
 
             const chgStr = chg != null ? (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%' : '';
