@@ -108,7 +108,7 @@ COINGECKO_IDS = {
     'BNB':    'binancecoin',
     'XRP':    'ripple',
     'ADA':    'cardano',
-    'NIGHT':  None,
+    'NIGHT':  'midnight-3',
     'VTHO':   'vethor-token',
     'LINK':   'chainlink',
     'NEO':    'neo',
@@ -121,8 +121,8 @@ COINGECKO_IDS = {
     'W':      'wormhole',
     'WOO':    'woo-network',
     'JASMY':  'jasmycoin',
-    'D2X':    None,
-    'SCP':    None,
+    'D2X':    'd2',
+    'SCP':    'siaprime-coin',
 }
 
 # File paths (absolute, anchored to project root)
