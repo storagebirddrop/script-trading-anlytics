@@ -210,11 +210,81 @@ class TestCalculateCurrentMetrics:
     def test_atr_percentile_calculation(self, sample_history_df):
         """Test ATR Distance percentile is calculated correctly."""
         metrics = calculate_current_metrics(sample_history_df)
-        
+
         btc_current = metrics['BTC']['1d']['current']
         # BTC ATR Distances: [1.0, 1.3, 1.6, 0.7, 0.4]
         # Latest is 0.4, which is the minimum (0th percentile)
         assert btc_current['atr_percentile'] == 0.0
+
+    def test_price_change_pct_present(self, sample_history_df):
+        """price_change_pct field must be present in current snapshot."""
+        metrics = calculate_current_metrics(sample_history_df)
+        assert 'price_change_pct' in metrics['BTC']['1d']['current']
+
+    def test_price_change_pct_value(self, sample_history_df):
+        """price_change_pct is (current - prev) / prev * 100."""
+        metrics = calculate_current_metrics(sample_history_df)
+        btc_current = metrics['BTC']['1d']['current']
+        # BTC prices in order: 65000, 65500, 66000, 64500, 64000
+        # latest=64000, prev=64500 → (64000-64500)/64500*100
+        expected = (64000.0 - 64500.0) / 64500.0 * 100
+        assert btc_current['price_change_pct'] == pytest.approx(expected, rel=1e-6)
+
+    def test_price_change_pct_none_for_single_row(self):
+        """price_change_pct is None when only one data point is available."""
+        df = pd.DataFrame({
+            'Date': ['2026-06-01'],
+            'Asset': ['BTC'],
+            'Price': [65000.0],
+            'EMA21': [64000.0],
+            'ATR': [1000.0],
+            'RSI': [50.0],
+            'RSI_Z_Score': [0.0],
+            'ATR_Distance': [1.0],
+            'Pct_Above_EMA': [1.56],
+            'Timeframe': ['1d'],
+        })
+        metrics = calculate_current_metrics(df)
+        assert metrics['BTC']['1d']['current']['price_change_pct'] is None
+
+    def test_staleness_filter_excludes_old_assets(self):
+        """Assets whose latest row is >60 days behind the global max are excluded."""
+        fresh_dates = ['2026-06-01', '2026-06-02', '2026-06-03']
+        stale_dates = ['2026-03-01', '2026-03-02', '2026-03-03']  # 91 days behind
+
+        df = pd.DataFrame({
+            'Date': fresh_dates + stale_dates,
+            'Asset': ['BTC'] * 3 + ['STALE'] * 3,
+            'Price': [65000.0] * 3 + [100.0] * 3,
+            'EMA21': [64000.0] * 3 + [99.0] * 3,
+            'ATR': [1000.0] * 3 + [2.0] * 3,
+            'RSI': [50.0] * 6,
+            'RSI_Z_Score': [0.0] * 6,
+            'ATR_Distance': [1.0] * 6,
+            'Pct_Above_EMA': [1.56] * 6,
+            'Timeframe': ['1d'] * 6,
+        })
+        metrics = calculate_current_metrics(df)
+        assert 'BTC' in metrics
+        assert 'STALE' not in metrics
+
+    def test_staleness_filter_keeps_recent_assets(self):
+        """Assets within 60 days of the global max are retained."""
+        df = pd.DataFrame({
+            'Date': ['2026-06-01', '2026-04-10'],  # 52 days apart
+            'Asset': ['BTC', 'ETH'],
+            'Price': [65000.0, 3500.0],
+            'EMA21': [64000.0, 3450.0],
+            'ATR': [1000.0, 50.0],
+            'RSI': [50.0, 50.0],
+            'RSI_Z_Score': [0.0, 0.0],
+            'ATR_Distance': [1.0, 0.5],
+            'Pct_Above_EMA': [1.56, 1.45],
+            'Timeframe': ['1d', '1d'],
+        })
+        metrics = calculate_current_metrics(df)
+        assert 'BTC' in metrics
+        assert 'ETH' in metrics
 
 
 class TestGenerateDashboardJson:
