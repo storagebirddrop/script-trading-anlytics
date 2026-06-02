@@ -23,20 +23,20 @@
             <!-- Portfolio Overview Tab -->
             <section id="portfolio-tab" class="tab-content active" role="tabpanel" tabindex="-1" aria-labelledby="tab-portfolio">
                 <h2>Portfolio Overview</h2>
-                <div id="portfolio-health-bar" class="portfolio-health-bar" aria-label="Portfolio health summary">
+                <div id="portfolio-health-bar" class="portfolio-health-bar" role="status" aria-label="Portfolio health summary">
                     <div class="loading">Loading…</div>
                 </div>
                 <div id="regime-strip" class="regime-strip"></div>
                 <div class="portfolio-panels" id="portfolio-panels">
-                    <div class="panel panel--opportunity" id="opportunity-panel" aria-label="Top oversold opportunities">
-                        <h3 class="panel-title">
+                    <div class="panel panel--opportunity" id="opportunity-panel" role="region" aria-labelledby="opportunity-panel-title">
+                        <h3 class="panel-title" id="opportunity-panel-title">
                             <span class="panel-title-icon" aria-hidden="true">▼</span>
                             Opportunity — Most Oversold
                         </h3>
                         <div class="panel-items" id="opportunity-items"></div>
                     </div>
-                    <div class="panel panel--risk" id="risk-panel" aria-label="Top extended risks">
-                        <h3 class="panel-title">
+                    <div class="panel panel--risk" id="risk-panel" role="region" aria-labelledby="risk-panel-title">
+                        <h3 class="panel-title" id="risk-panel-title">
                             <span class="panel-title-icon" aria-hidden="true">▲</span>
                             Risk — Most Extended
                         </h3>
@@ -83,7 +83,7 @@
                 </div>
             </section>
 
-            <!-- Extremes Tab -->
+            <!-- Extremes Tab (ids use "historical-*" for stability; renaming them would require JS+CSS updates) -->
             <section id="historical-tab" class="tab-content" role="tabpanel" tabindex="-1" aria-labelledby="tab-historical">
                 <h2>Extremes</h2>
                 <div class="asset-selector">

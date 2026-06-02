@@ -92,11 +92,10 @@ Shared library used by both `crypto_tracker.py` and `backfill_historical.py`. Av
 
 ### Tracked Assets
 
-33 assets across 4 categories, both daily (`1d`) and weekly (`1w`) timeframes:
-- **Crypto (14):** BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP, ADA, NIGHT — fetched via Yahoo Finance (symbol format: `BTC-USD`, `RENDER-USD`). REZ, ONDO, NIGHT may not be listed on Yahoo Finance and will fail gracefully.
+33 assets across 3 categories, both daily (`1d`) and weekly (`1w`) timeframes:
+- **Crypto (16):** BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP, ADA, NIGHT — fetched via Yahoo Finance (symbol format: `BTC-USD`, `RENDER-USD`). REZ, ONDO, NIGHT may not be listed on Yahoo Finance and will fail gracefully. Also includes D2X (Solana via GeckoTerminal) and SCP (CoinEx via CCXT) — all 16 are grouped as "Crypto" in the dashboard UI and `ASSET_CATEGORIES`.
 - **NASDAQ stocks (11):** MSTR, XXI, RIOT, MARA, IREN, BMNR, HUT, WULF, HIVE, CLSK, SLNH
 - **LSE ETFs (6):** MSTY, YMST, MARY, RIOY, IREY, BMNY — fetched via Yahoo Finance with `.L` suffix. These pay large regular distributions; **always use `auto_adjust=False`** in `yf.download()` calls or historical EMA/ATR will be corrupted each time a dividend is paid.
-- **DEX / CEX (2):** D2X (Solana via GeckoTerminal), SCP (CoinEx via CCXT)
 
 ### Key Indicators
 
@@ -150,27 +149,36 @@ Uses the **more severe** of two independent signals — whichever gives the stro
 1. Percentile rank (how historically rare is this reading for this specific asset)
 2. Absolute ATR Distance threshold (how far is price stretched in universal terms)
 
+Each call specifies a `direction` ('oversold' or 'extended'), so tiers form two non-overlapping sets:
+
+**Oversold direction** (negative ATR Distance assets):
 | Tier | Percentile condition | ATR Distance condition |
 |---|---|---|
 | Extreme Oversold | P ≤ 5% | dist < −4 |
 | Deep Oversold | P ≤ 15% | dist < −3 |
 | Oversold | P ≤ 30% | dist < −2 |
-| Mild Dip | P > 30% | dist ≥ −2 |
-| Mild Extension | P < 70% | dist ≤ +2 |
-| Extended | P ≥ 70% | dist > +2 |
-| High Extended | P ≥ 85% | dist > +3 |
-| Extreme Extended | P ≥ 95% | dist > +4 |
+| Mild Dip | neither threshold met | (fallback — no strong signal) |
 
-Percentile tiers require `sample_size ≥ 30`; assets with thin history fall back to ATR Distance tiers only.
+**Extended direction** (positive ATR Distance assets):
+| Tier | Percentile condition | ATR Distance condition |
+|---|---|---|
+| Extreme Extended | P ≥ 95% | dist > +4 |
+| High Extended | P ≥ 85% | dist > +3 |
+| Extended | P ≥ 70% | dist > +2 |
+| Mild Extension | neither threshold met | (fallback — no strong signal) |
+
+Within each direction the more severe of the two signals (percentile vs ATR Distance) determines the tier. Percentile tiers require `sample_size ≥ 30`; assets with thin history fall back to ATR Distance tiers only.
 
 Example: YMST at ATR Distance −3.35 (P16%) → ATR tier = Deep Oversold, pct tier = Oversold → label = **Deep Oversold**. BTC at −2.39 (P4%) → ATR tier = Oversold, pct tier = Extreme Oversold → label = **Extreme Oversold**.
 
 **Extremes tab gauge — percentile-based positioning:**
 The gauge x-axis represents the empirical distribution, not a linear ATR Distance scale. `toPos()` uses piecewise linear interpolation between the known P0/P25/P50/P75/P90/P100 breakpoints:
-- P25/P50/P75/P90 tick marks are always at exactly 25%/50%/75%/90% of the gauge width
-- Regime zone widths reflect how often the asset spends in each regime (wide Trend zone = rarely extreme)
+- Tick marks at P25/P50/P75/P90 are positioned at 25%/50%/75%/90% of the gauge width; this percentile-based layout makes regime zone widths proportional to how often the asset occupies each zone — a wide Trend zone indicates the asset rarely reaches extremes
 - Extreme outliers (e.g. a single mania spike) no longer compress the rest of the gauge
 - Falls back to linear scaling if percentile breakpoints are missing
+
+**CSP constraint — gauge DOM construction:**
+`dashboard/_headers` enforces `style-src 'self'` (no `unsafe-inline`), which blocks inline `style` attributes parsed from HTML strings (e.g. via `innerHTML`). The gauge zone, tick, and marker elements are therefore created with `document.createElement` and positioned via `element.style.left`/`element.style.width` in JavaScript — DOM property assignments are governed by `script-src`, not `style-src`, so they are not restricted. Do not revert to injecting `style="left:X%"` inside template literals assigned to `innerHTML`; the CSP will silently ignore those attributes and the marker will appear stuck at 0%.
 
 **Key JS functions in `dashboard/js/dashboard.js`:**
 - `getSignalStrength(pct, direction, sampleSize, atrDistance)` — returns `{ label, cssClass }` using max-severity of percentile and ATR Distance tiers

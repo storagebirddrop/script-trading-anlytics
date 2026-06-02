@@ -404,6 +404,7 @@ function renderOpportunityPanels() {
     }
 
     const handlePanelNav = container => {
+        if (container.dataset.panelNavAttached) return;
         container.addEventListener('click', e => {
             const item = e.target.closest('.panel-item[data-asset]');
             if (item) navigateTo('drilldown-tab', item.dataset.asset);
@@ -414,6 +415,7 @@ function renderOpportunityPanels() {
                 if (item) { e.preventDefault(); navigateTo('drilldown-tab', item.dataset.asset); }
             }
         });
+        container.dataset.panelNavAttached = 'true';
     };
     handlePanelNav(oppItems);
     handlePanelNav(riskItems);
@@ -766,32 +768,15 @@ function renderHistoricalContext() {
             { name: 'mania',        from:  4,         to:  Infinity }
         ];
 
-        const zoneHtml = zones.map(z => {
-            const left  = toPos(Math.max(z.from, atrMin));
-            const right = toPos(Math.min(z.to,   atrMax));
-            const width = right - left;
-            if (width <= 0) return '';
-            return `<div class="gauge-zone gauge-zone-${z.name}" style="left:${left.toFixed(1)}%;width:${width.toFixed(1)}%"></div>`;
-        }).join('');
-
-        const ticks = [
-            { label: 'P25', val: historical.atr_percentile_25 },
-            { label: 'P50', val: historical.atr_percentile_50 },
-            { label: 'P75', val: historical.atr_percentile_75 },
-            { label: 'P90', val: historical.atr_percentile_90 }
-        ].filter(t => t.val != null).map(t =>
-            `<div class="gauge-tick" style="left:${toPos(t.val).toFixed(1)}%">${t.label}</div>`
-        ).join('');
-
+        // Gauge track children are appended via DOM API after innerHTML is set,
+        // because CSP style-src 'self' (no unsafe-inline) blocks inline style
+        // attributes parsed from HTML strings but does NOT restrict
+        // element.style.property assignments made via JavaScript.
         const gaugeHtml = `
             <div class="percentile-gauge-section">
                 <div class="percentile-gauge-label">ATR Distance — historical position</div>
                 <div class="gauge-wrap">
-                    <div class="gauge-track">
-                        ${zoneHtml}
-                        ${ticks}
-                        ${current.atr_distance != null ? `<div class="gauge-marker" style="left:${toPos(current.atr_distance).toFixed(1)}%"></div>` : ''}
-                    </div>
+                    <div class="gauge-track"></div>
                 </div>
                 <div class="gauge-edge-labels">
                     <span>${atrMin.toFixed(2)}</span>
@@ -863,6 +848,39 @@ function renderHistoricalContext() {
         ` : '';
 
         pane.innerHTML += gaugeHtml + interpretationHtml + metricsHtml;
+
+        // Populate gauge track via DOM API (not innerHTML) to satisfy CSP style-src.
+        const track = pane.querySelector('.gauge-track');
+        zones.forEach(z => {
+            const left  = toPos(Math.max(z.from, atrMin));
+            const right = toPos(Math.min(z.to,   atrMax));
+            const width = right - left;
+            if (width <= 0) return;
+            const el = document.createElement('div');
+            el.className = `gauge-zone gauge-zone-${z.name}`;
+            el.style.left  = `${left.toFixed(1)}%`;
+            el.style.width = `${width.toFixed(1)}%`;
+            track.appendChild(el);
+        });
+        [
+            { label: 'P25', val: historical.atr_percentile_25 },
+            { label: 'P50', val: historical.atr_percentile_50 },
+            { label: 'P75', val: historical.atr_percentile_75 },
+            { label: 'P90', val: historical.atr_percentile_90 }
+        ].filter(t => t.val != null).forEach(t => {
+            const el = document.createElement('div');
+            el.className = 'gauge-tick';
+            el.style.left = `${toPos(t.val).toFixed(1)}%`;
+            el.textContent = t.label;
+            track.appendChild(el);
+        });
+        if (current.atr_distance != null) {
+            const el = document.createElement('div');
+            el.className = 'gauge-marker';
+            el.style.left = `${toPos(current.atr_distance).toFixed(1)}%`;
+            track.appendChild(el);
+        }
+
         dual.appendChild(pane);
     });
 
