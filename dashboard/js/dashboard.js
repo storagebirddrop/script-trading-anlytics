@@ -177,6 +177,46 @@ function macroZoneLabel(atrDistance) {
     return                         { label: 'Extreme Extended', cssClass: 'zone-extreme-extended' };
 }
 
+// Builds an inline SVG sparkline for the last 14 bars of ATR Distance values.
+// Stroke colour matches the ATR Distance semantic colour of the current value.
+function makeSparklineSvg(values, currentAtrDistance) {
+    if (!values || values.length < 2) return '';
+    const slice = values.slice(-14);
+    const min = Math.min(...slice);
+    const max = Math.max(...slice);
+    const range = max - min || 0.01;
+    const W = 100, H = 20;
+    const toX = i => (i / (slice.length - 1)) * W;
+    const toY = v => H - ((v - min) / range) * (H - 2) - 1;
+    const pts = slice.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
+    let zeroLine = '';
+    if (min <= 0 && max >= 0) {
+        const zy = toY(0).toFixed(1);
+        zeroLine = `<line x1="0" y1="${zy}" x2="${W}" y2="${zy}" stroke="rgba(160,174,192,0.3)" stroke-width="0.8" stroke-dasharray="2,2"/>`;
+    }
+    let stroke = '#64748b';
+    if (currentAtrDistance != null) {
+        if (Math.abs(currentAtrDistance) > 4) stroke = '#ef4444';
+        else if (currentAtrDistance < -2)     stroke = '#10b981';
+        else if (currentAtrDistance > 2)      stroke = '#f97316';
+    }
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${zeroLine}<polyline points="${pts}" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+
+// Fills .card-sparkline placeholders using chartHistoryData. No-op if data not yet loaded.
+function renderPortfolioSparklines() {
+    if (!chartHistoryData) return;
+    document.querySelectorAll('.card-sparkline[data-asset]').forEach(el => {
+        const asset = el.dataset.asset;
+        const tf    = el.dataset.tf;
+        const history = chartHistoryData[asset]?.[tf];
+        if (!history?.length) return;
+        const values = history.map(b => b.atr_distance).filter(v => v != null);
+        const currentAtr = dashboardData?.assets[asset]?.[tf]?.current?.atr_distance ?? null;
+        el.innerHTML = makeSparklineSvg(values, currentAtr);
+    });
+}
+
 // ─── Data loading ─────────────────────────────────────────────────────────────
 
 async function loadDashboardData() {
@@ -249,6 +289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderHistoricalContext();
     renderMacro();
     await ensureChartHistory();
+    renderPortfolioSparklines();
     renderDrilldown();
 });
 
@@ -652,6 +693,7 @@ function renderPortfolio() {
                     <span class="metric-value"><span class="mcap-badge ${mcapRankClass(primary.market_cap_rank)}">#${primary.market_cap_rank}</span></span>
                 </div>` : ''}
             </div>
+            <div class="card-sparkline" data-asset="${asset}" data-tf="${activeTf}"></div>
             <div class="asset-card-footer">
                 <span class="asset-date${isStale ? ' stale' : ''}">
                     ${isStale ? '&#x26A0; ' : ''}as of ${escapeHtml(primary.date ?? '—')}
@@ -660,6 +702,8 @@ function renderPortfolio() {
         `;
         container.appendChild(card);
     });
+
+    renderPortfolioSparklines();
 
     // Delegated click → navigate to Drilldown
     container.onclick = e => {
