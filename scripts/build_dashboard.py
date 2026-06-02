@@ -14,6 +14,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 DASHBOARD_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'dashboard.json')
 CHART_HISTORY_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'chart_history.json')
+BREADTH_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'breadth.json')
 DASHBOARD_OUTPUT_DIR = str(_PROJECT_ROOT / 'dashboard')
 ASSETS_OUTPUT_DIR = str(_PROJECT_ROOT / 'dashboard' / 'assets')
 
@@ -70,6 +71,12 @@ def main():
         print(f"✓ Copied chart_history.json to {ASSETS_OUTPUT_DIR}/chart_history.json")
     else:
         print("  (chart_history.json not found — skipping; charts will show placeholder)")
+
+    if os.path.exists(BREADTH_JSON_PATH):
+        shutil.copy2(BREADTH_JSON_PATH, os.path.join(ASSETS_OUTPUT_DIR, 'breadth.json'))
+        print(f"✓ Copied breadth.json to {ASSETS_OUTPUT_DIR}/breadth.json")
+    else:
+        print("  (breadth.json not found — skipping; breadth chart will be hidden)")
     print()
     
     # Verify required static files are in place

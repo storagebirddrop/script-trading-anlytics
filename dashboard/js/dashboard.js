@@ -31,7 +31,7 @@ const LSE_ASSETS = ASSET_CATEGORIES.lse;
 const REGIME_ORDER = ['Capitulation','Accumulation','Trend','Distribution','Mania','Unknown'];
 
 // Portfolio filter state
-const portfolioFilter = { category: '', regime: null, sort: 'name', timeframe: '1d' };
+const portfolioFilter = { category: '', regime: null, sort: 'name', timeframe: '1d', search: '' };
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -166,6 +166,32 @@ function vpBadgeHtml(pos) {
     return `<span class="vp-badge ${escapeHtml(info.cls)}">${escapeHtml(info.label)}</span>`;
 }
 
+function alignBadgeClass(alignment) {
+    if (alignment === 'aligned-bullish') return 'align-bullish';
+    if (alignment === 'aligned-bearish') return 'align-bearish';
+    return 'align-diverging';
+}
+
+function alignBadgeLabel(alignment) {
+    if (alignment === 'aligned-bullish') return '↑↑';
+    if (alignment === 'aligned-bearish') return '↓↓';
+    return '↕';
+}
+
+function atrTrendIcon(trend) {
+    if (trend === 'expanding')   return '↑';
+    if (trend === 'compressing') return '↓';
+    return '─';
+}
+
+function rsBadgeHtml(rs) {
+    if (rs == null) return 'N/A';
+    const outperforming = rs > 1.0;
+    const cls   = outperforming ? 'rs-outperforming' : 'rs-underperforming';
+    const label = outperforming ? `↑ ${rs.toFixed(2)}×` : `↓ ${rs.toFixed(2)}×`;
+    return `<span class="rs-badge ${cls}">${label}</span>`;
+}
+
 // Returns { label, cssClass } for a macro zone based on ATR Distance.
 // Same thresholds as regime classification but neutral display names.
 function macroZoneLabel(atrDistance) {
@@ -215,6 +241,27 @@ function renderPortfolioSparklines() {
         const currentAtr = dashboardData?.assets[asset]?.[tf]?.current?.atr_distance ?? null;
         el.innerHTML = makeSparklineSvg(values, currentAtr);
     });
+}
+
+// ─── Starred / Watchlist ─────────────────────────────────────────────────────
+
+const STARRED_KEY = 'starred_assets';
+const MAX_STARRED = 10;
+
+function getStarred() {
+    try { return JSON.parse(localStorage.getItem(STARRED_KEY) || '[]'); } catch { return []; }
+}
+
+function isStarred(asset) { return getStarred().includes(asset); }
+
+function toggleStar(asset) {
+    let starred = getStarred();
+    if (starred.includes(asset)) {
+        starred = starred.filter(a => a !== asset);
+    } else if (starred.length < MAX_STARRED) {
+        starred.push(asset);
+    }
+    localStorage.setItem(STARRED_KEY, JSON.stringify(starred));
 }
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
@@ -396,6 +443,15 @@ function setupPortfolioFilters() {
         document.querySelectorAll('.regime-strip .asset-regime').forEach(p => p.classList.remove('active-filter'));
         renderPortfolio();
     });
+
+    // Search input
+    const searchInput = document.getElementById('portfolio-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            portfolioFilter.search = searchInput.value.trim().toLowerCase();
+            renderPortfolio();
+        });
+    }
 }
 
 // ─── Portfolio health bar ─────────────────────────────────────────────────────
@@ -541,11 +597,100 @@ function renderOpportunityPanels() {
 
 // ─── Portfolio rendering ──────────────────────────────────────────────────────
 
+function renderTransitionsSection() {
+    const section = document.getElementById('transitions-section');
+    const list    = document.getElementById('transitions-list');
+    if (!section || !list || !dashboardData) return;
+
+    const tf = portfolioFilter.timeframe;
+    const transitions = [];
+    Object.entries(dashboardData.assets).forEach(([asset, ad]) => {
+        if (ASSET_CATEGORIES.macro.has(asset)) return;
+        const c = ad[tf]?.current;
+        if (c?.regime_changed && c.prev_regime) {
+            transitions.push({ asset, from: c.prev_regime, to: c.regime });
+        }
+    });
+
+    if (transitions.length === 0) {
+        section.hidden = true;
+        return;
+    }
+
+    section.hidden = false;
+    list.innerHTML = '';
+    transitions.forEach(({ asset, from, to }) => {
+        const chip = document.createElement('span');
+        chip.className = 'transition-chip';
+        chip.dataset.asset = asset;
+        chip.innerHTML = `
+            <strong>${escapeHtml(asset)}</strong>
+            <span class="transition-arrow">${escapeHtml(from)} → ${escapeHtml(to)}</span>
+        `;
+        chip.addEventListener('click', () => navigateTo('drilldown-tab', asset));
+        list.appendChild(chip);
+    });
+}
+
+function renderBreadthChart() {
+    const section = document.getElementById('breadth-section');
+    if (!section) return;
+
+    fetch('assets/breadth.json')
+        .then(r => { if (!r.ok) throw new Error('breadth.json not found'); return r.json(); })
+        .then(data => {
+            if (!data?.dates?.length) { section.hidden = true; return; }
+            section.hidden = false;
+            const id = 'breadth-chart';
+            if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+            const canvas = document.getElementById(id);
+            if (!canvas) return;
+            const regimes = ['capitulation','accumulation','trend','distribution','mania'];
+            const colors  = [
+                'rgba(153,27,27,0.75)',
+                'rgba(16,185,129,0.65)',
+                'rgba(59,130,246,0.50)',
+                'rgba(249,115,22,0.65)',
+                'rgba(239,68,68,0.75)',
+            ];
+            const labels = ['Capitulation','Accumulation','Trend','Distribution','Mania'];
+            charts[id] = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: data.dates,
+                    datasets: regimes.map((r, i) => ({
+                        label: labels[i],
+                        data: data[r] || [],
+                        backgroundColor: colors[i],
+                        borderWidth: 0,
+                        stack: 'breadth',
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, padding: 10, font: { size: 10 } } },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: { stacked: true, ticks: { maxTicksLimit: 10, maxRotation: 0, font: { size: 9 } }, grid: { display: false } },
+                        y: { stacked: true, grid: { color: 'rgba(55,65,81,0.5)' }, ticks: { font: { size: 9 } } }
+                    }
+                }
+            });
+            canvas.style.height = '180px';
+        })
+        .catch(() => { if (section) section.hidden = true; });
+}
+
 function renderPortfolio() {
     if (!dashboardData) return;
 
     renderPortfolioHealthBar();
     renderOpportunityPanels();
+    renderTransitionsSection();
+    renderBreadthChart();
 
     const container = document.getElementById('portfolio-cards');
     container.innerHTML = '';
@@ -595,6 +740,11 @@ function renderPortfolio() {
         });
     }
 
+    // ── Search filter ─────────────────────────────────────────────────────────
+    if (portfolioFilter.search) {
+        assets = assets.filter(a => a.toLowerCase().includes(portfolioFilter.search));
+    }
+
     // ── Sort — getRaw returns null for missing values so sentinels apply correctly ──
     const getRaw = (a, field) => dashboardData.assets[a][portfolioFilter.timeframe]?.current?.[field] ?? null;
     if (portfolioFilter.sort === 'atr_asc') {
@@ -603,8 +753,28 @@ function renderPortfolio() {
         assets.sort((a, b) => (getRaw(b, 'atr_distance') ?? -Infinity) - (getRaw(a, 'atr_distance') ?? -Infinity));
     } else if (portfolioFilter.sort === 'rsi_asc') {
         assets.sort((a, b) => (getRaw(a, 'rsi') ?? Infinity) - (getRaw(b, 'rsi') ?? Infinity));
+    } else if (portfolioFilter.sort === 'mcap_asc') {
+        assets.sort((a, b) => {
+            const ra = getRaw(a, 'market_cap_rank');
+            const rb = getRaw(b, 'market_cap_rank');
+            if (ra == null && rb == null) return 0;
+            if (ra == null) return 1;
+            if (rb == null) return -1;
+            return ra - rb;
+        });
     }
     // default: name A-Z (already sorted)
+
+    // ── Float starred assets to the top ───────────────────────────────────────
+    const starred = getStarred();
+    if (starred.length > 0) {
+        const starredSet = new Set(starred);
+        assets.sort((a, b) => {
+            const aS = starredSet.has(a) ? 0 : 1;
+            const bS = starredSet.has(b) ? 0 : 1;
+            return aS - bS;
+        });
+    }
 
     if (assets.length === 0) {
         container.innerHTML = '<div class="loading">No assets match the current filter.</div>';
@@ -651,7 +821,10 @@ function renderPortfolio() {
         card.innerHTML = `
             <div class="asset-card-header">
                 <span class="asset-name">${ea}</span>
+                ${primary.regime_changed ? '<span class="transition-pulse" title="Regime changed"></span>' : ''}
+                ${primary.alignment ? `<span class="align-badge ${alignBadgeClass(primary.alignment)}" title="TF Alignment">${alignBadgeLabel(primary.alignment)}</span>` : ''}
                 <span class="asset-regime ${regimeClass(regime)}">${er}</span>
+                <button class="star-btn${isStarred(asset) ? ' starred' : ''}" data-star="${ea}" title="${isStarred(asset) ? 'Unstar' : 'Star'} ${ea}" aria-label="${isStarred(asset) ? 'Remove from watchlist' : 'Add to watchlist'}" onclick="event.stopPropagation();toggleStar('${ea}');renderPortfolio();">&#9733;</button>
             </div>
             <div class="asset-metrics">
                 <div class="metric">
@@ -691,6 +864,16 @@ function renderPortfolio() {
                 <div class="metric">
                     <span class="metric-label">MCap</span>
                     <span class="metric-value"><span class="mcap-badge ${mcapRankClass(primary.market_cap_rank)}">#${primary.market_cap_rank}</span></span>
+                </div>` : ''}
+                ${primary.atr_trend ? `
+                <div class="metric">
+                    <span class="metric-label">ATR</span>
+                    <span class="metric-value"><span class="atr-trend-icon atr-trend-${primary.atr_trend}">${atrTrendIcon(primary.atr_trend)}</span> ${primary.atr_trend}</span>
+                </div>` : ''}
+                ${primary.rs_vs_btc != null && ASSET_CATEGORIES.crypto.has(asset) ? `
+                <div class="metric">
+                    <span class="metric-label">RS/BTC</span>
+                    <span class="metric-value">${rsBadgeHtml(primary.rs_vs_btc)}</span>
                 </div>` : ''}
             </div>
             <div class="card-sparkline" data-asset="${asset}" data-tf="${activeTf}"></div>
@@ -1228,6 +1411,26 @@ function renderDrilldown() {
             <div class="summary-item">
                 <span class="summary-label">Market Cap</span>
                 <span class="summary-value">${formatMarketCap(current.market_cap)}</span>
+            </div>` : ''}
+            ${current?.alignment ? `
+            <div class="summary-item">
+                <span class="summary-label">TF Align</span>
+                <span class="summary-value"><span class="align-badge ${alignBadgeClass(current.alignment)}">${alignBadgeLabel(current.alignment)} ${escapeHtml(current.alignment.replace('aligned-','').replace('diverging','Diverging'))}</span></span>
+            </div>` : ''}
+            ${current?.atr_trend ? `
+            <div class="summary-item">
+                <span class="summary-label">ATR Trend</span>
+                <span class="summary-value"><span class="atr-trend-icon atr-trend-${escapeHtml(current.atr_trend)}">${atrTrendIcon(current.atr_trend)}</span> ${escapeHtml(current.atr_trend)}</span>
+            </div>` : ''}
+            ${current?.regime_changed ? `
+            <div class="summary-item">
+                <span class="summary-label">Transition</span>
+                <span class="summary-value">${escapeHtml(current.prev_regime ?? '?')} → ${escapeHtml(current.regime ?? '?')}</span>
+            </div>` : ''}
+            ${current?.rs_vs_btc != null ? `
+            <div class="summary-item">
+                <span class="summary-label">RS/BTC (30d)</span>
+                <span class="summary-value">${rsBadgeHtml(current.rs_vs_btc)}</span>
             </div>` : ''}
         </div>
     `;
