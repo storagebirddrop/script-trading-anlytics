@@ -119,6 +119,22 @@ function getAtrColorClass(atrDistance) {
     return '';
 }
 
+function mcapRankClass(rank) {
+    if (!rank) return 'mcap-small';
+    if (rank <= 10)  return 'mcap-top10';
+    if (rank <= 50)  return 'mcap-top50';
+    if (rank <= 200) return 'mcap-top200';
+    return 'mcap-small';
+}
+
+function formatMarketCap(value) {
+    if (value == null) return 'N/A';
+    if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
+    if (value >= 1e9)  return `$${(value / 1e9).toFixed(1)}B`;
+    if (value >= 1e6)  return `$${(value / 1e6).toFixed(0)}M`;
+    return `$${Math.round(value).toLocaleString()}`;
+}
+
 // Returns { label, cls } for a VP position string, or null if position is unknown.
 function vpPositionLabel(pos) {
     const map = {
@@ -581,6 +597,11 @@ function renderPortfolio() {
                 <div class="metric">
                     <span class="metric-label">VP</span>
                     <span class="metric-value">${vpBadgeHtml(dailyData.vp_position)}</span>
+                </div>` : ''}
+                ${dailyData.market_cap_rank != null ? `
+                <div class="metric">
+                    <span class="metric-label">MCap</span>
+                    <span class="metric-value"><span class="mcap-badge ${mcapRankClass(dailyData.market_cap_rank)}">#${dailyData.market_cap_rank}</span></span>
                 </div>` : ''}
             </div>
             <div class="asset-card-footer">
@@ -1106,6 +1127,15 @@ function renderDrilldown() {
                 <span class="summary-label">VAL</span>
                 <span class="summary-value">${formatPrice(selectedAsset, current?.vp_val)}</span>
             </div>
+            ${current?.market_cap_rank != null ? `
+            <div class="summary-item">
+                <span class="summary-label">MCap Rank</span>
+                <span class="summary-value"><span class="mcap-badge ${mcapRankClass(current.market_cap_rank)}">#${current.market_cap_rank}</span></span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">Market Cap</span>
+                <span class="summary-value">${formatMarketCap(current.market_cap)}</span>
+            </div>` : ''}
         </div>
     `;
 

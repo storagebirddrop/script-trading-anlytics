@@ -93,6 +93,38 @@ VP_LOOKBACK_BARS        = 90   # daily lookback (~4 months)
 VP_LOOKBACK_BARS_WEEKLY = 52   # weekly lookback (~1 year)
 VP_N_BUCKETS            = 24   # price distribution buckets
 
+# CoinGecko IDs for market cap / rank lookups (crypto only; None = not listed)
+COINGECKO_IDS = {
+    'BTC':    'bitcoin',
+    'ETH':    'ethereum',
+    'SOL':    'solana',
+    'XLM':    'stellar',
+    'REZ':    'renzo-protocol',
+    'RSR':    'reserve-rights-token',
+    'NEAR':   'near',
+    'RENDER': 'render-token',
+    'ONDO':   'ondo-finance',
+    'ACH':    'alchemy-pay',
+    'BNB':    'binancecoin',
+    'XRP':    'ripple',
+    'ADA':    'cardano',
+    'NIGHT':  None,
+    'VTHO':   'vethor-token',
+    'LINK':   'chainlink',
+    'NEO':    'neo',
+    'GAS':    'gas',
+    'DRIFT':  'drift-protocol',
+    'SEI':    'sei-network',
+    'PEAQ':   'peaq',
+    'AEVO':   'aevo',
+    'EIGEN':  'eigenlayer',
+    'W':      'wormhole',
+    'WOO':    'woo-network',
+    'JASMY':  'jasmycoin',
+    'D2X':    None,
+    'SCP':    None,
+}
+
 # File paths (absolute, anchored to project root)
 SPREADSHEET_PATH = str(_PROJECT_ROOT / 'ATR_Tracker_Dashboard.xlsx')
 MASTER_CSV_PATH = str(_PROJECT_ROOT / 'data' / 'master.csv')
@@ -100,3 +132,4 @@ HISTORY_CSV_PATH = str(_PROJECT_ROOT / 'data' / 'history.csv')
 DASHBOARD_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'dashboard.json')
 CHART_HISTORY_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'chart_history.json')
 METADATA_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'metadata.json')
+MARKET_CAPS_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'market_caps.json')

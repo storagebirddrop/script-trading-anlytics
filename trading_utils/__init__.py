@@ -21,6 +21,8 @@ from .config import (
     VP_LOOKBACK_BARS,
     VP_LOOKBACK_BARS_WEEKLY,
     VP_N_BUCKETS,
+    COINGECKO_IDS,
+    MARKET_CAPS_JSON_PATH,
 )
 
 from .validation import ValidationResult, validate_dataframe
@@ -40,7 +42,8 @@ from .data_sources import (
     fetch_ohlcv_ccxt,
     fetch_ohlcv_geckoterminal,
     fetch_ohlcv,
-    get_manual_data
+    get_manual_data,
+    fetch_market_caps,
 )
 
 __all__ = [
@@ -62,6 +65,8 @@ __all__ = [
     'VP_LOOKBACK_BARS',
     'VP_LOOKBACK_BARS_WEEKLY',
     'VP_N_BUCKETS',
+    'COINGECKO_IDS',
+    'MARKET_CAPS_JSON_PATH',
     # Validation
     'ValidationResult',
     'validate_dataframe',
@@ -78,5 +83,6 @@ __all__ = [
     'fetch_ohlcv_ccxt',
     'fetch_ohlcv_geckoterminal',
     'fetch_ohlcv',
-    'get_manual_data'
+    'get_manual_data',
+    'fetch_market_caps',
 ]

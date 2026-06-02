@@ -6,8 +6,10 @@ Yahoo Finance for stocks/ETFs), calculates technical indicators, and
 writes to both master.csv and ATR_Tracker_Dashboard.xlsx.
 """
 
+import json
 import sys
 import warnings
+from datetime import datetime, timezone
 from pathlib import Path
 
 import openpyxl
@@ -24,12 +26,14 @@ from trading_utils import (
     TIMEFRAMES,
     SPREADSHEET_PATH,
     MASTER_CSV_PATH,
+    MARKET_CAPS_JSON_PATH,
     calculate_indicators,
     fetch_ohlcv_binance,
     fetch_ohlcv_yahoo,
     fetch_ohlcv_ccxt,
     fetch_ohlcv_geckoterminal,
     get_manual_data,
+    fetch_market_caps,
 )
 
 _PROJECT_ROOT = Path(__file__).resolve().parent
@@ -166,6 +170,16 @@ def main():
         print(f"master.csv: {len(df)} records written to {_MASTER_CSV}")
 
         write_to_excel(all_data)
+
+    # Fetch and save market cap data from CoinGecko
+    market_caps = fetch_market_caps()
+    mcap_path = Path(MARKET_CAPS_JSON_PATH)
+    mcap_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(mcap_path, 'w') as f:
+        json.dump({
+            'fetched_at': datetime.now(timezone.utc).isoformat(),
+            'data': market_caps,
+        }, f)
 
     if failed > _MAX_FAILED_ASSETS:
         print(f"ERROR: {failed} assets failed (threshold {_MAX_FAILED_ASSETS}). Exiting non-zero.")

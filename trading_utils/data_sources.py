@@ -18,7 +18,7 @@ import yfinance as yf
 warnings.filterwarnings('ignore', category=FutureWarning, module='yfinance')
 warnings.filterwarnings('ignore', category=FutureWarning, module='pandas')
 
-from .config import ASSET_CONFIG, MANUAL_DATA
+from .config import ASSET_CONFIG, MANUAL_DATA, COINGECKO_IDS
 
 # Module-level exchange cache (M4) — keyed by exchange id
 _exchanges: dict = {}
@@ -201,6 +201,45 @@ def _fetch_gecko_daily(network: str, pool_address: str, limit: int = 1000) -> pd
     except Exception as e:
         print(f"Error fetching daily OHLCV for pool {pool_address}: {e}")
         return None
+
+
+def fetch_market_caps() -> dict:
+    """
+    Fetch current market cap and rank for all crypto assets via CoinGecko /coins/markets.
+
+    Returns {symbol: {'market_cap': float | None, 'market_cap_rank': int | None}}.
+    Returns {} on network failure so callers can treat missing data as null.
+    """
+    id_to_symbol = {cg_id: sym for sym, cg_id in COINGECKO_IDS.items() if cg_id}
+    if not id_to_symbol:
+        return {}
+
+    try:
+        resp = requests.get(
+            'https://api.coingecko.com/api/v3/coins/markets',
+            params={
+                'vs_currency': 'usd',
+                'ids': ','.join(id_to_symbol),
+                'order': 'market_cap_desc',
+                'per_page': 250,
+                'page': 1,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        result = {}
+        for coin in resp.json():
+            sym = id_to_symbol.get(coin['id'])
+            if sym:
+                result[sym] = {
+                    'market_cap':      coin.get('market_cap'),
+                    'market_cap_rank': coin.get('market_cap_rank'),
+                }
+        print(f"CoinGecko: fetched market caps for {len(result)} assets")
+        return result
+    except Exception as e:
+        print(f"Warning: failed to fetch market caps from CoinGecko: {e}")
+        return {}
 
 
 def fetch_ohlcv_geckoterminal(network: str, pool_address: str, timeframe: str, limit: int = 1000):

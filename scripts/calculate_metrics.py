@@ -19,6 +19,7 @@ import pandas as pd
 
 from trading_utils import (
     HISTORY_CSV_PATH, DASHBOARD_JSON_PATH, CHART_HISTORY_JSON_PATH, METADATA_JSON_PATH,
+    MARKET_CAPS_JSON_PATH,
     calculate_volume_profile, VP_LOOKBACK_BARS, VP_LOOKBACK_BARS_WEEKLY,
 )
 
@@ -103,9 +104,19 @@ def calculate_historical_metrics(df: pd.DataFrame) -> Dict[str, Any]:
     return metrics
 
 
+def _load_market_caps() -> dict:
+    """Load market_caps.json if present; return {} otherwise."""
+    try:
+        with open(MARKET_CAPS_JSON_PATH) as f:
+            return json.load(f).get('data', {})
+    except (FileNotFoundError, KeyError, json.JSONDecodeError):
+        return {}
+
+
 def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
     """Calculate current snapshot metrics for each asset+timeframe."""
     metrics: Dict[str, Any] = {}
+    market_caps = _load_market_caps()
 
     # Precompute normalised timeframe column once — avoids O(n²) recomputation per asset
     norm_series = df['Timeframe'].apply(
@@ -175,6 +186,8 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
             'vp_position':      vp['position']      if vp else None,
             'vp_dist_from_poc': vp['dist_from_poc'] if vp else None,
             'vp_buckets':       vp['buckets']       if vp else None,
+            'market_cap':       market_caps.get(asset, {}).get('market_cap'),
+            'market_cap_rank':  market_caps.get(asset, {}).get('market_cap_rank'),
         }
 
     return metrics
