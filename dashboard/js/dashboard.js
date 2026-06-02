@@ -119,6 +119,24 @@ function getAtrColorClass(atrDistance) {
     return '';
 }
 
+// Returns { label, cls } for a VP position string, or null if position is unknown.
+function vpPositionLabel(pos) {
+    const map = {
+        above_vah:    { label: '↑ Above VAH', cls: 'vp-above-vah' },
+        below_val:    { label: '↓ Below VAL', cls: 'vp-below-val' },
+        at_poc:       { label: '● At POC',    cls: 'vp-at-poc'    },
+        in_value_area:{ label: 'In VA',        cls: 'vp-in-va'     },
+    };
+    return map[pos] ?? null;
+}
+
+// Returns badge HTML for VP position, or empty string.
+function vpBadgeHtml(pos) {
+    const info = vpPositionLabel(pos);
+    if (!info) return '';
+    return `<span class="vp-badge ${escapeHtml(info.cls)}">${escapeHtml(info.label)}</span>`;
+}
+
 // ─── Data loading ─────────────────────────────────────────────────────────────
 
 async function loadDashboardData() {
@@ -558,6 +576,11 @@ function renderPortfolio() {
                     <span class="metric-label">Chg%</span>
                     <span class="metric-value ${signClass(chg)}">${chg != null ? (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%' : 'N/A'}</span>
                 </div>
+                ${dailyData.vp_position ? `
+                <div class="metric">
+                    <span class="metric-label">VP</span>
+                    <span class="metric-value">${vpBadgeHtml(dailyData.vp_position)}</span>
+                </div>` : ''}
             </div>
             <div class="asset-card-footer">
                 <span class="asset-date${isStale ? ' stale' : ''}">
@@ -987,7 +1010,27 @@ function generateKeyTakeaways(symbol, timeframeData, assetAllData, chartHistory)
         }
     }
 
-    return takeaways.slice(0, 4);
+    // Insight 5: Volume Profile position
+    const vpPos  = current.vp_position;
+    const vpPoc  = current.vp_poc;
+    const vpVah  = current.vp_vah;
+    const vpVal  = current.vp_val;
+    if (vpPos && vpPoc != null) {
+        const tfLabel    = timeframeData === assetAllData?.['1w'] ? '52' : '90';
+        const pocFmt     = formatPrice(symbol, vpPoc);
+        const vahFmt     = formatPrice(symbol, vpVah);
+        const valFmt     = formatPrice(symbol, vpVal);
+        if (vpPos === 'above_vah')
+            takeaways.push({ text: `Price is above the ${tfLabel}-bar Value Area High (VAH: ${vahFmt}) — outside the main volume cluster. Pullback support near VAH.`, type: 'negative' });
+        else if (vpPos === 'below_val')
+            takeaways.push({ text: `Price is below the ${tfLabel}-bar Value Area Low (VAL: ${valFmt}) — trading below the main volume cluster. Watch for re-entry above VAL.`, type: 'positive' });
+        else if (vpPos === 'at_poc')
+            takeaways.push({ text: `Price near the ${tfLabel}-bar Point of Control (${pocFmt}) — highest-volume level, key support/resistance zone.`, type: 'neutral' });
+        else
+            takeaways.push({ text: `Price in the ${tfLabel}-bar Value Area (${valFmt}–${vahFmt}) — consolidating within the main volume cluster.`, type: 'neutral' });
+    }
+
+    return takeaways.slice(0, 5);
 }
 
 function renderDrilldown() {
@@ -1046,6 +1089,22 @@ function renderDrilldown() {
                 <span class="summary-label">Chg% (${selectedTimeframe === '1d' ? 'Day' : 'Week'})</span>
                 <span class="summary-value ${signClass(current?.price_change_pct)}">${current?.price_change_pct != null ? (current.price_change_pct >= 0 ? '+' : '') + current.price_change_pct.toFixed(2) + '%' : 'N/A'}</span>
             </div>
+            <div class="summary-item">
+                <span class="summary-label">VP Zone</span>
+                <span class="summary-value">${current?.vp_position ? vpBadgeHtml(current.vp_position) : 'N/A'}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">POC</span>
+                <span class="summary-value">${formatPrice(selectedAsset, current?.vp_poc)}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">VAH</span>
+                <span class="summary-value">${formatPrice(selectedAsset, current?.vp_vah)}</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">VAL</span>
+                <span class="summary-value">${formatPrice(selectedAsset, current?.vp_val)}</span>
+            </div>
         </div>
     `;
 
@@ -1091,6 +1150,7 @@ function renderDrilldown() {
         renderPlaceholderChart('price-ema-chart',      'Price vs EMA21');
         renderPlaceholderChart('weekly-atr-chart',     'Weekly ATR Distance');
     }
+    renderVolumeProfileChart(current, selectedTimeframe);
 }
 
 // ─── Chart helpers ────────────────────────────────────────────────────────────
@@ -1333,4 +1393,78 @@ function renderPlaceholderChart(chartId, title, message) {
             </div>
         </div>
     `;
+}
+
+function renderVolumeProfileChart(current, tf) {
+    const id = 'volume-profile-chart';
+    destroyChart(id);
+    const container = document.getElementById(id);
+    if (!container) return;
+
+    if (!current?.vp_buckets?.length) {
+        renderPlaceholderChart(id, 'Volume Profile', 'Volume data not available for this asset.');
+        return;
+    }
+
+    const buckets  = current.vp_buckets;
+    const labels   = buckets.map(b => b.p.toFixed(4));
+    const volumes  = buckets.map(b => b.v);
+
+    // Find bucket closest to current price for highlighting
+    const priceIdx = buckets.reduce((best, b, i) =>
+        Math.abs(b.p - (current.price ?? 0)) < Math.abs(buckets[best].p - (current.price ?? 0)) ? i : best, 0);
+
+    const colors = buckets.map((b, i) => {
+        if (i === priceIdx) return 'rgba(245,158,11,0.85)';   // current price — amber
+        if (b.is_poc)       return 'rgba(59,130,246,0.85)';   // POC — blue
+        if (b.in_va)        return 'rgba(16,185,129,0.45)';   // Value Area — green tint
+        return                     'rgba(100,116,139,0.35)';  // outside VA — muted
+    });
+
+    const lookbackLabel = tf === '1w' ? '52-Week' : '90-Day';
+    container.innerHTML = `<h4>${lookbackLabel} Volume Profile</h4>`;
+    const canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+
+    // Legend — built via DOM to satisfy CSP style-src 'self' (no unsafe-inline)
+    const legend = document.createElement('div');
+    legend.className = 'vp-chart-info';
+    [['vp-legend-poc', 'POC'], ['vp-legend-va', 'Value Area'], ['vp-legend-price', 'Current Price']].forEach(([cls, txt]) => {
+        const s = document.createElement('span');
+        s.className = cls;
+        s.textContent = txt;
+        legend.appendChild(s);
+    });
+    container.appendChild(legend);
+
+    charts[id] = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                data: volumes,
+                backgroundColor: colors,
+                borderWidth: 0,
+                barPercentage: 1.0,
+                categoryPercentage: 1.0,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Volume', color: 'rgba(160,174,192,0.8)', font: { size: 10 } },
+                    grid: { color: 'rgba(55,65,81,0.5)' },
+                    ticks: { maxTicksLimit: 5 }
+                },
+                y: {
+                    ticks: { maxTicksLimit: 8, font: { size: 9 } },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
 }

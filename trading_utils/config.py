@@ -75,6 +75,11 @@ ATR_PERIOD = 14
 RSI_PERIOD = 14
 Z_SCORE_PERIOD = 20
 
+# Volume Profile parameters
+VP_LOOKBACK_BARS        = 90   # daily lookback (~4 months)
+VP_LOOKBACK_BARS_WEEKLY = 52   # weekly lookback (~1 year)
+VP_N_BUCKETS            = 24   # price distribution buckets
+
 # File paths (absolute, anchored to project root)
 SPREADSHEET_PATH = str(_PROJECT_ROOT / 'ATR_Tracker_Dashboard.xlsx')
 MASTER_CSV_PATH = str(_PROJECT_ROOT / 'data' / 'master.csv')

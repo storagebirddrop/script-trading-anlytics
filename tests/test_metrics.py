@@ -286,6 +286,44 @@ class TestCalculateCurrentMetrics:
         assert 'BTC' in metrics
         assert 'ETH' in metrics
 
+    def test_vp_none_when_volume_column_absent(self, sample_history_df):
+        """VP fields are None when High/Low/Volume columns are absent (backward compat)."""
+        metrics = calculate_current_metrics(sample_history_df)
+        current = metrics['BTC']['1d']['current']
+        for field in ('vp_poc', 'vp_vah', 'vp_val', 'vp_position', 'vp_dist_from_poc', 'vp_buckets'):
+            assert current[field] is None, f"Expected {field} to be None without volume data"
+
+    def test_vp_fields_present_when_volume_available(self):
+        """VP fields are populated when High, Low, Volume columns are present."""
+        n = 50
+        closes  = [100.0 + i * 0.5 for i in range(n)]
+        highs   = [c + 1.0 for c in closes]
+        lows    = [c - 1.0 for c in closes]
+        dates   = [f'2026-0{(i // 28) + 1}-{(i % 28) + 1:02d}' for i in range(n)]
+        df = pd.DataFrame({
+            'Date':         dates,
+            'Asset':        ['BTC'] * n,
+            'Price':        closes,
+            'EMA21':        [c - 0.5 for c in closes],
+            'ATR':          [1.4] * n,
+            'RSI':          [50.0] * n,
+            'RSI_Z_Score':  [0.0] * n,
+            'ATR_Distance': [0.5] * n,
+            'Pct_Above_EMA':[0.5] * n,
+            'Timeframe':    ['1d'] * n,
+            'High':         highs,
+            'Low':          lows,
+            'Volume':       [100000.0] * n,
+        })
+        metrics = calculate_current_metrics(df)
+        current = metrics['BTC']['1d']['current']
+        assert current['vp_position'] is not None
+        assert current['vp_poc'] is not None
+        assert current['vp_vah'] is not None
+        assert current['vp_val'] is not None
+        assert current['vp_buckets'] is not None
+        assert len(current['vp_buckets']) == 24
+
 
 class TestGenerateDashboardJson:
     """Test dashboard JSON generation."""

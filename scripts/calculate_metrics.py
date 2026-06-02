@@ -17,7 +17,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np
 import pandas as pd
 
-from trading_utils import HISTORY_CSV_PATH, DASHBOARD_JSON_PATH, CHART_HISTORY_JSON_PATH, METADATA_JSON_PATH
+from trading_utils import (
+    HISTORY_CSV_PATH, DASHBOARD_JSON_PATH, CHART_HISTORY_JSON_PATH, METADATA_JSON_PATH,
+    calculate_volume_profile, VP_LOOKBACK_BARS, VP_LOOKBACK_BARS_WEEKLY,
+)
 
 
 def _norm_timeframe(tf: str) -> str:
@@ -145,6 +148,15 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
         else:
             price_change_pct = None
 
+        # Volume Profile — requires High, Low, Volume columns in history
+        vp = None
+        if {'High', 'Low', 'Volume'}.issubset(asset_data.columns):
+            vp_df = asset_data.rename(columns={
+                'Price': 'close', 'High': 'high', 'Low': 'low', 'Volume': 'volume'
+            })
+            lookback = VP_LOOKBACK_BARS_WEEKLY if tf_norm == '1w' else VP_LOOKBACK_BARS
+            vp = calculate_volume_profile(vp_df, lookback_bars=lookback)
+
         metrics[asset][tf_norm]['current'] = {
             'date': str(row['Date']),
             'price': float(row['Price']) if pd.notna(row['Price']) else None,
@@ -157,6 +169,12 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
             'regime': regime,
             'atr_percentile': percentile,
             'price_change_pct': price_change_pct,
+            'vp_poc':           vp['poc']           if vp else None,
+            'vp_vah':           vp['vah']           if vp else None,
+            'vp_val':           vp['val']           if vp else None,
+            'vp_position':      vp['position']      if vp else None,
+            'vp_dist_from_poc': vp['dist_from_poc'] if vp else None,
+            'vp_buckets':       vp['buckets']       if vp else None,
         }
 
     return metrics
