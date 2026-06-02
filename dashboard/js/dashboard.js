@@ -824,7 +824,7 @@ function renderPortfolio() {
                 ${primary.regime_changed ? '<span class="transition-pulse" title="Regime changed"></span>' : ''}
                 ${primary.alignment ? `<span class="align-badge ${alignBadgeClass(primary.alignment)}" title="TF Alignment">${alignBadgeLabel(primary.alignment)}</span>` : ''}
                 <span class="asset-regime ${regimeClass(regime)}">${er}</span>
-                <button class="star-btn${isStarred(asset) ? ' starred' : ''}" data-star="${ea}" title="${isStarred(asset) ? 'Unstar' : 'Star'} ${ea}" aria-label="${isStarred(asset) ? 'Remove from watchlist' : 'Add to watchlist'}" onclick="event.stopPropagation();toggleStar('${ea}');renderPortfolio();">&#9733;</button>
+                <button class="star-btn${isStarred(asset) ? ' starred' : ''}" data-star="${ea}" title="${isStarred(asset) ? 'Unstar' : 'Star'} ${ea}" aria-label="${isStarred(asset) ? 'Remove from watchlist' : 'Add to watchlist'}">&#9733;</button>
             </div>
             <div class="asset-metrics">
                 <div class="metric">
@@ -888,8 +888,14 @@ function renderPortfolio() {
 
     renderPortfolioSparklines();
 
-    // Delegated click → navigate to Drilldown
+    // Delegated click — star button takes priority, then card → Drilldown
     container.onclick = e => {
+        const starBtn = e.target.closest('.star-btn[data-star]');
+        if (starBtn) {
+            toggleStar(starBtn.dataset.star);
+            renderPortfolio();
+            return;
+        }
         const card = e.target.closest('.asset-card[data-asset]');
         if (card) navigateTo('drilldown-tab', card.dataset.asset);
     };
