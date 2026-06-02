@@ -1437,7 +1437,8 @@ function renderVolumeProfileChart(current, tf) {
         return;
     }
 
-    const buckets  = current.vp_buckets;
+    // Reverse so highest price is at the top of the chart (standard price axis convention)
+    const buckets  = [...current.vp_buckets].reverse();
     const labels   = buckets.map(b => b.p.toFixed(4));
     const volumes  = buckets.map(b => b.v);
 
