@@ -10,6 +10,7 @@ ASSETS = [
     # Crypto assets (Yahoo Finance)
     'BTC', 'ETH', 'SOL', 'XLM', 'REZ', 'RSR', 'NEAR', 'RENDER', 'ONDO', 'ACH', 'BNB', 'XRP',
     'ADA', 'NIGHT',
+    'VTHO', 'LINK', 'NEO', 'GAS', 'DRIFT', 'SEI', 'PEAQ', 'AEVO', 'EIGEN', 'W', 'WOO', 'JASMY',
     # NASDAQ stocks (Yahoo Finance)
     'MSTR', 'XXI', 'RIOT', 'MARA', 'IREN', 'BMNR', 'HUT', 'WULF', 'HIVE', 'CLSK', 'SLNH',
     # LSE ETFs (Yahoo Finance with .L suffix)
@@ -40,6 +41,18 @@ ASSET_CONFIG = {
     'XRP':    {'source': 'yahoo', 'symbol': 'XRP-USD'},
     'ADA':   {'source': 'yahoo', 'symbol': 'ADA-USD'},
     'NIGHT': {'source': 'yahoo', 'symbol': 'NIGHT-USD'},
+    'VTHO':  {'source': 'yahoo', 'symbol': 'VTHO-USD'},
+    'LINK':  {'source': 'yahoo', 'symbol': 'LINK-USD'},
+    'NEO':   {'source': 'yahoo', 'symbol': 'NEO-USD'},
+    'GAS':   {'source': 'yahoo', 'symbol': 'GAS-USD'},
+    'DRIFT': {'source': 'yahoo', 'symbol': 'DRIFT-USD'},
+    'SEI':   {'source': 'yahoo', 'symbol': 'SEI-USD'},
+    'PEAQ':  {'source': 'yahoo', 'symbol': 'PEAQ-USD'},
+    'AEVO':  {'source': 'yahoo', 'symbol': 'AEVO-USD'},
+    'EIGEN': {'source': 'yahoo', 'symbol': 'EIGEN-USD'},
+    'W':     {'source': 'yahoo', 'symbol': 'W-USD'},
+    'WOO':   {'source': 'yahoo', 'symbol': 'WOO-USD'},
+    'JASMY': {'source': 'yahoo', 'symbol': 'JASMY-USD'},
     # NASDAQ stocks (Yahoo Finance)
     'MSTR': {'source': 'yahoo', 'symbol': 'MSTR'},
     'XXI': {'source': 'yahoo', 'symbol': 'XXI'},

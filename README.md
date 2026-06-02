@@ -9,14 +9,14 @@ Automated pipeline that fetches daily and weekly OHLCV data from Yahoo Finance, 
 - **Volume Profile:** fixed-lookback price-by-volume distribution (POC, VAH, VAL, position classification) stored in `dashboard.json` and rendered as a horizontal bar chart in the Drilldown tab
 - **Timeframes:** Daily (`1d`) and Weekly (`1w`)
 - **Regime classification** based on ATR Distance thresholds (Capitulation → Accumulation → Trend → Distribution → Mania)
-- **33 tracked assets** across crypto, NASDAQ stocks, and LSE ETFs
+- **45 tracked assets** across crypto, NASDAQ stocks, and LSE ETFs
 - **Automated daily pipeline** via GitHub Actions
 
 ## Assets
 
 | Category | Symbols |
 |----------|---------|
-| Crypto (16) | BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP, ADA, NIGHT, D2X, SCP |
+| Crypto (28) | BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP, ADA, NIGHT, VTHO, LINK, NEO, GAS, DRIFT, SEI, PEAQ, AEVO, EIGEN, W, WOO, JASMY, D2X, SCP |
 | NASDAQ stocks (11) | MSTR, XXI, RIOT, MARA, IREN, BMNR, HUT, WULF, HIVE, CLSK, SLNH |
 | LSE ETFs (6) | MSTY, YMST, MARY, RIOY, IREY, BMNY |
 

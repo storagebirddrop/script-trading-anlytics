@@ -6,7 +6,7 @@ const charts = {};
 
 // Asset categorisation (mirrors trading_utils/config.py ASSETS list)
 const ASSET_CATEGORIES = {
-    crypto: new Set(['BTC','ETH','SOL','XLM','REZ','RSR','NEAR','RENDER','ONDO','ACH','BNB','XRP','ADA','NIGHT','D2X','SCP']),
+    crypto: new Set(['BTC','ETH','SOL','XLM','REZ','RSR','NEAR','RENDER','ONDO','ACH','BNB','XRP','ADA','NIGHT','VTHO','LINK','NEO','GAS','DRIFT','SEI','PEAQ','AEVO','EIGEN','W','WOO','JASMY','D2X','SCP']),
     nasdaq: new Set(['MSTR','XXI','RIOT','MARA','IREN','BMNR','HUT','WULF','HIVE','CLSK','SLNH']),
     lse:    new Set(['MSTY','YMST','MARY','RIOY','IREY','BMNY'])
 };

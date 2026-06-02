@@ -93,8 +93,8 @@ Shared library used by both `crypto_tracker.py` and `backfill_historical.py`. Av
 
 ### Tracked Assets
 
-33 assets across 3 categories, both daily (`1d`) and weekly (`1w`) timeframes:
-- **Crypto (16):** BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP, ADA, NIGHT — fetched via Yahoo Finance (symbol format: `BTC-USD`, `RENDER-USD`). REZ, ONDO, NIGHT may not be listed on Yahoo Finance and will fail gracefully. Also includes D2X (Solana via GeckoTerminal) and SCP (CoinEx via CCXT) — all 16 are grouped as "Crypto" in the dashboard UI and `ASSET_CATEGORIES`.
+45 assets across 3 categories, both daily (`1d`) and weekly (`1w`) timeframes:
+- **Crypto (28):** BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP, ADA, NIGHT, VTHO, LINK, NEO, GAS, DRIFT, SEI, PEAQ, AEVO, EIGEN, W, WOO, JASMY — fetched via Yahoo Finance (symbol format: `BTC-USD`, `LINK-USD`). REZ, ONDO, NIGHT and some newer tokens may not be listed on Yahoo Finance and will fail gracefully. Also includes D2X (Solana via GeckoTerminal) and SCP (CoinEx via CCXT) — all 28 are grouped as "Crypto" in the dashboard UI and `ASSET_CATEGORIES`.
 - **NASDAQ stocks (11):** MSTR, XXI, RIOT, MARA, IREN, BMNR, HUT, WULF, HIVE, CLSK, SLNH
 - **LSE ETFs (6):** MSTY, YMST, MARY, RIOY, IREY, BMNY — fetched via Yahoo Finance with `.L` suffix. These pay large regular distributions; **always use `auto_adjust=False`** in `yf.download()` calls or historical EMA/ATR will be corrupted each time a dividend is paid.
 
