@@ -31,7 +31,7 @@ const LSE_ASSETS = ASSET_CATEGORIES.lse;
 const REGIME_ORDER = ['Capitulation','Accumulation','Trend','Distribution','Mania','Unknown'];
 
 // Portfolio filter state
-const portfolioFilter = { category: '', regime: null, sort: 'name' };
+const portfolioFilter = { category: '', regime: null, sort: 'name', timeframe: '1d' };
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -343,6 +343,18 @@ function setupPortfolioFilters() {
         portfolioFilter.sort = e.target.value;
         renderPortfolio();
     });
+
+    // Timeframe toggle
+    document.getElementById('filter-portfolio-timeframe').addEventListener('click', e => {
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
+        document.querySelectorAll('#filter-portfolio-timeframe .chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        portfolioFilter.timeframe = chip.dataset.value;
+        portfolioFilter.regime = null;
+        document.querySelectorAll('.regime-strip .asset-regime').forEach(p => p.classList.remove('active-filter'));
+        renderPortfolio();
+    });
 }
 
 // ─── Portfolio health bar ─────────────────────────────────────────────────────
@@ -357,7 +369,7 @@ function renderPortfolioHealthBar() {
 
     Object.entries(dashboardData.assets).forEach(([asset, ad]) => {
         if (ASSET_CATEGORIES.macro.has(asset)) return;
-        const c = ad['1d']?.current;
+        const c = ad[portfolioFilter.timeframe]?.current;
         if (!c) return;
         total++;
         const atr = c.atr_distance ?? 0;
@@ -421,8 +433,8 @@ function renderOpportunityPanels() {
     const ranked = [];
     Object.entries(dashboardData.assets).forEach(([symbol, ad]) => {
         if (ASSET_CATEGORIES.macro.has(symbol)) return;
-        const c = ad['1d']?.current;
-        const n = ad['1d']?.historical?.sample_size ?? 0;
+        const c = ad[portfolioFilter.timeframe]?.current;
+        const n = ad[portfolioFilter.timeframe]?.historical?.sample_size ?? 0;
         if (c?.atr_distance != null) {
             ranked.push({ symbol, atrDistance: c.atr_distance, atrPercentile: c.atr_percentile, sampleSize: n });
         }
@@ -503,7 +515,7 @@ function renderPortfolio() {
     // ── Regime strip ──────────────────────────────────────────────────────────
     const regimeCounts = {};
     assets.forEach(a => {
-        const current = dashboardData.assets[a]['1d']?.current;
+        const current = dashboardData.assets[a][portfolioFilter.timeframe]?.current;
         if (!current) return; // no current snapshot — don't inflate Unknown count
         const r = current.regime || 'Unknown';
         regimeCounts[r] = (regimeCounts[r] || 0) + 1;
@@ -537,13 +549,13 @@ function renderPortfolio() {
     }
     if (portfolioFilter.regime) {
         assets = assets.filter(a => {
-            const r = dashboardData.assets[a]['1d']?.current?.regime || 'Unknown';
+            const r = dashboardData.assets[a][portfolioFilter.timeframe]?.current?.regime || 'Unknown';
             return r === portfolioFilter.regime;
         });
     }
 
     // ── Sort — getRaw returns null for missing values so sentinels apply correctly ──
-    const getRaw = (a, field) => dashboardData.assets[a]['1d']?.current?.[field] ?? null;
+    const getRaw = (a, field) => dashboardData.assets[a][portfolioFilter.timeframe]?.current?.[field] ?? null;
     if (portfolioFilter.sort === 'atr_asc') {
         assets.sort((a, b) => (getRaw(a, 'atr_distance') ?? Infinity) - (getRaw(b, 'atr_distance') ?? Infinity));
     } else if (portfolioFilter.sort === 'atr_desc') {
@@ -559,28 +571,33 @@ function renderPortfolio() {
     }
 
     // ── Render cards ──────────────────────────────────────────────────────────
+    const activeTf  = portfolioFilter.timeframe;
+    const crossTf   = activeTf === '1d' ? '1w' : '1d';
+    const crossLabel = crossTf === '1w' ? 'W' : 'D';
+
     assets.forEach(asset => {
         const assetData  = dashboardData.assets[asset];
-        const dailyData  = assetData['1d']?.current;
-        const weeklyData = assetData['1w']?.current;
+        const primary    = assetData[activeTf]?.current;
+        const secondary  = assetData[crossTf]?.current;
 
-        if (!dailyData) return;
+        if (!primary) return;
 
-        const atrDistD = dailyData.atr_distance;
-        const atrDistW = weeklyData?.atr_distance;
-        const rsi      = dailyData.rsi;
-        const rsiZ     = dailyData.rsi_z_score;
-        const chg      = dailyData.price_change_pct;
-        const regime   = dailyData.regime || 'Unknown';
+        const atrDistP = primary.atr_distance;
+        const atrDistX = secondary?.atr_distance;
+        const rsi      = primary.rsi;
+        const rsiZ     = primary.rsi_z_score;
+        const chg      = primary.price_change_pct;
+        const regime   = primary.regime || 'Unknown';
 
         const latestDate  = dashboardData.metadata?.date_range?.end;
-        const isStale = latestDate && dailyData.date
-            ? Math.floor((new Date(latestDate) - new Date(dailyData.date)) / 86400000) >= 3
+        const staleThreshold = activeTf === '1w' ? 10 : 3;
+        const isStale = latestDate && primary.date
+            ? Math.floor((new Date(latestDate) - new Date(primary.date)) / 86400000) >= staleThreshold
             : false;
 
-        const sampleSize  = assetData['1d']?.historical?.sample_size ?? 0;
-        const atrPct      = dailyData.atr_percentile;
-        const atrColorCls = getAtrColorClass(atrDistD);
+        const sampleSize  = assetData[activeTf]?.historical?.sample_size ?? 0;
+        const atrPct      = primary.atr_percentile;
+        const atrColorCls = getAtrColorClass(atrDistP);
         const badgeHtml   = (sampleSize > 30 && atrPct != null)
             ? `<span class="metric-percentile-badge" aria-label="${Math.round(atrPct)}th percentile">P${Math.round(atrPct)}%</span>`
             : '';
@@ -598,14 +615,14 @@ function renderPortfolio() {
             <div class="asset-metrics">
                 <div class="metric">
                     <span class="metric-label">ATR Dist.</span>
-                    <span class="metric-value ${atrColorCls || signClass(atrDistD)}">
-                        ${atrDistD?.toFixed(2) ?? 'N/A'}${badgeHtml}
+                    <span class="metric-value ${atrColorCls || signClass(atrDistP)}">
+                        ${atrDistP?.toFixed(2) ?? 'N/A'}${badgeHtml}
                     </span>
                 </div>
                 <div class="metric">
-                    <span class="metric-label">W-ATR Dist.</span>
-                    <span class="metric-value ${signClass(atrDistW)}">
-                        ${atrDistW?.toFixed(2) ?? 'N/A'}
+                    <span class="metric-label">${crossLabel}-ATR Dist.</span>
+                    <span class="metric-value ${signClass(atrDistX)}">
+                        ${atrDistX?.toFixed(2) ?? 'N/A'}
                     </span>
                 </div>
                 <div class="metric">
@@ -618,26 +635,26 @@ function renderPortfolio() {
                 </div>
                 <div class="metric">
                     <span class="metric-label">Price</span>
-                    <span class="metric-value">${formatPrice(asset, dailyData.price)}</span>
+                    <span class="metric-value">${formatPrice(asset, primary.price)}</span>
                 </div>
                 <div class="metric">
                     <span class="metric-label">Chg%</span>
                     <span class="metric-value ${signClass(chg)}">${chg != null ? (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%' : 'N/A'}</span>
                 </div>
-                ${dailyData.vp_position ? `
+                ${primary.vp_position ? `
                 <div class="metric">
                     <span class="metric-label">VP</span>
-                    <span class="metric-value">${vpBadgeHtml(dailyData.vp_position)}</span>
+                    <span class="metric-value">${vpBadgeHtml(primary.vp_position)}</span>
                 </div>` : ''}
-                ${dailyData.market_cap_rank != null ? `
+                ${primary.market_cap_rank != null ? `
                 <div class="metric">
                     <span class="metric-label">MCap</span>
-                    <span class="metric-value"><span class="mcap-badge ${mcapRankClass(dailyData.market_cap_rank)}">#${dailyData.market_cap_rank}</span></span>
+                    <span class="metric-value"><span class="mcap-badge ${mcapRankClass(primary.market_cap_rank)}">#${primary.market_cap_rank}</span></span>
                 </div>` : ''}
             </div>
             <div class="asset-card-footer">
                 <span class="asset-date${isStale ? ' stale' : ''}">
-                    ${isStale ? '&#x26A0; ' : ''}as of ${escapeHtml(dailyData.date ?? '—')}
+                    ${isStale ? '&#x26A0; ' : ''}as of ${escapeHtml(primary.date ?? '—')}
                 </span>
             </div>
         `;
