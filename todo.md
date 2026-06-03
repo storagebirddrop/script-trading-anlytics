@@ -56,7 +56,7 @@
 - [x] **Funding rates + Open Interest (crypto)**
   CoinGlass free tier: per-asset funding rates and aggregated open interest. High positive funding + rising OI = crowded long = squeeze risk; negative funding + rising OI = short squeeze setup. Two extra fields on crypto cards and a sparkline in Drilldown.
 
-- [ ] **BTC Dominance + Altcoin Season Index**
+- [x] **BTC Dominance + Altcoin Season Index**
   BTC.D above ~65% suppresses altcoins; falling BTC.D with ETH/BTC strengthening = capital rotation. CMC Altcoin Season Index (free endpoint): % of top-100 alts outperforming BTC over 90 days (>75 = altseason, <25 = BTC season). Add as a persistent macro bar or dedicated row on the Portfolio tab.
 
 - [ ] **ADX (Average Directional Index)**

@@ -362,6 +362,87 @@ def fetch_binance_futures() -> Dict[str, Any]:
     return result
 
 
+def fetch_btc_dominance() -> Optional[float]:
+    """Fetch BTC market-cap dominance % from CoinGecko (free, no auth).
+
+    Returns a float such as 52.3 (meaning 52.3%) or None on failure.
+    """
+    try:
+        resp = requests.get('https://api.coingecko.com/api/v3/global', timeout=10)
+        resp.raise_for_status()
+        pct = resp.json()['data']['market_cap_percentage']['btc']
+        return float(pct)
+    except Exception as e:
+        print(f"  Warning: BTC dominance fetch failed: {e}")
+        return None
+
+
+def calculate_altseason_index(history_df: pd.DataFrame, lookback_days: int = 90) -> Optional[Dict[str, Any]]:
+    """Compute Altcoin Season Index from history.csv (no external API).
+
+    Methodology mirrors the CMC index: percentage of tracked crypto assets
+    (excluding BTC) that outperformed BTC over the last lookback_days days
+    using daily (1d) price data.
+
+    Returns {'score': int, 'label': str, 'alts_outperforming': int, 'total': int}
+    or None when insufficient data.
+    """
+    _CRYPTO_EXCL_BTC = {
+        'ETH', 'SOL', 'XLM', 'REZ', 'RSR', 'NEAR', 'RENDER', 'ONDO', 'ACH',
+        'BNB', 'XRP', 'ADA', 'NIGHT', 'VTHO', 'LINK', 'NEO', 'GAS', 'DRIFT',
+        'SEI', 'PEAQ', 'AEVO', 'EIGEN', 'W', 'WOO', 'JASMY', 'D2X', 'SCP',
+    }
+    norm_series = history_df['Timeframe'].apply(
+        lambda t: _norm_timeframe(str(t)) if pd.notna(t) else ''
+    )
+    df1d = history_df[norm_series == '1d'].copy()
+    df1d['Date'] = pd.to_datetime(df1d['Date'])
+
+    def _return_over_window(asset: str) -> Optional[float]:
+        g = df1d[df1d['Asset'] == asset].sort_values('Date').dropna(subset=['Price'])
+        if len(g) < 2:
+            return None
+        latest = g['Date'].iloc[-1]
+        cutoff = latest - pd.Timedelta(days=lookback_days)
+        past = g[g['Date'] <= cutoff]
+        if len(past) == 0:
+            return None
+        curr = float(g['Price'].iloc[-1])
+        prev = float(past['Price'].iloc[-1])
+        return (curr - prev) / prev if prev > 0 else None
+
+    btc_ret = _return_over_window('BTC')
+    if btc_ret is None:
+        return None
+
+    outperforming = 0
+    total = 0
+    for asset in _CRYPTO_EXCL_BTC:
+        ret = _return_over_window(asset)
+        if ret is None:
+            continue
+        total += 1
+        if ret > btc_ret:
+            outperforming += 1
+
+    if total == 0:
+        return None
+
+    score = round(100 * outperforming / total)
+    if score >= 75:
+        label = 'Altcoin Season'
+    elif score >= 55:
+        label = 'Leaning Alt'
+    elif score >= 45:
+        label = 'Neutral'
+    elif score >= 25:
+        label = 'Leaning BTC'
+    else:
+        label = 'Bitcoin Season'
+
+    return {'score': score, 'label': label, 'alts_outperforming': outperforming, 'total': total}
+
+
 def fetch_fear_greed() -> Optional[Dict[str, Any]]:
     """Fetch latest Crypto Fear & Greed Index from alternative.me (free, no auth)."""
     try:
@@ -454,6 +535,16 @@ def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
             c['funding_rate'] = bf['funding_rate'] if bf else None
             c['open_interest_usd'] = bf['open_interest_usd'] if bf else None
 
+    print("Fetching BTC dominance...")
+    btc_dominance = fetch_btc_dominance()
+    if btc_dominance is not None:
+        print(f"  BTC dominance: {btc_dominance:.1f}%")
+
+    print("Calculating Altcoin Season Index...")
+    altseason = calculate_altseason_index(history_df)
+    if altseason:
+        print(f"  Altseason: {altseason['score']} ({altseason['label']}) — {altseason['alts_outperforming']}/{altseason['total']} alts outperforming BTC")
+
     print("Fetching Fear & Greed Index...")
     fear_greed = fetch_fear_greed()
     if fear_greed:
@@ -469,6 +560,8 @@ def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
                 'end': str(history_df['Date'].max()),
             },
         },
+        'btc_dominance': btc_dominance,
+        'altseason': altseason,
         'fear_greed': fear_greed,
         'assets': assets_data,
     }

@@ -477,6 +477,57 @@ function setupPortfolioFilters() {
     }
 }
 
+// ─── BTC Dominance + Altcoin Season bar ──────────────────────────────────────
+
+function btcDomCssClass(pct) {
+    if (pct == null) return 'btcd--unknown';
+    if (pct >= 65)   return 'btcd--high';
+    if (pct >= 55)   return 'btcd--elevated';
+    return                  'btcd--low';
+}
+
+function altseasonCssClass(label) {
+    const map = {
+        'Altcoin Season': 'alts--altseason',
+        'Leaning Alt':    'alts--leaning-alt',
+        'Neutral':        'alts--neutral',
+        'Leaning BTC':    'alts--leaning-btc',
+        'Bitcoin Season': 'alts--btcseason',
+    };
+    return map[label] || 'alts--neutral';
+}
+
+function renderMarketContextBar() {
+    const bar = document.getElementById('market-context-bar');
+    if (!bar || !dashboardData) return;
+
+    const btcd = dashboardData.btc_dominance;
+    const alts = dashboardData.altseason;
+
+    if (btcd == null && alts == null) {
+        bar.hidden = true;
+        return;
+    }
+
+    const btcdHtml = btcd != null
+        ? `<div class="ctx-stat">
+               <span class="ctx-label">BTC Dom.</span>
+               <span class="ctx-value btcd-value ${btcDomCssClass(btcd)}">${btcd.toFixed(1)}%</span>
+           </div>`
+        : '';
+
+    const altsHtml = alts != null
+        ? `<div class="health-divider" aria-hidden="true"></div>
+           <div class="ctx-stat">
+               <span class="ctx-label">Alt Season</span>
+               <span class="ctx-value altseason-badge ${altseasonCssClass(alts.label)}" title="${alts.alts_outperforming} of ${alts.total} alts outperforming BTC (90d)">${alts.score} · ${escapeHtml(alts.label)}</span>
+           </div>`
+        : '';
+
+    bar.innerHTML = btcdHtml + (btcd != null && alts != null ? `<div class="health-divider" aria-hidden="true"></div>` : '') + altsHtml;
+    bar.hidden = false;
+}
+
 // ─── Fear & Greed badge ───────────────────────────────────────────────────────
 
 function fngCssClass(label) {
@@ -734,6 +785,7 @@ function renderBreadthChart() {
 function renderPortfolio() {
     if (!dashboardData) return;
 
+    renderMarketContextBar();
     renderPortfolioHealthBar();
     renderOpportunityPanels();
     renderTransitionsSection();

@@ -15,6 +15,8 @@ from calculate_metrics import (
     generate_chart_history,
     fetch_fear_greed,
     fetch_binance_futures,
+    fetch_btc_dominance,
+    calculate_altseason_index,
 )
 
 
@@ -732,6 +734,152 @@ class TestBinanceFuturesInDashboard:
             dashboard = generate_dashboard_json(df)
         assert dashboard['assets']['BTC']['1d']['current']['funding_rate'] == pytest.approx(0.0200)
         assert dashboard['assets']['BTC']['1w']['current']['funding_rate'] == pytest.approx(0.0200)
+
+
+class TestFetchBtcDominance:
+    """Tests for fetch_btc_dominance()."""
+
+    def _mock_resp(self, btc_pct):
+        mock = MagicMock()
+        mock.json.return_value = {'data': {'market_cap_percentage': {'btc': btc_pct, 'eth': 17.0}}}
+        return mock
+
+    def test_returns_float_on_success(self):
+        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(52.3)):
+            result = fetch_btc_dominance()
+        assert result == pytest.approx(52.3)
+
+    def test_returns_none_on_network_error(self):
+        with patch('calculate_metrics.requests.get', side_effect=Exception('timeout')):
+            result = fetch_btc_dominance()
+        assert result is None
+
+    def test_returns_none_on_missing_key(self):
+        mock = MagicMock()
+        mock.json.return_value = {'data': {}}  # missing market_cap_percentage
+        with patch('calculate_metrics.requests.get', return_value=mock):
+            result = fetch_btc_dominance()
+        assert result is None
+
+    def test_returns_none_on_http_error(self):
+        import requests as req
+        mock = MagicMock()
+        mock.raise_for_status.side_effect = req.exceptions.HTTPError('429')
+        with patch('calculate_metrics.requests.get', return_value=mock):
+            result = fetch_btc_dominance()
+        assert result is None
+
+
+class TestCalculateAltseasonIndex:
+    """Tests for calculate_altseason_index()."""
+
+    def _make_df(self, asset_prices):
+        """asset_prices: {asset: (price_90d_ago, price_now)}"""
+        rows = []
+        base_date = pd.Timestamp('2026-03-01')
+        now_date  = pd.Timestamp('2026-06-01')
+        for asset, (old_p, new_p) in asset_prices.items():
+            rows.append({'Date': base_date, 'Asset': asset, 'Price': old_p, 'Timeframe': '1d'})
+            rows.append({'Date': now_date,  'Asset': asset, 'Price': new_p, 'Timeframe': '1d'})
+        return pd.DataFrame(rows)
+
+    def test_all_alts_outperform_btc_gives_100(self):
+        # BTC: +10%; ETH, SOL: +50% each
+        df = self._make_df({'BTC': (100, 110), 'ETH': (100, 150), 'SOL': (100, 150)})
+        result = calculate_altseason_index(df)
+        assert result is not None
+        assert result['score'] == 100
+        assert result['label'] == 'Altcoin Season'
+
+    def test_no_alts_outperform_btc_gives_0(self):
+        # BTC: +50%; ETH, SOL: +10% each
+        df = self._make_df({'BTC': (100, 150), 'ETH': (100, 110), 'SOL': (100, 110)})
+        result = calculate_altseason_index(df)
+        assert result is not None
+        assert result['score'] == 0
+        assert result['label'] == 'Bitcoin Season'
+
+    def test_half_outperforming_gives_50(self):
+        df = self._make_df({
+            'BTC': (100, 120),   # +20%
+            'ETH': (100, 130),   # +30% — outperforms
+            'SOL': (100, 110),   # +10% — underperforms
+        })
+        result = calculate_altseason_index(df)
+        assert result is not None
+        assert result['score'] == 50
+
+    def test_returns_none_when_no_btc_data(self):
+        df = self._make_df({'ETH': (100, 150), 'SOL': (100, 130)})
+        result = calculate_altseason_index(df)
+        assert result is None
+
+    def test_returns_none_when_no_alts_have_data(self):
+        df = self._make_df({'BTC': (100, 120)})
+        result = calculate_altseason_index(df)
+        assert result is None
+
+    def test_alts_count_in_result(self):
+        df = self._make_df({'BTC': (100, 120), 'ETH': (100, 130), 'SOL': (100, 110)})
+        result = calculate_altseason_index(df)
+        assert result['alts_outperforming'] == 1
+        assert result['total'] == 2
+
+    def test_weekly_timeframe_ignored(self):
+        rows = [
+            {'Date': '2026-03-01', 'Asset': 'BTC', 'Price': 100, 'Timeframe': '1d'},
+            {'Date': '2026-06-01', 'Asset': 'BTC', 'Price': 120, 'Timeframe': '1d'},
+            {'Date': '2026-03-01', 'Asset': 'ETH', 'Price': 100, 'Timeframe': '1w'},
+            {'Date': '2026-06-01', 'Asset': 'ETH', 'Price': 150, 'Timeframe': '1w'},
+        ]
+        result = calculate_altseason_index(pd.DataFrame(rows))
+        # ETH only has weekly data; should be excluded, total = 0 → None
+        assert result is None
+
+
+class TestMarketContextInDashboard:
+    """Tests that btc_dominance and altseason flow into dashboard.json."""
+
+    @pytest.fixture
+    def minimal_df(self):
+        return pd.DataFrame({
+            'Date': ['2026-06-01', '2026-06-02'],
+            'Asset': ['BTC', 'BTC'],
+            'Price': [65000.0, 64000.0],
+            'EMA21': [64000.0, 63600.0],
+            'ATR': [1000.0, 1000.0],
+            'RSI': [50.0, 45.0],
+            'RSI_Z_Score': [0.0, -0.5],
+            'ATR_Distance': [1.0, 0.4],
+            'Pct_Above_EMA': [1.56, 0.63],
+            'Timeframe': ['1d', '1d'],
+        })
+
+    def test_btc_dominance_present_on_success(self, minimal_df):
+        with patch('calculate_metrics.fetch_btc_dominance', return_value=52.3), \
+             patch('calculate_metrics.calculate_altseason_index', return_value=None), \
+             patch('calculate_metrics.fetch_binance_futures', return_value={}), \
+             patch('calculate_metrics.fetch_fear_greed', return_value=None):
+            dash = generate_dashboard_json(minimal_df)
+        assert dash['btc_dominance'] == pytest.approx(52.3)
+
+    def test_btc_dominance_null_on_failure(self, minimal_df):
+        with patch('calculate_metrics.fetch_btc_dominance', return_value=None), \
+             patch('calculate_metrics.calculate_altseason_index', return_value=None), \
+             patch('calculate_metrics.fetch_binance_futures', return_value={}), \
+             patch('calculate_metrics.fetch_fear_greed', return_value=None):
+            dash = generate_dashboard_json(minimal_df)
+        assert dash['btc_dominance'] is None
+
+    def test_altseason_present_in_dashboard(self, minimal_df):
+        mock_alts = {'score': 72, 'label': 'Leaning Alt', 'alts_outperforming': 18, 'total': 25}
+        with patch('calculate_metrics.fetch_btc_dominance', return_value=None), \
+             patch('calculate_metrics.calculate_altseason_index', return_value=mock_alts), \
+             patch('calculate_metrics.fetch_binance_futures', return_value={}), \
+             patch('calculate_metrics.fetch_fear_greed', return_value=None):
+            dash = generate_dashboard_json(minimal_df)
+        assert dash['altseason']['score'] == 72
+        assert dash['altseason']['label'] == 'Leaning Alt'
 
 
 if __name__ == '__main__':

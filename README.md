@@ -12,6 +12,7 @@ Automated pipeline that fetches daily and weekly OHLCV data from Yahoo Finance, 
 - **70 tracked assets** across crypto, NASDAQ stocks, LSE ETFs, and macro (indices, commodities, forex)
 - **Crypto Fear & Greed Index** badge on the Portfolio health bar — fetched daily from alternative.me (free, no auth); colour-coded from Extreme Fear (green) to Extreme Greed (red)
 - **Funding rates + Open Interest** — Binance USDT-M futures API (free, no auth); per-asset funding rate badge (colour-coded by squeeze risk) and OI on crypto cards and in Drilldown
+- **BTC Dominance + Altcoin Season Index** — BTC.D from CoinGecko (free); Altseason score (0–100) self-computed from `history.csv` (% of tracked cryptos outperforming BTC over 90d); displayed in the market context bar above the Portfolio health bar
 - **Automated daily pipeline** via GitHub Actions
 
 ## Assets
