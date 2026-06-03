@@ -75,12 +75,13 @@
 - [x] **Composite signal score**
   Aggregate existing signals (ATR Distance percentile + RSI Z-Score + ADX + VP position + alignment) into a single −10 to +10 score per asset. Shown as a sortable column. Simple weighted formula — reduces cognitive load for "what's the best setup right now."
 
-- [ ] **Exchange flow badge (crypto)**
-  CoinGlass / CryptoQuant free tiers: net exchange inflows (selling pressure) vs. outflows (accumulation). Simple in / out / neutral badge on crypto cards.
-
 ---
 
 ## Tier 3 — High effort, high payoff (discuss before building)
+
+- [ ] **Exchange flow badge (crypto)**
+  CoinGlass / CryptoQuant free tiers: net exchange inflows (selling pressure) vs. outflows (accumulation). Simple in / out / neutral badge on crypto cards.
+  _Requires API key (CoinGlass/CryptoQuant free tier) — discuss before building._
 
 - [ ] **Correlation heatmap (crypto)**
   Rolling 90-day Pearson correlation matrix for the 28 crypto assets (`df.corr()` — computation is trivial). 28×28 colour-coded grid with hover tooltips showing the coefficient. Useful for identifying uncorrelated setups and rotation opportunities.
