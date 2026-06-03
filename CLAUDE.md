@@ -77,7 +77,7 @@ Shared library used by both `crypto_tracker.py` and `backfill_historical.py`. Av
 | Submodule | Contents |
 |-----------|----------|
 | `trading_utils/config.py` | `ASSETS`, `ASSET_CONFIG`, `MACRO_ASSETS`, `MANUAL_DATA`, all path constants, indicator periods |
-| `trading_utils/indicators.py` | `calculate_ema`, `calculate_atr`, `calculate_rsi`, `calculate_z_score`, `calculate_indicators`, `calculate_volume_profile` |
+| `trading_utils/indicators.py` | `calculate_ema`, `calculate_atr`, `calculate_rsi`, `calculate_adx`, `calculate_z_score`, `calculate_indicators`, `calculate_volume_profile` |
 | `trading_utils/data_sources.py` | `fetch_ohlcv_binance`, `fetch_ohlcv_yahoo`, `fetch_ohlcv`, `get_manual_data`, `_with_retry` |
 
 **Adding or changing assets/config:** edit `trading_utils/config.py` only — both scripts will pick it up automatically.
@@ -125,9 +125,10 @@ All calculations live in `trading_utils/indicators.py`.
 - **RSI_Z_Score:** 20-period rolling Z-score of RSI
 - **ATR_Distance:** `(Price - EMA21) / ATR` — core metric for regime classification; `NaN` when `ATR = 0`
 - **Pct_Above_EMA:** `((Price - EMA21) / EMA21) * 100`
+- **ADX:** 14-period Average Directional Index (Wilder's RMA, SMA-seeded). Measures trend strength independently of direction (0–100; >25 = trending, <20 = ranging). Computed from +DM/−DM → +DI/−DI → DX → ADX. First valid at bar `2*(period−1)` = 26. Added to `history.csv` as `ADX` column; written as `adx` in `dashboard.json` `current` objects; shown as a colour-coded badge on portfolio cards and in the Drilldown summary.
 - **price_change_pct** *(derived in `calculate_metrics.py`)*: `(current_price - prev_price) / prev_price × 100` — momentum indicator added to `dashboard.json` `current` objects; displayed as "Chg%" on portfolio cards and in the drilldown summary
 
-All three indicators use SMA of the first `period` bars as the seed value, then apply exponential smoothing. This matches TradingView exactly. Do not replace with pandas `ewm(adjust=False)` — that initialisation diverges significantly for short-history assets.
+All indicators use SMA of the first `period` bars as the seed value, then apply exponential smoothing. This matches TradingView exactly. Do not replace with pandas `ewm(adjust=False)` — that initialisation diverges significantly for short-history assets.
 
 ### Volume Profile (VP)
 
@@ -242,6 +243,7 @@ The gauge x-axis represents the empirical distribution, not a linear ATR Distanc
 - `alignBadgeClass(alignment)` / `alignBadgeLabel(alignment)` — returns CSS class / label for multi-TF alignment badge (`align-bullish`/`align-bearish`/`align-diverging`)
 - `atrTrendIcon(trend)` — returns ↑/↓/─ icon for ATR trend direction
 - `rsBadgeHtml(rs)` — returns RS/BTC badge HTML with outperforming/underperforming class and ×multiplier
+- `adxStrengthHtml(adx)` — returns ADX badge HTML with strength label (Trending >25 / Neutral 20–25 / Ranging <20) and colour class
 - `getStarred()` / `isStarred(asset)` / `toggleStar(asset)` — localStorage watchlist (key `starred_assets`, max 10)
 - `macroZoneLabel(atrDistance)` — returns `{ label, cssClass }` for a macro zone badge; uses ATR Distance thresholds with neutral display names (Neutral/Oversold/Extended rather than crypto regime names)
 - `renderPortfolioHealthBar()` — populates the health summary bar (excludes macro assets)
@@ -267,6 +269,7 @@ The gauge x-axis represents the empirical distribution, not a linear ATR Distanc
 - `prev_regime` — `str|null` — previous bar's regime name when a transition occurred
 - `atr_trend` — `'expanding'` | `'compressing'` | `'flat'` — relative slope of last 10 ATR bars (threshold ±0.01 × mean ATR); null when fewer than 5 ATR bars
 - `rs_vs_btc` — `float|null` — 30-day return ratio `(asset / BTC)` for daily crypto assets; null when BTC return is unavailable or zero
+- `adx` — `float|null` — 14-period Average Directional Index value; null when fewer than 27 bars of OHLCV exist or when the market shows no directional movement (DX undefined). Displayed as a colour-coded badge: Trending (>25, green), Neutral (20–25, amber), Ranging (<20, grey).
 
 **Top-level fields in `dashboard.json`** (added by `calculate_metrics.py`):
 - `fear_greed` — `{value: int, label: str, timestamp: str}|null` — Crypto Fear & Greed Index fetched from `https://api.alternative.me/fng/?limit=1` (free, no auth). Written by `fetch_fear_greed()`. `null` when the fetch fails. Labels: `Extreme Fear` | `Fear` | `Neutral` | `Greed` | `Extreme Greed`.

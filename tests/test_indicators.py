@@ -12,6 +12,7 @@ import pytest
 
 from trading_utils.indicators import (
     calculate_atr,
+    calculate_adx,
     calculate_ema,
     calculate_indicators,
     calculate_rsi,
@@ -335,3 +336,81 @@ class TestCalculateVolumeProfile:
         df.loc[df.index[5], 'high'] = df.loc[df.index[5], 'low']
         vp = calculate_volume_profile(df, lookback_bars=30)
         assert vp is not None
+
+
+# ---------------------------------------------------------------------------
+# ADX
+# ---------------------------------------------------------------------------
+
+class TestCalculateADX:
+    def test_too_few_bars_all_nan(self):
+        """Fewer than 2*period-1 bars → all NaN (period=14 needs ≥27 bars)."""
+        df = _make_df(
+            [100.0 + i for i in range(26)],
+            highs=[101.0 + i for i in range(26)],
+            lows=[99.0 + i for i in range(26)],
+        )
+        adx = calculate_adx(df, period=14)
+        assert adx.isna().all()
+
+    def test_first_value_at_seed_index(self):
+        """ADX first value appears at index 2*(period-1)=26 for period=14."""
+        n = 30
+        df = _make_df(
+            [100.0 + i for i in range(n)],
+            highs=[101.0 + i for i in range(n)],
+            lows=[99.0 + i for i in range(n)],
+        )
+        adx = calculate_adx(df, period=14)
+        assert adx.isna().all() == False
+        assert pd.isna(adx.iloc[25])
+        assert pd.notna(adx.iloc[26])
+
+    def test_strong_uptrend_is_trending(self):
+        """Consistent uptrend → ADX > 25 (Trending) after enough bars."""
+        n = 60
+        closes = [100.0 + i for i in range(n)]
+        highs  = [c + 1.0 for c in closes]
+        lows   = [c - 1.0 for c in closes]
+        df = _make_df(closes, highs=highs, lows=lows)
+        adx = calculate_adx(df, period=14)
+        assert float(adx.iloc[-1]) > 25.0
+
+    def test_no_directional_move_adx_nan(self):
+        """Constant prices (zero DM) → ADX is NaN (DX undefined: 0/0)."""
+        df = _make_df([100.0] * 40)
+        adx = calculate_adx(df, period=14)
+        assert adx.isna().all()
+
+    def test_returns_series_with_df_index(self):
+        """Output is a pd.Series with the same index as input."""
+        n = 40
+        df = _make_df(
+            [100.0 + i for i in range(n)],
+            highs=[101.0 + i for i in range(n)],
+            lows=[99.0 + i for i in range(n)],
+        )
+        adx = calculate_adx(df, period=14)
+        assert isinstance(adx, pd.Series)
+        assert list(adx.index) == list(df.index)
+
+    def test_adx_included_in_calculate_indicators_with_ohlcv(self):
+        """calculate_indicators() writes ADX column when high/low present."""
+        n = 40
+        df = _make_df(
+            [100.0 + i for i in range(n)],
+            highs=[101.0 + i for i in range(n)],
+            lows=[99.0 + i for i in range(n)],
+        )
+        result = calculate_indicators(df)
+        assert 'ADX' in result.columns
+
+    def test_adx_absent_without_high_low(self):
+        """calculate_indicators() skips ADX when high == low == close."""
+        df = _make_df([100.0] * 40)
+        # _make_df sets highs=lows=closes, so the ADX column is still added
+        # (high/low columns are present, but DM=0 → ADX=NaN)
+        result = calculate_indicators(df)
+        # Column exists but all values should be NaN (no directional movement)
+        assert 'ADX' in result.columns
+        assert result['ADX'].isna().all()

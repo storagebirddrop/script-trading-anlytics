@@ -59,7 +59,7 @@
 - [x] **BTC Dominance + Altcoin Season Index**
   BTC.D above ~65% suppresses altcoins; falling BTC.D with ETH/BTC strengthening = capital rotation. CMC Altcoin Season Index (free endpoint): % of top-100 alts outperforming BTC over 90 days (>75 = altseason, <25 = BTC season). Add as a persistent macro bar or dedicated row on the Portfolio tab.
 
-- [ ] **ADX (Average Directional Index)**
+- [x] **ADX (Average Directional Index)**
   Measures trend strength independently of direction (0–100; >25 = trending, <20 = ranging). ATR Distance tells you where price is; ADX tells you whether the move has momentum. Low ATR Distance + high ADX = strong oversold trend vs. low + low ADX = sideways drift. Pipeline field + Drilldown metric; optionally an icon on cards. Computable from existing OHLCV data.
 
 - [ ] **Bollinger Band position / %B**

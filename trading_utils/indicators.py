@@ -15,7 +15,7 @@ with only 20-30 weekly bars).
 import numpy as np
 import pandas as pd
 
-from .config import EMA_PERIOD, ATR_PERIOD, RSI_PERIOD, Z_SCORE_PERIOD, VP_LOOKBACK_BARS, VP_N_BUCKETS
+from .config import EMA_PERIOD, ATR_PERIOD, RSI_PERIOD, ADX_PERIOD, Z_SCORE_PERIOD, VP_LOOKBACK_BARS, VP_N_BUCKETS
 
 
 def calculate_ema(df, period=EMA_PERIOD):
@@ -93,6 +93,67 @@ def calculate_z_score(series, period=Z_SCORE_PERIOD):
     rolling_mean = series.rolling(window=period).mean()
     rolling_std  = series.rolling(window=period).std()
     return (series - rolling_mean) / rolling_std
+
+
+def calculate_adx(df, period=ADX_PERIOD):
+    """ADX (Wilder's RMA, SMA-seeded) — trend strength 0–100, direction-neutral."""
+    high  = df['high'].to_numpy(dtype=float)
+    low   = df['low'].to_numpy(dtype=float)
+    close = df['close'].to_numpy(dtype=float)
+    n = len(high)
+
+    out = np.full(n, np.nan)
+    if n < 2 * period - 1:
+        return pd.Series(out, index=df.index)
+
+    prev_close = np.empty_like(close)
+    prev_close[0] = np.nan
+    prev_close[1:] = close[:-1]
+    tr = np.maximum.reduce([
+        high - low,
+        np.abs(high - prev_close),
+        np.abs(low - prev_close),
+    ])
+    tr[0] = high[0] - low[0]
+
+    up_move   = np.zeros(n)
+    down_move = np.zeros(n)
+    for i in range(1, n):
+        um = high[i] - high[i - 1]
+        dm = low[i - 1] - low[i]
+        up_move[i]   = um if (um > dm and um > 0.0) else 0.0
+        down_move[i] = dm if (dm > um and dm > 0.0) else 0.0
+
+    def _rma(arr):
+        s = np.full(n, np.nan)
+        s[period - 1] = arr[:period].mean()
+        for i in range(period, n):
+            s[i] = (s[i - 1] * (period - 1) + arr[i]) / period
+        return s
+
+    atr_s = _rma(tr)
+    pdm_s = _rma(up_move)
+    ndm_s = _rma(down_move)
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        pdi     = np.where(atr_s > 0, 100.0 * pdm_s / atr_s, np.nan)
+        ndi     = np.where(atr_s > 0, 100.0 * ndm_s / atr_s, np.nan)
+        di_sum  = pdi + ndi
+        di_diff = np.abs(pdi - ndi)
+        dx      = np.where(di_sum > 0, 100.0 * di_diff / di_sum, np.nan)
+
+    # ADX = RMA of DX; seed spans DX[period-1 .. 2*(period-1)]
+    seed_idx = 2 * (period - 1)
+    if seed_idx >= n:
+        return pd.Series(out, index=df.index)
+
+    dx_window = dx[period - 1:seed_idx + 1]
+    dx_valid  = dx_window[~np.isnan(dx_window)]
+    out[seed_idx] = float(dx_valid.mean()) if len(dx_valid) > 0 else np.nan
+    for i in range(seed_idx + 1, n):
+        out[i] = (out[i - 1] * (period - 1) + dx[i]) / period
+
+    return pd.Series(out, index=df.index)
 
 
 def calculate_volume_profile(df, lookback_bars=VP_LOOKBACK_BARS, n_buckets=VP_N_BUCKETS):
@@ -226,5 +287,8 @@ def calculate_indicators(df):
     safe_atr = atr_series.replace(0, np.nan)
     df['ATR_Distance'] = ((close - ema_series) / safe_atr).replace([np.inf, -np.inf], np.nan)
     df['Pct_Above_EMA'] = ((close - ema_series) / ema_series) * 100
+
+    if 'high' in df.columns and 'low' in df.columns:
+        df['ADX'] = calculate_adx(df, ADX_PERIOD)
 
     return df

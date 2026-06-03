@@ -229,6 +229,7 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
             'rsi_z_score': float(row['RSI_Z_Score']) if pd.notna(row.get('RSI_Z_Score')) else None,
             'atr_distance': float(atr_distance) if pd.notna(atr_distance) else None,
             'pct_above_ema': float(row['Pct_Above_EMA']) if pd.notna(row.get('Pct_Above_EMA')) else None,
+            'adx': float(row['ADX']) if 'ADX' in row.index and pd.notna(row.get('ADX')) else None,
             'regime': regime,
             'atr_percentile': percentile,
             'price_change_pct': price_change_pct,
