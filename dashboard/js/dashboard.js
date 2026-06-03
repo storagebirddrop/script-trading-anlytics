@@ -192,6 +192,29 @@ function rsBadgeHtml(rs) {
     return `<span class="rs-badge ${cls}">${label}</span>`;
 }
 
+// Formats funding rate as a colour-coded badge.
+// fr is expressed as a percentage value (0.0100 = 0.01% per 8h).
+function frBadgeHtml(fr) {
+    if (fr == null) return 'N/A';
+    const pct = fr.toFixed(4);
+    const sign = fr >= 0 ? '+' : '';
+    let cls;
+    if      (fr < -0.02) cls = 'fr--negative-strong';
+    else if (fr <  0.00) cls = 'fr--negative';
+    else if (fr <  0.02) cls = 'fr--neutral';
+    else if (fr <  0.05) cls = 'fr--positive';
+    else                 cls = 'fr--positive-strong';
+    return `<span class="fr-badge ${cls}">${sign}${pct}%</span>`;
+}
+
+// Formats open interest USD as a human-readable string.
+function oiFormatted(usd) {
+    if (usd == null) return 'N/A';
+    if (usd >= 1e9) return `$${(usd / 1e9).toFixed(2)}B`;
+    if (usd >= 1e6) return `$${(usd / 1e6).toFixed(1)}M`;
+    return `$${usd.toLocaleString()}`;
+}
+
 // Returns { label, cssClass } for a macro zone based on ATR Distance.
 // Same thresholds as regime classification but neutral display names.
 function macroZoneLabel(atrDistance) {
@@ -899,6 +922,16 @@ function renderPortfolio() {
                     <span class="metric-label">RS/BTC</span>
                     <span class="metric-value">${rsBadgeHtml(primary.rs_vs_btc)}</span>
                 </div>` : ''}
+                ${primary.funding_rate != null && ASSET_CATEGORIES.crypto.has(asset) ? `
+                <div class="metric">
+                    <span class="metric-label">Fund.Rate</span>
+                    <span class="metric-value">${frBadgeHtml(primary.funding_rate)}</span>
+                </div>` : ''}
+                ${primary.open_interest_usd != null && ASSET_CATEGORIES.crypto.has(asset) ? `
+                <div class="metric">
+                    <span class="metric-label">OI</span>
+                    <span class="metric-value">${oiFormatted(primary.open_interest_usd)}</span>
+                </div>` : ''}
             </div>
             <div class="card-sparkline" data-asset="${asset}" data-tf="${activeTf}"></div>
             <div class="asset-card-footer">
@@ -1461,6 +1494,16 @@ function renderDrilldown() {
             <div class="summary-item">
                 <span class="summary-label">RS/BTC (30d)</span>
                 <span class="summary-value">${rsBadgeHtml(current.rs_vs_btc)}</span>
+            </div>` : ''}
+            ${current?.funding_rate != null && ASSET_CATEGORIES.crypto.has(asset) ? `
+            <div class="summary-item">
+                <span class="summary-label">Funding Rate</span>
+                <span class="summary-value">${frBadgeHtml(current.funding_rate)}</span>
+            </div>` : ''}
+            ${current?.open_interest_usd != null && ASSET_CATEGORIES.crypto.has(asset) ? `
+            <div class="summary-item">
+                <span class="summary-label">Open Interest</span>
+                <span class="summary-value">${oiFormatted(current.open_interest_usd)}</span>
             </div>` : ''}
         </div>
     `;
