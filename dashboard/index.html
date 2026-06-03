@@ -190,6 +190,49 @@
         </nav>
     </div>
 
+    <!-- Price Alert Modal -->
+    <div id="alert-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="alert-modal-title">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 class="modal-title" id="alert-modal-title">Set Alert</h3>
+                <button class="modal-close" id="alert-modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="alert-asset-context">
+                    <span class="alert-ctx-label">Asset</span>
+                    <span id="alert-modal-asset" class="alert-ctx-value"></span>
+                    <span class="alert-ctx-label">ATR Dist.</span>
+                    <span id="alert-modal-atr" class="alert-ctx-value"></span>
+                    <span class="alert-ctx-label">Regime</span>
+                    <span id="alert-modal-regime" class="alert-ctx-value"></span>
+                </div>
+                <label class="alert-row">
+                    <input type="checkbox" id="alert-atr-enabled" class="alert-checkbox">
+                    <span>ATR Distance alert</span>
+                </label>
+                <div class="alert-atr-config" id="alert-atr-config">
+                    <label class="radio-label"><input type="radio" name="alert-dir" id="alert-dir-below" value="below"> Below</label>
+                    <label class="radio-label"><input type="radio" name="alert-dir" id="alert-dir-above" value="above"> Above</label>
+                    <input type="number" id="alert-atr-value" class="alert-threshold-input" step="0.1" placeholder="e.g. −2.0">
+                </div>
+                <label class="alert-row">
+                    <input type="checkbox" id="alert-regime-enabled" class="alert-checkbox">
+                    <span>Regime change alert (any transition)</span>
+                </label>
+                <div id="alert-notif-warning" class="alert-notif-warning" hidden>
+                    &#9888; Notifications are blocked.
+                    <button class="link-btn" id="alert-request-perm">Request permission</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-ghost" id="alert-remove-btn">Remove</button>
+                <button class="btn-primary" id="alert-save-btn">Save Alert</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
     <script src="js/dashboard.js"></script>
 </body>
 </html>

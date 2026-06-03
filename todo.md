@@ -69,7 +69,7 @@
 
 ## Tier 2 — Good value, lower effort (quick wins)
 
-- [ ] **Price alerts / threshold notifications**
+- [x] **Price alerts / threshold notifications**
   Browser Notification API alert when an asset crosses a regime boundary or a user-set ATR Distance threshold. Store thresholds in `localStorage`. Entirely client-side, no pipeline changes.
 
 - [ ] **Composite signal score**
