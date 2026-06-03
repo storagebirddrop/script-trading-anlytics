@@ -132,6 +132,8 @@ EMA_PERIOD = 21
 ATR_PERIOD = 14
 RSI_PERIOD = 14
 ADX_PERIOD = 14
+BB_PERIOD  = 20
+BB_STD     = 2.0
 Z_SCORE_PERIOD = 20
 
 # Volume Profile parameters

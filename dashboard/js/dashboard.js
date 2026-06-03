@@ -207,6 +207,19 @@ function frBadgeHtml(fr) {
     return `<span class="fr-badge ${cls}">${sign}${pct}%</span>`;
 }
 
+// Bollinger Band %B badge: colours extremes; 0 = lower band, 1 = upper band.
+function bbPctBHtml(pctB) {
+    if (pctB == null) return '';
+    const val = pctB.toFixed(2);
+    let cls, label;
+    if      (pctB < 0.0) { cls = 'bb--below'; label = `${val} ↓`; }
+    else if (pctB < 0.2) { cls = 'bb--low';   label = val; }
+    else if (pctB > 1.0) { cls = 'bb--above'; label = `${val} ↑`; }
+    else if (pctB > 0.8) { cls = 'bb--high';  label = val; }
+    else                  { cls = 'bb--mid';   label = val; }
+    return `<span class="bb-badge ${cls}">${label}</span>`;
+}
+
 // ADX strength badge: > 25 Trending, < 20 Ranging, 20–25 Neutral.
 function adxStrengthHtml(adx) {
     if (adx == null) return '';
@@ -1000,6 +1013,11 @@ function renderPortfolio() {
                     <span class="metric-label">ADX</span>
                     <span class="metric-value">${adxStrengthHtml(primary.adx)}</span>
                 </div>` : ''}
+                ${primary.bb_pct_b != null ? `
+                <div class="metric">
+                    <span class="metric-label">%B</span>
+                    <span class="metric-value">${bbPctBHtml(primary.bb_pct_b)}</span>
+                </div>` : ''}
             </div>
             <div class="card-sparkline" data-asset="${asset}" data-tf="${activeTf}"></div>
             <div class="asset-card-footer">
@@ -1577,6 +1595,16 @@ function renderDrilldown() {
             <div class="summary-item">
                 <span class="summary-label">ADX (14)</span>
                 <span class="summary-value">${adxStrengthHtml(current.adx)}</span>
+            </div>` : ''}
+            ${current?.bb_pct_b != null ? `
+            <div class="summary-item">
+                <span class="summary-label">BB %B (20)</span>
+                <span class="summary-value">${bbPctBHtml(current.bb_pct_b)}</span>
+            </div>` : ''}
+            ${current?.bb_bandwidth != null ? `
+            <div class="summary-item">
+                <span class="summary-label">BB Width</span>
+                <span class="summary-value">${current.bb_bandwidth.toFixed(2)}%</span>
             </div>` : ''}
         </div>
     `;

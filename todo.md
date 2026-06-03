@@ -62,7 +62,7 @@
 - [x] **ADX (Average Directional Index)**
   Measures trend strength independently of direction (0–100; >25 = trending, <20 = ranging). ATR Distance tells you where price is; ADX tells you whether the move has momentum. Low ATR Distance + high ADX = strong oversold trend vs. low + low ADX = sideways drift. Pipeline field + Drilldown metric; optionally an icon on cards. Computable from existing OHLCV data.
 
-- [ ] **Bollinger Band position / %B**
+- [x] **Bollinger Band position / %B**
   `%B = (Price − Lower Band) / (Upper Band − Lower Band)`. Below 0 = outside lower band (oversold breakout), above 1 = outside upper band. Complements ATR Distance with a volatility-adjusted absolute band. Also exposes BB squeezes (bandwidth at multi-month lows) — reliable pre-signal for large moves. Computable from existing price data.
 
 ---
