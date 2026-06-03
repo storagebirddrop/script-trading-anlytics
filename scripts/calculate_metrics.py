@@ -306,35 +306,60 @@ def generate_chart_history(df: pd.DataFrame, n_bars: int = 90) -> Dict[str, Any]
     return result
 
 
-def fetch_coinglass_markets() -> Dict[str, Any]:
-    """Fetch current funding rates and open interest from CoinGlass v4.
+def fetch_binance_futures() -> Dict[str, Any]:
+    """Fetch funding rates and open interest from Binance USDT-M futures (free, no auth).
 
-    Requires COINGLASS_API_KEY env var. Returns a dict keyed by uppercase
-    symbol (e.g. 'BTC') containing raw market data. Returns {} when the key
-    is absent or the request fails.
+    Returns a dict keyed by coin symbol (e.g. 'BTC') with:
+        {'funding_rate': float (% per 8h period), 'open_interest_usd': float|None}
+
+    Only covers assets with active USDT-M perpetual contracts on Binance.
+    Quarterly/delivery contracts (symbol contains '_') are excluded.
+    Returns {} on any network failure.
     """
-    api_key = os.environ.get('COINGLASS_API_KEY', '').strip()
-    if not api_key:
-        print("  Skipping CoinGlass fetch: COINGLASS_API_KEY not set")
-        return {}
+    _TRACKED = {
+        'BTC', 'ETH', 'SOL', 'XLM', 'NEAR', 'BNB', 'XRP', 'ADA', 'LINK', 'NEO',
+        'RENDER', 'SEI', 'DRIFT', 'EIGEN', 'W', 'WOO', 'JASMY', 'AEVO', 'GAS',
+        'PEAQ', 'RSR', 'ACH', 'ONDO', 'VTHO', 'REZ', 'NIGHT', 'SCP', 'D2X',
+    }
     try:
-        resp = requests.get(
-            'https://open-api-v4.coinglass.com/api/futures/coins-markets',
-            headers={'CG-API-KEY': api_key, 'Accept': 'application/json'},
-            timeout=15,
-        )
+        resp = requests.get('https://fapi.binance.com/fapi/v1/premiumIndex', timeout=15)
         resp.raise_for_status()
-        data = resp.json()
-        items = data.get('data', []) or []
-        result = {}
-        for item in items:
-            sym = (item.get('symbol') or '').upper()
-            if sym:
-                result[sym] = item
-        return result
+        items = resp.json()
     except Exception as e:
-        print(f"  Warning: CoinGlass fetch failed: {e}")
+        print(f"  Warning: Binance premiumIndex fetch failed: {e}")
         return {}
+
+    result: Dict[str, Any] = {}
+    for item in items:
+        sym = item.get('symbol', '')
+        if not sym.endswith('USDT') or '_' in sym:
+            continue
+        coin = sym[:-4]
+        if coin not in _TRACKED:
+            continue
+        try:
+            result[coin] = {
+                'funding_rate': float(item['lastFundingRate']) * 100,
+                'mark_price': float(item['markPrice']),
+                'open_interest_usd': None,
+            }
+        except (KeyError, ValueError, TypeError):
+            pass
+
+    for coin, data in result.items():
+        try:
+            oi_resp = requests.get(
+                'https://fapi.binance.com/fapi/v1/openInterest',
+                params={'symbol': f'{coin}USDT'},
+                timeout=10,
+            )
+            oi_resp.raise_for_status()
+            oi_contracts = float(oi_resp.json()['openInterest'])
+            data['open_interest_usd'] = oi_contracts * data['mark_price']
+        except Exception:
+            pass
+
+    return result
 
 
 def fetch_fear_greed() -> Optional[Dict[str, Any]]:
@@ -416,24 +441,18 @@ def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
             c1d['rs_vs_btc'] = None
 
     # ── Funding Rate + Open Interest (crypto, both timeframes) ──────────────────
-    print("Fetching CoinGlass funding rates / open interest...")
-    coinglass = fetch_coinglass_markets()
-    if coinglass:
-        print(f"  CoinGlass: {len(coinglass)} symbols received")
+    print("Fetching Binance futures funding rates / open interest...")
+    binance_futures = fetch_binance_futures()
+    if binance_futures:
+        print(f"  Binance futures: {len(binance_futures)} symbols received")
     for asset in _CRYPTO_ASSETS:
-        cg = coinglass.get(asset)
+        bf = binance_futures.get(asset)
         for tf in ('1d', '1w'):
             c = assets_data.get(asset, {}).get(tf, {}).get('current')
             if c is None:
                 continue
-            try:
-                c['funding_rate'] = float(cg['avg_funding_rate_by_oi']) if cg and cg.get('avg_funding_rate_by_oi') is not None else None
-            except (TypeError, ValueError):
-                c['funding_rate'] = None
-            try:
-                c['open_interest_usd'] = float(cg['open_interest_usd']) if cg and cg.get('open_interest_usd') is not None else None
-            except (TypeError, ValueError):
-                c['open_interest_usd'] = None
+            c['funding_rate'] = bf['funding_rate'] if bf else None
+            c['open_interest_usd'] = bf['open_interest_usd'] if bf else None
 
     print("Fetching Fear & Greed Index...")
     fear_greed = fetch_fear_greed()
