@@ -14,6 +14,7 @@ from calculate_metrics import (
     generate_dashboard_json,
     generate_chart_history,
     fetch_fear_greed,
+    fetch_coinglass_markets,
 )
 
 
@@ -559,6 +560,133 @@ class TestGenerateChartHistory:
         for bar in result['BTC']['1d']:
             assert len(bar['d']) == 10
             assert bar['d'].count('-') == 2
+
+
+class TestFetchCoinglassMarkets:
+    """Tests for fetch_coinglass_markets()."""
+
+    def _mock_resp(self, symbols):
+        """Build a mock response with the given list of (symbol, fr, oi) tuples."""
+        mock = MagicMock()
+        mock.json.return_value = {
+            'data': [
+                {'symbol': sym, 'avg_funding_rate_by_oi': fr, 'open_interest_usd': oi}
+                for sym, fr, oi in symbols
+            ]
+        }
+        return mock
+
+    def test_returns_empty_when_no_api_key(self, monkeypatch):
+        monkeypatch.delenv('COINGLASS_API_KEY', raising=False)
+        result = fetch_coinglass_markets()
+        assert result == {}
+
+    def test_returns_empty_when_key_is_blank(self, monkeypatch):
+        monkeypatch.setenv('COINGLASS_API_KEY', '   ')
+        result = fetch_coinglass_markets()
+        assert result == {}
+
+    def test_successful_fetch_keyed_by_symbol(self, monkeypatch):
+        monkeypatch.setenv('COINGLASS_API_KEY', 'test-key')
+        mock = self._mock_resp([('BTC', 0.0100, 30_000_000_000), ('ETH', -0.0050, 12_000_000_000)])
+        with patch('calculate_metrics.requests.get', return_value=mock):
+            result = fetch_coinglass_markets()
+        assert 'BTC' in result
+        assert 'ETH' in result
+        assert result['BTC']['avg_funding_rate_by_oi'] == 0.0100
+        assert result['ETH']['open_interest_usd'] == 12_000_000_000
+
+    def test_symbol_upcased(self, monkeypatch):
+        monkeypatch.setenv('COINGLASS_API_KEY', 'test-key')
+        mock = MagicMock()
+        mock.json.return_value = {'data': [{'symbol': 'btc', 'avg_funding_rate_by_oi': 0.01, 'open_interest_usd': 1e9}]}
+        with patch('calculate_metrics.requests.get', return_value=mock):
+            result = fetch_coinglass_markets()
+        assert 'BTC' in result
+
+    def test_network_error_returns_empty(self, monkeypatch):
+        monkeypatch.setenv('COINGLASS_API_KEY', 'test-key')
+        with patch('calculate_metrics.requests.get', side_effect=Exception('timeout')):
+            result = fetch_coinglass_markets()
+        assert result == {}
+
+    def test_http_error_returns_empty(self, monkeypatch):
+        import requests as req
+        monkeypatch.setenv('COINGLASS_API_KEY', 'test-key')
+        mock = MagicMock()
+        mock.raise_for_status.side_effect = req.exceptions.HTTPError('429')
+        with patch('calculate_metrics.requests.get', return_value=mock):
+            result = fetch_coinglass_markets()
+        assert result == {}
+
+    def test_empty_data_list_returns_empty(self, monkeypatch):
+        monkeypatch.setenv('COINGLASS_API_KEY', 'test-key')
+        mock = MagicMock()
+        mock.json.return_value = {'data': []}
+        with patch('calculate_metrics.requests.get', return_value=mock):
+            result = fetch_coinglass_markets()
+        assert result == {}
+
+
+class TestCoinglassInDashboard:
+    """Tests that funding_rate and open_interest_usd flow into dashboard.json."""
+
+    @pytest.fixture
+    def btc_df(self):
+        return pd.DataFrame({
+            'Date': ['2026-06-01', '2026-06-02'],
+            'Asset': ['BTC', 'BTC'],
+            'Price': [65000.0, 64000.0],
+            'EMA21': [64000.0, 63600.0],
+            'ATR': [1000.0, 1000.0],
+            'RSI': [50.0, 45.0],
+            'RSI_Z_Score': [0.0, -0.5],
+            'ATR_Distance': [1.0, 0.4],
+            'Pct_Above_EMA': [1.56, 0.63],
+            'Timeframe': ['1d', '1d'],
+        })
+
+    def test_funding_rate_injected_when_coinglass_succeeds(self, btc_df):
+        mock_cg = {'BTC': {'avg_funding_rate_by_oi': 0.0125, 'open_interest_usd': 28_000_000_000}}
+        with patch('calculate_metrics.fetch_coinglass_markets', return_value=mock_cg), \
+             patch('calculate_metrics.fetch_fear_greed', return_value=None):
+            dashboard = generate_dashboard_json(btc_df)
+        current = dashboard['assets']['BTC']['1d']['current']
+        assert current['funding_rate'] == pytest.approx(0.0125)
+
+    def test_open_interest_injected_when_coinglass_succeeds(self, btc_df):
+        mock_cg = {'BTC': {'avg_funding_rate_by_oi': 0.0100, 'open_interest_usd': 28_000_000_000}}
+        with patch('calculate_metrics.fetch_coinglass_markets', return_value=mock_cg), \
+             patch('calculate_metrics.fetch_fear_greed', return_value=None):
+            dashboard = generate_dashboard_json(btc_df)
+        current = dashboard['assets']['BTC']['1d']['current']
+        assert current['open_interest_usd'] == pytest.approx(28_000_000_000)
+
+    def test_fields_null_when_coinglass_returns_empty(self, btc_df):
+        with patch('calculate_metrics.fetch_coinglass_markets', return_value={}), \
+             patch('calculate_metrics.fetch_fear_greed', return_value=None):
+            dashboard = generate_dashboard_json(btc_df)
+        current = dashboard['assets']['BTC']['1d']['current']
+        assert current['funding_rate'] is None
+        assert current['open_interest_usd'] is None
+
+    def test_fields_null_when_symbol_absent_from_coinglass(self, btc_df):
+        mock_cg = {'ETH': {'avg_funding_rate_by_oi': 0.01, 'open_interest_usd': 1e9}}
+        with patch('calculate_metrics.fetch_coinglass_markets', return_value=mock_cg), \
+             patch('calculate_metrics.fetch_fear_greed', return_value=None):
+            dashboard = generate_dashboard_json(btc_df)
+        current = dashboard['assets']['BTC']['1d']['current']
+        assert current['funding_rate'] is None
+        assert current['open_interest_usd'] is None
+
+    def test_malformed_coinglass_value_stored_as_null(self, btc_df):
+        mock_cg = {'BTC': {'avg_funding_rate_by_oi': 'n/a', 'open_interest_usd': None}}
+        with patch('calculate_metrics.fetch_coinglass_markets', return_value=mock_cg), \
+             patch('calculate_metrics.fetch_fear_greed', return_value=None):
+            dashboard = generate_dashboard_json(btc_df)
+        current = dashboard['assets']['BTC']['1d']['current']
+        assert current['funding_rate'] is None
+        assert current['open_interest_usd'] is None
 
 
 if __name__ == '__main__':

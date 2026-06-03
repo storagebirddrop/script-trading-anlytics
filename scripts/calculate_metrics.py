@@ -306,6 +306,37 @@ def generate_chart_history(df: pd.DataFrame, n_bars: int = 90) -> Dict[str, Any]
     return result
 
 
+def fetch_coinglass_markets() -> Dict[str, Any]:
+    """Fetch current funding rates and open interest from CoinGlass v4.
+
+    Requires COINGLASS_API_KEY env var. Returns a dict keyed by uppercase
+    symbol (e.g. 'BTC') containing raw market data. Returns {} when the key
+    is absent or the request fails.
+    """
+    api_key = os.environ.get('COINGLASS_API_KEY', '').strip()
+    if not api_key:
+        print("  Skipping CoinGlass fetch: COINGLASS_API_KEY not set")
+        return {}
+    try:
+        resp = requests.get(
+            'https://open-api-v4.coinglass.com/api/futures/coins-markets',
+            headers={'CG-API-KEY': api_key, 'Accept': 'application/json'},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        items = data.get('data', []) or []
+        result = {}
+        for item in items:
+            sym = (item.get('symbol') or '').upper()
+            if sym:
+                result[sym] = item
+        return result
+    except Exception as e:
+        print(f"  Warning: CoinGlass fetch failed: {e}")
+        return {}
+
+
 def fetch_fear_greed() -> Optional[Dict[str, Any]]:
     """Fetch latest Crypto Fear & Greed Index from alternative.me (free, no auth)."""
     try:
@@ -383,6 +414,26 @@ def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
             c1d['rs_vs_btc'] = float(asset_ret / _btc_ret) if asset_ret is not None else None
         else:
             c1d['rs_vs_btc'] = None
+
+    # ── Funding Rate + Open Interest (crypto, both timeframes) ──────────────────
+    print("Fetching CoinGlass funding rates / open interest...")
+    coinglass = fetch_coinglass_markets()
+    if coinglass:
+        print(f"  CoinGlass: {len(coinglass)} symbols received")
+    for asset in _CRYPTO_ASSETS:
+        cg = coinglass.get(asset)
+        for tf in ('1d', '1w'):
+            c = assets_data.get(asset, {}).get(tf, {}).get('current')
+            if c is None:
+                continue
+            try:
+                c['funding_rate'] = float(cg['avg_funding_rate_by_oi']) if cg and cg.get('avg_funding_rate_by_oi') is not None else None
+            except (TypeError, ValueError):
+                c['funding_rate'] = None
+            try:
+                c['open_interest_usd'] = float(cg['open_interest_usd']) if cg and cg.get('open_interest_usd') is not None else None
+            except (TypeError, ValueError):
+                c['open_interest_usd'] = None
 
     print("Fetching Fear & Greed Index...")
     fear_greed = fetch_fear_greed()
