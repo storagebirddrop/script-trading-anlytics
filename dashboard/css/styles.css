@@ -1756,6 +1756,24 @@ body {
 .adx--ranging  { background: rgba(107, 114, 128, 0.15); color: var(--text-secondary); }
 .adx--neutral  { background: rgba(251, 191, 36, 0.18);  color: var(--accent-orange); }
 
+/* ── Composite signal score badge ───────────────────────────────────────────── */
+.score-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.02em;
+    line-height: 1.4;
+    vertical-align: middle;
+    font-variant-numeric: tabular-nums;
+}
+.score--strong-pos { background: rgba(16, 185, 129, 0.22); color: var(--accent-green); }
+.score--pos        { background: rgba(16, 185, 129, 0.12); color: #6ee7b7; }
+.score--neutral    { background: rgba(160, 174, 192, 0.10); color: var(--text-secondary); }
+.score--neg        { background: rgba(249, 115, 22, 0.15);  color: var(--accent-orange); }
+.score--strong-neg { background: rgba(239, 68, 68, 0.15);   color: var(--accent-red); }
+
 /* ── Market breadth area chart ──────────────────────────────────────────────── */
 .breadth-section {
     margin-bottom: 0.75rem;

@@ -231,6 +231,58 @@ function adxStrengthHtml(adx) {
     return `<span class="adx-badge ${cls}">${val} ${label}</span>`;
 }
 
+// Computes a composite signal score in [-10, +10].
+// Positive = oversold / opportunity; negative = extended / risk.
+// Components (weights 4+3+2+1 = 10 so raw sum already spans [-10, +10]):
+//   norm_atr  (×4): percentile-based when sample_size≥30, else ATR Distance fallback
+//   norm_rsi_z(×3): clamp(-rsiZ/3, -1, 1)
+//   norm_vp   (×2): below_val=+1, above_vah=-1, otherwise 0
+//   norm_align(×1): aligned-bearish=+1, aligned-bullish=-1, diverging=0
+function computeSignalScore(current, historical) {
+    if (!current) return null;
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+    // ATR component
+    let normAtr = 0;
+    const pct  = current.atr_percentile;
+    const dist = current.atr_distance;
+    const n    = historical?.sample_size ?? 0;
+    if (n >= 30 && pct != null) {
+        normAtr = clamp((50 - pct) / 50, -1, 1);
+    } else if (dist != null) {
+        normAtr = clamp(-dist / 4, -1, 1);
+    } else {
+        return null;
+    }
+
+    // RSI Z-Score component
+    const rsiZ = current.rsi_z_score;
+    const normRsi = rsiZ != null ? clamp(-rsiZ / 3, -1, 1) : 0;
+
+    // VP position component
+    const vpMap = { below_val: 1, above_vah: -1, at_poc: 0, in_value_area: 0 };
+    const normVp = current.vp_position != null ? (vpMap[current.vp_position] ?? 0) : 0;
+
+    // Alignment component
+    const alignMap = { 'aligned-bearish': 1, 'aligned-bullish': -1, diverging: 0 };
+    const normAlign = current.alignment != null ? (alignMap[current.alignment] ?? 0) : 0;
+
+    return Math.round((4 * normAtr + 3 * normRsi + 2 * normVp + 1 * normAlign) * 10) / 10;
+}
+
+// Returns a badge <span> for a composite signal score.
+function signalScoreHtml(score) {
+    if (score == null) return '';
+    let cls;
+    if      (score >= 6)  cls = 'score--strong-pos';
+    else if (score >= 2)  cls = 'score--pos';
+    else if (score <= -6) cls = 'score--strong-neg';
+    else if (score <= -2) cls = 'score--neg';
+    else                  cls = 'score--neutral';
+    const sign = score > 0 ? '+' : '';
+    return `<span class="score-badge ${cls}">${sign}${score.toFixed(1)}</span>`;
+}
+
 // Formats open interest USD as a human-readable string.
 function oiFormatted(usd) {
     if (usd == null) return 'N/A';
@@ -1064,6 +1116,19 @@ function renderPortfolio() {
             if (rb == null) return -1;
             return ra - rb;
         });
+    } else if (portfolioFilter.sort === 'score_desc') {
+        assets.sort((a, b) => {
+            const getScore = x => {
+                const cur  = dashboardData.assets[x][portfolioFilter.timeframe]?.current;
+                const hist = dashboardData.assets[x][portfolioFilter.timeframe]?.historical;
+                return computeSignalScore(cur, hist);
+            };
+            const sa = getScore(a); const sb = getScore(b);
+            if (sa == null && sb == null) return 0;
+            if (sa == null) return 1;
+            if (sb == null) return -1;
+            return sb - sa;
+        });
     }
     // default: name A-Z (already sorted)
 
@@ -1111,6 +1176,7 @@ function renderPortfolio() {
         const sampleSize  = assetData[activeTf]?.historical?.sample_size ?? 0;
         const atrPct      = primary.atr_percentile;
         const atrColorCls = getAtrColorClass(atrDistP);
+        const sigScore    = computeSignalScore(primary, assetData[activeTf]?.historical);
         const badgeHtml   = (sampleSize > 30 && atrPct != null)
             ? `<span class="metric-percentile-badge" aria-label="${Math.round(atrPct)}th percentile">P${Math.round(atrPct)}%</span>`
             : '';
@@ -1197,6 +1263,11 @@ function renderPortfolio() {
                 <div class="metric">
                     <span class="metric-label">%B</span>
                     <span class="metric-value">${bbPctBHtml(primary.bb_pct_b)}</span>
+                </div>` : ''}
+                ${sigScore != null ? `
+                <div class="metric">
+                    <span class="metric-label">Score</span>
+                    <span class="metric-value">${signalScoreHtml(sigScore)}</span>
                 </div>` : ''}
             </div>
             <div class="card-sparkline" data-asset="${asset}" data-tf="${activeTf}"></div>
@@ -1791,6 +1862,11 @@ function renderDrilldown() {
                 <span class="summary-label">BB Width</span>
                 <span class="summary-value">${current.bb_bandwidth.toFixed(2)}%</span>
             </div>` : ''}
+            ${(() => { const s = computeSignalScore(current, timeframeData?.historical); return s != null ? `
+            <div class="summary-item">
+                <span class="summary-label">Signal Score</span>
+                <span class="summary-value">${signalScoreHtml(s)}</span>
+            </div>` : ''; })()}
         </div>
     `;
 

@@ -72,7 +72,7 @@
 - [x] **Price alerts / threshold notifications**
   Browser Notification API alert when an asset crosses a regime boundary or a user-set ATR Distance threshold. Store thresholds in `localStorage`. Entirely client-side, no pipeline changes.
 
-- [ ] **Composite signal score**
+- [x] **Composite signal score**
   Aggregate existing signals (ATR Distance percentile + RSI Z-Score + ADX + VP position + alignment) into a single −10 to +10 score per asset. Shown as a sortable column. Simple weighted formula — reduces cognitive load for "what's the best setup right now."
 
 - [ ] **Exchange flow badge (crypto)**
@@ -111,3 +111,5 @@
 - [x] **BTC Dominance + Altcoin Season Index**
 - [x] **ADX (Average Directional Index)**
 - [x] **Bollinger Band position / %B**
+- [x] **Price alerts / threshold notifications**
+- [x] **Composite signal score**
