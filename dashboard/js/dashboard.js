@@ -937,10 +937,20 @@ function renderMarketContextBar() {
         return;
     }
 
+    const snapshotTime = (() => {
+        const ts = dashboardData.metadata?.last_updated;
+        if (!ts) return null;
+        const d = new Date(ts);
+        return `${d.getUTCHours().toString().padStart(2,'0')}:${d.getUTCMinutes().toString().padStart(2,'0')} UTC`;
+    })();
+    const btcdTitle = snapshotTime
+        ? `CoinGecko · daily snapshot as of ${snapshotTime} (lags TradingView live data)`
+        : 'CoinGecko · daily snapshot (lags TradingView live data)';
+
     const btcdHtml = btcd != null
         ? `<div class="ctx-stat">
                <span class="ctx-label">BTC Dom.</span>
-               <span class="ctx-value btcd-value ${btcDomCssClass(btcd)}">${btcd.toFixed(1)}%</span>
+               <span class="ctx-value btcd-value ${btcDomCssClass(btcd)}" title="${btcdTitle}">${btcd.toFixed(1)}%</span>
            </div>`
         : '';
 
