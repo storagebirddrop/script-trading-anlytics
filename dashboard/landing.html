@@ -154,6 +154,39 @@
             <p class="landing-legend-intro">Every portfolio card carries several inline indicators. Here's what each one means.</p>
 
             <div class="landing-legend-group">
+                <h3 class="landing-legend-grouphead">Regime</h3>
+                <dl class="landing-legend-list">
+                    <div class="legend-item">
+                        <dt>
+                            <span class="asset-regime regime-capitulation">Capitulation</span>
+                            <span class="asset-regime regime-accumulation">Accumulation</span>
+                            <span class="asset-regime regime-trend">Trend</span>
+                            <span class="asset-regime regime-distribution">Distribution</span>
+                            <span class="asset-regime regime-mania">Mania</span>
+                        </dt>
+                        <dd><strong>Regime badge</strong> — Where the asset sits in its ATR Distance cycle. Capitulation (&lt;−4) and Accumulation (−4 to −2) are oversold; Trend (−2 to +2) is balanced; Distribution (+2 to +4) and Mania (&gt;+4) are extended. The regime drives the card's left border color.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="legend-atr-sample atr-oversold">−2.4</span>
+                            <span class="legend-atr-sample legend-atr-neutral">+0.3</span>
+                            <span class="legend-atr-sample atr-extended">+2.8</span>
+                            <span class="legend-atr-sample atr-extreme">+5.1</span>
+                        </dt>
+                        <dd><strong>ATR Distance color</strong> — The main metric number changes color with severity: green = oversold (below EMA), orange = extended, red = extreme extension or capitulation. Neutral values stay grey.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="metric-percentile-badge">P4%</span>
+                            <span class="metric-percentile-badge">P22%</span>
+                            <span class="metric-percentile-badge">P81%</span>
+                        </dt>
+                        <dd><strong>Historical percentile</strong> — How rare the current ATR Distance reading is for this specific asset. P4% means price has only been this oversold on 4% of all recorded trading days — a statistically significant extreme. Requires ≥30 bars of history.</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="landing-legend-group">
                 <h3 class="landing-legend-grouphead">Controls</h3>
                 <dl class="landing-legend-list">
                     <div class="legend-item">
@@ -257,6 +290,15 @@
                             <span class="fr-badge fr--negative-strong">−0.03%</span>
                         </dt>
                         <dd><strong>Funding rate</strong> — Binance USDT-M perpetual funding rate per 8-hour period. High positive (red) = crowded longs, elevated squeeze risk. Negative (green) = shorts paying longs — potential relief-rally setup.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="mcap-badge mcap-top10">Top 10</span>
+                            <span class="mcap-badge mcap-top50">Top 50</span>
+                            <span class="mcap-badge mcap-top200">Top 200</span>
+                            <span class="mcap-badge mcap-small">Small</span>
+                        </dt>
+                        <dd><strong>Market cap rank</strong> — CoinGecko rank tier for crypto assets. Context for liquidity and risk — a Top 10 oversold reading carries different weight than a Small-cap one.</dd>
                     </div>
                 </dl>
             </div>
