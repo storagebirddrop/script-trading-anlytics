@@ -3,6 +3,7 @@ let dashboardData = null;
 let chartHistoryData = null;
 let correlationData = null;
 let chartHistoryPromise = null;   // single in-flight fetch; all callers await this
+let corrFilter = 'all';           // 'all' | 'starred'
 const charts = {};
 
 // Asset categorisation (mirrors trading_utils/config.py ASSETS list)
@@ -656,16 +657,57 @@ function renderCorrelationHeatmap() {
         return;
     }
 
-    const assets = correlationData.assets;
-    const matrix = correlationData.matrix;
-    const n = assets.length;
+    const allAssets = correlationData.assets;
+    const allMatrix = correlationData.matrix;
+
+    // Compute display subset
+    let displayAssets;
+    if (corrFilter === 'starred') {
+        const starred = new Set(getStarred());
+        displayAssets = allAssets.filter(a => starred.has(a));
+    } else {
+        displayAssets = allAssets;
+    }
 
     container.innerHTML = '';
+
+    // Filter pills
+    const pills = document.createElement('div');
+    pills.className = 'corr-filter-pills';
+    [['all', 'All'], ['starred', '★ Starred']].forEach(([val, label]) => {
+        const btn = document.createElement('button');
+        btn.className = 'chip' + (corrFilter === val ? ' active' : '');
+        btn.textContent = label;
+        btn.addEventListener('click', () => {
+            corrFilter = val;
+            renderCorrelationHeatmap();
+        });
+        pills.appendChild(btn);
+    });
+    container.appendChild(pills);
+
+    // Insufficient starred assets message
+    if (corrFilter === 'starred' && displayAssets.length < 2) {
+        const msg = document.createElement('p');
+        msg.className = 'correlation-meta';
+        msg.style.marginTop = '1rem';
+        msg.textContent = displayAssets.length === 0
+            ? 'No starred crypto assets. Star assets on the Portfolio tab to use this filter.'
+            : 'Star at least 2 crypto assets on the Portfolio tab to see correlations.';
+        container.appendChild(msg);
+        return;
+    }
+
+    // Build submatrix (indices of displayAssets in allAssets)
+    const indices = displayAssets.map(a => allAssets.indexOf(a));
+    const matrix = indices.map(r => indices.map(c => allMatrix[r][c]));
+    const assets = displayAssets;
+    const n = assets.length;
 
     // Metadata line
     const meta = document.createElement('p');
     meta.className = 'correlation-meta';
-    meta.textContent = `${correlationData.lookback_days}-day Pearson · ${n} assets · as of ${correlationData.date}`;
+    meta.textContent = `${correlationData.lookback_days}-day Pearson · ${n} asset${n !== 1 ? 's' : ''} · as of ${correlationData.date}`;
     container.appendChild(meta);
 
     // Shared tooltip
