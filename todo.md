@@ -106,3 +106,8 @@
 - [x] **ATR compression metric**
 - [x] **Market breadth history chart**
 - [x] **Relative strength vs BTC (crypto assets)**
+- [x] **Crypto Fear & Greed Index badge**
+- [x] **Funding rates + Open Interest (crypto)**
+- [x] **BTC Dominance + Altcoin Season Index**
+- [x] **ADX (Average Directional Index)**
+- [x] **Bollinger Band position / %B**
