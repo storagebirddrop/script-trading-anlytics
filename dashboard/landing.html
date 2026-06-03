@@ -148,6 +148,120 @@
             </div>
         </section>
 
+        <!-- Card Icon Legend -->
+        <section class="landing-section landing-section--alt" aria-labelledby="legend-heading">
+            <h2 id="legend-heading">Card Icon Legend</h2>
+            <p class="landing-legend-intro">Every portfolio card carries several inline indicators. Here's what each one means.</p>
+
+            <div class="landing-legend-group">
+                <h3 class="landing-legend-grouphead">Controls</h3>
+                <dl class="landing-legend-list">
+                    <div class="legend-item">
+                        <dt><button class="star-btn starred" aria-label="Starred" tabindex="-1">★</button></dt>
+                        <dd><strong>Watchlist star</strong> — Pin up to 10 assets; starred assets float to the top of the Portfolio tab and feed the Starred filter on the Corr tab.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt><button class="alert-btn alert-active" aria-label="Alert active" tabindex="-1">⚑</button></dt>
+                        <dd><strong>Price alert</strong> — Orange when an alert is configured. Fires a browser notification when the asset crosses your chosen ATR Distance threshold or changes regime.</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="landing-legend-group">
+                <h3 class="landing-legend-grouphead">Regime &amp; Trend</h3>
+                <dl class="landing-legend-list">
+                    <div class="legend-item">
+                        <dt><span class="transition-pulse" aria-hidden="true"></span></dt>
+                        <dd><strong>Regime transition</strong> — Animated yellow dot. The asset's market regime changed on the last bar (e.g. Accumulation → Trend). The strip above the cards lists all current transitions.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="align-badge align-bullish">↑↑</span>
+                            <span class="align-badge align-bearish">↓↓</span>
+                            <span class="align-badge align-diverging">↕</span>
+                        </dt>
+                        <dd><strong>TF alignment</strong> — Daily and weekly regimes agree bullish (↑↑, green), agree bearish (↓↓, orange), or disagree (↕, grey). Agreement strengthens the signal; divergence urges caution.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="atr-trend-icon atr-trend-expanding">↑</span>
+                            <span class="atr-trend-icon atr-trend-flat">─</span>
+                            <span class="atr-trend-icon atr-trend-compressing">↓</span>
+                        </dt>
+                        <dd><strong>ATR trend</strong> — Whether the Average True Range is expanding (↑ orange), flat (─ grey), or compressing (↓ green) over the last 10 bars. Compression often precedes a breakout; expansion signals an already-moving market.</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="landing-legend-group">
+                <h3 class="landing-legend-grouphead">Price Position</h3>
+                <dl class="landing-legend-list">
+                    <div class="legend-item">
+                        <dt>
+                            <span class="vp-badge vp-below-val">Below VAL</span>
+                            <span class="vp-badge vp-at-poc">At POC</span>
+                            <span class="vp-badge vp-in-va">In VA</span>
+                            <span class="vp-badge vp-above-vah">Above VAH</span>
+                        </dt>
+                        <dd><strong>VP zone</strong> — Price relative to the 90-day Volume Profile. Below VAL = under support (green); At POC = at the highest-volume level; In VA = fair-value zone; Above VAH = above resistance (orange). Feeds into the Signal Score.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="bb-badge bb--below">%B −0.05</span>
+                            <span class="bb-badge bb--mid">%B 0.45</span>
+                            <span class="bb-badge bb--above">%B 1.05</span>
+                        </dt>
+                        <dd><strong>BB %B</strong> — Bollinger Band position (20-period, 2σ). Below 0 (green) = price broke below the lower band; above 1 (red) = broke above the upper band. Bandwidth squeeze (not shown on cards) often precedes large moves.</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="landing-legend-group">
+                <h3 class="landing-legend-grouphead">Momentum &amp; Score</h3>
+                <dl class="landing-legend-list">
+                    <div class="legend-item">
+                        <dt>
+                            <span class="adx-badge adx--trending">Trending 32</span>
+                            <span class="adx-badge adx--neutral">Neutral 22</span>
+                            <span class="adx-badge adx--ranging">Ranging 14</span>
+                        </dt>
+                        <dd><strong>ADX</strong> — Average Directional Index trend strength. Trending &gt;25 (green); Neutral 20–25 (amber); Ranging &lt;20 (grey). A low ATR Distance combined with Trending ADX is a strong directional oversold — not just a sideways drift.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="score-badge score--strong-pos">+7.0</span>
+                            <span class="score-badge score--pos">+3.5</span>
+                            <span class="score-badge score--neutral">0.0</span>
+                            <span class="score-badge score--neg">−3.5</span>
+                            <span class="score-badge score--strong-neg">−7.0</span>
+                        </dt>
+                        <dd><strong>Signal score</strong> — Composite −10 to +10 score aggregating ATR percentile (×4), RSI Z-Score (×3), VP zone (×2), and TF alignment (×1). Positive = oversold/opportunity; negative = extended/risk. Sort "Score ↓" to rank all assets by setup strength.</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="landing-legend-group">
+                <h3 class="landing-legend-grouphead">Crypto only</h3>
+                <dl class="landing-legend-list">
+                    <div class="legend-item">
+                        <dt>
+                            <span class="rs-badge rs-outperforming">×1.8 ↑</span>
+                            <span class="rs-badge rs-underperforming">×0.6 ↓</span>
+                        </dt>
+                        <dd><strong>RS / BTC</strong> — 30-day return ratio vs Bitcoin. ×1.8 ↑ = asset returned 1.8× BTC's gain (outperforming); ×0.6 ↓ = 60% of BTC's move (underperforming). Useful for capital-rotation decisions.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="fr-badge fr--positive-strong">+0.05%</span>
+                            <span class="fr-badge fr--neutral">0.00%</span>
+                            <span class="fr-badge fr--negative-strong">−0.03%</span>
+                        </dt>
+                        <dd><strong>Funding rate</strong> — Binance USDT-M perpetual funding rate per 8-hour period. High positive (red) = crowded longs, elevated squeeze risk. Negative (green) = shorts paying longs — potential relief-rally setup.</dd>
+                    </div>
+                </dl>
+            </div>
+        </section>
+
         <!-- Coverage -->
         <section class="landing-section" aria-labelledby="coverage-heading">
             <h2 id="coverage-heading">Coverage</h2>
