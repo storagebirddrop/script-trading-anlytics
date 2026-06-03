@@ -13,6 +13,9 @@ Automated pipeline that fetches daily and weekly OHLCV data from Yahoo Finance, 
 - **Crypto Fear & Greed Index** badge on the Portfolio health bar — fetched daily from alternative.me (free, no auth); colour-coded from Extreme Fear (green) to Extreme Greed (red)
 - **Funding rates + Open Interest** — Binance USDT-M futures API (free, no auth); per-asset funding rate badge (colour-coded by squeeze risk) and OI on crypto cards and in Drilldown
 - **BTC Dominance + Altcoin Season Index** — BTC.D from CoinGecko (free); Altseason score (0–100) self-computed from `history.csv` (% of tracked cryptos outperforming BTC over 90d); displayed in the market context bar above the Portfolio health bar
+- **Composite signal score** — −10 to +10 per asset, aggregating ATR percentile (×4), RSI Z-Score (×3), VP position (×2), and TF alignment (×1); colour-coded badge on cards and in Drilldown; sortable column ("Score ↓")
+- **Price alerts** — browser Notification API; per-asset ATR Distance threshold and regime-change alerts stored in `localStorage`; crossing-based so they fire once on breach, not on every page load
+- **Correlation heatmap** — rolling 90-day Pearson matrix for 28 crypto assets; red/green colour scale; hover tooltips; dedicated Corr tab; lazy-loaded from `correlation.json`
 - **Automated daily pipeline** via GitHub Actions
 
 ## Assets
@@ -120,6 +123,7 @@ After adding assets, run the backfill to populate their full history.
 | `data/chart_history.json` | Last 90 bars of ATR Distance, RSI, Price, EMA21 per asset+timeframe |
 | `data/metadata.json` | Pipeline run metadata (last updated, asset count) |
 | `data/market_caps.json` | CoinGecko market cap and rank data for crypto assets |
+| `data/correlation.json` | 90-day Pearson correlation matrix for 28 crypto assets |
 
 ## GitHub Actions
 

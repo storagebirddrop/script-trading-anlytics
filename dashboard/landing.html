@@ -23,7 +23,7 @@
                 <div class="landing-feature-card">
                     <span class="landing-feature-icon" aria-hidden="true">📊</span>
                     <h3>Portfolio State at a Glance</h3>
-                    <p>See every tracked asset's ATR Distance, RSI, regime, historical percentile, 14-bar sparkline, VP zone, ATR trend direction, and multi-timeframe alignment on one screen. The health bar and 60-day breadth chart show how market composition has shifted over time. Toggle between Daily and Weekly views. Star up to 10 assets to pin them to the top.</p>
+                    <p>See every tracked asset's ATR Distance, RSI, regime, historical percentile, composite signal score, VP zone, ATR trend, multi-timeframe alignment, ADX strength, and Bollinger Band %B on one screen. The health bar shows the Crypto Fear &amp; Greed Index, BTC Dominance, and Altseason score. The 60-day breadth chart tracks regime distribution over time. Toggle Daily/Weekly, star up to 10 assets, set price alerts, or sort by signal score.</p>
                 </div>
                 <div class="landing-feature-card">
                     <span class="landing-feature-icon" aria-hidden="true">🔍</span>
@@ -45,6 +45,11 @@
                     <h3>Macro Context</h3>
                     <p>A dedicated Macro tab covers 25 global assets across US, EU, and APAC indices, commodities (gold, oil, natgas, wheat, corn), and major forex pairs — all with the same ATR Distance regime analysis as the trading portfolio.</p>
                 </div>
+                <div class="landing-feature-card">
+                    <span class="landing-feature-icon" aria-hidden="true">🟦</span>
+                    <h3>Correlation Heatmap</h3>
+                    <p>A 28×28 Pearson correlation matrix for all crypto assets, computed over a rolling 90-day window. Instantly see which pairs move together and which are uncorrelated — useful for rotation decisions and avoiding over-concentration in correlated setups.</p>
+                </div>
             </div>
         </section>
 
@@ -56,7 +61,7 @@
                     <span class="landing-step-num" aria-hidden="true">1</span>
                     <div>
                         <strong>Portfolio Overview</strong>
-                        <p>Start here. Check the health summary bar for the market-wide snapshot, and the 60-day breadth chart to see how the regime distribution has shifted over time. Scan the Opportunity and Risk panels for standout setups. Look for the yellow pulse dot on cards — it flags a regime change since the last bar; the Recent Transitions strip above the cards lists them all. Toggle Daily/Weekly to switch the entire view. Filter by category, click a regime pill, or type in the search box to narrow to one asset fast. Star assets (★) to pin them to the top. Each card shows ATR Distance, VP zone, ATR trend icon (↑ expanding / ↓ compressing / ─ flat), alignment badge (↑↑/↓↓/↕ showing if daily and weekly regimes agree), RS/BTC ratio for crypto, and a 14-bar sparkline.</p>
+                        <p>Start here. The market context bar shows the Crypto Fear &amp; Greed Index, BTC Dominance, and Altcoin Season score. The health bar summarises regime distribution across all assets. Scan the Opportunity and Risk panels for standout setups. Look for the yellow pulse dot on cards — it flags a regime change since the last bar. Toggle Daily/Weekly, filter by category, or type in the search box. Sort by "Score ↓" to rank by composite signal strength. Star assets (★) to pin them to the top; set alerts (⚑) to be notified when an asset crosses a threshold or changes regime. Each card shows ATR Distance with percentile badge, signal score, VP zone, ATR trend (↑/↓/─), alignment badge (↑↑/↓↓/↕), ADX strength, Bollinger Band %B, and a 14-bar sparkline.</p>
                     </div>
                 </li>
                 <li class="landing-step">
@@ -84,7 +89,14 @@
                     <span class="landing-step-num" aria-hidden="true">5</span>
                     <div>
                         <strong>Drilldown</strong>
-                        <p>Read the Key Takeaways summary first — it distils the most important signals into plain language, including Volume Profile position. Then examine the 90-day charts to confirm context: ATR Distance with regime zones, RSI, Price vs EMA21, Weekly ATR Distance, and the Volume Profile bar chart showing POC, VAH, and VAL.</p>
+                        <p>Read the Key Takeaways summary first — it distils the most important signals into plain language, including Volume Profile position. Then examine the 90-day charts: ATR Distance with regime zones, RSI, Price vs EMA21, Weekly ATR Distance, and the Volume Profile bar chart. The summary grid includes ADX, Bollinger Band %B and Width, Signal Score, funding rate, and open interest for crypto assets.</p>
+                    </div>
+                </li>
+                <li class="landing-step">
+                    <span class="landing-step-num" aria-hidden="true">6</span>
+                    <div>
+                        <strong>Correlation Heatmap</strong>
+                        <p>The Corr tab shows the 90-day rolling Pearson correlation matrix for all crypto assets. Green cells indicate strong positive correlation, red cells indicate inverse correlation. Hover any cell to see the exact coefficient. Use it to find uncorrelated pairs before adding a position, or to spot rotation when historically correlated assets diverge.</p>
                     </div>
                 </li>
             </ol>
@@ -121,6 +133,18 @@
                     <h3>Volume Profile</h3>
                     <p>Fixed-lookback price-by-volume distribution (90 daily bars / 52 weekly bars) divided into 24 price buckets. Identifies the Point of Control (POC — highest-volume price), Value Area High (VAH), and Value Area Low (VAL). Price position relative to these levels is surfaced as a badge on cards and as a Key Takeaway in Drilldown.</p>
                 </div>
+                <div class="landing-method-item">
+                    <h3>ADX — Trend Strength</h3>
+                    <p>14-period Average Directional Index (Wilder's smoothing). Measures how strongly price is trending, independently of direction. Above 25 = trending; below 20 = ranging/sideways. Pairs with ATR Distance: a low ATR Distance combined with high ADX suggests a strong oversold trend rather than sideways drift.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>Bollinger Band %B</h3>
+                    <p>20-period Bollinger Bands with 2σ. <code>%B = (Price &minus; Lower Band) &divide; (Upper &minus; Lower)</code>. A value below 0 means price has broken below the lower band (oversold breakout); above 1 means it has broken above the upper band. Bandwidth (band width as % of midline) highlights squeeze conditions that often precede large moves.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>Composite Signal Score</h3>
+                    <p>A single &minus;10 to +10 score per asset aggregating four signals: ATR Distance percentile (weight 4), RSI Z-Score (weight 3), VP position (weight 2), and multi-timeframe alignment (weight 1). Positive = oversold/opportunity; negative = extended/risk. Sortable as "Score ↓" to surface the strongest setups at a glance.</p>
+                </div>
             </div>
         </section>
 
@@ -154,7 +178,7 @@
         <!-- CTA -->
         <section class="landing-cta-section" aria-labelledby="cta-heading">
             <h2 id="cta-heading">Ready to explore?</h2>
-            <p>70 assets. Daily and weekly timeframes. Full historical context since 2024.</p>
+            <p>70 assets. Daily and weekly timeframes. 6 views. Full historical context since 2024.</p>
             <a href="index.html" class="landing-cta-btn">Open Dashboard</a>
         </section>
 

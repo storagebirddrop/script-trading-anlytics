@@ -1,6 +1,7 @@
 // Dashboard JavaScript
 let dashboardData = null;
 let chartHistoryData = null;
+let correlationData = null;
 let chartHistoryPromise = null;   // single in-flight fetch; all callers await this
 const charts = {};
 
@@ -229,6 +230,58 @@ function adxStrengthHtml(adx) {
     else if (adx < 20) { cls = 'adx--ranging';  label = 'Ranging';  }
     else               { cls = 'adx--neutral';   label = 'Neutral';  }
     return `<span class="adx-badge ${cls}">${val} ${label}</span>`;
+}
+
+// Computes a composite signal score in [-10, +10].
+// Positive = oversold / opportunity; negative = extended / risk.
+// Components (weights 4+3+2+1 = 10 so raw sum already spans [-10, +10]):
+//   norm_atr  (×4): percentile-based when sample_size≥30, else ATR Distance fallback
+//   norm_rsi_z(×3): clamp(-rsiZ/3, -1, 1)
+//   norm_vp   (×2): below_val=+1, above_vah=-1, otherwise 0
+//   norm_align(×1): aligned-bearish=+1, aligned-bullish=-1, diverging=0
+function computeSignalScore(current, historical) {
+    if (!current) return null;
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+    // ATR component
+    let normAtr = 0;
+    const pct  = current.atr_percentile;
+    const dist = current.atr_distance;
+    const n    = historical?.sample_size ?? 0;
+    if (n >= 30 && pct != null) {
+        normAtr = clamp((50 - pct) / 50, -1, 1);
+    } else if (dist != null) {
+        normAtr = clamp(-dist / 4, -1, 1);
+    } else {
+        return null;
+    }
+
+    // RSI Z-Score component
+    const rsiZ = current.rsi_z_score;
+    const normRsi = rsiZ != null ? clamp(-rsiZ / 3, -1, 1) : 0;
+
+    // VP position component
+    const vpMap = { below_val: 1, above_vah: -1, at_poc: 0, in_value_area: 0 };
+    const normVp = current.vp_position != null ? (vpMap[current.vp_position] ?? 0) : 0;
+
+    // Alignment component
+    const alignMap = { 'aligned-bearish': 1, 'aligned-bullish': -1, diverging: 0 };
+    const normAlign = current.alignment != null ? (alignMap[current.alignment] ?? 0) : 0;
+
+    return Math.round((4 * normAtr + 3 * normRsi + 2 * normVp + 1 * normAlign) * 10) / 10;
+}
+
+// Returns a badge <span> for a composite signal score.
+function signalScoreHtml(score) {
+    if (score == null) return '';
+    let cls;
+    if      (score >= 6)  cls = 'score--strong-pos';
+    else if (score >= 2)  cls = 'score--pos';
+    else if (score <= -6) cls = 'score--strong-neg';
+    else if (score <= -2) cls = 'score--neg';
+    else                  cls = 'score--neutral';
+    const sign = score > 0 ? '+' : '';
+    return `<span class="score-badge ${cls}">${sign}${score.toFixed(1)}</span>`;
 }
 
 // Formats open interest USD as a human-readable string.
@@ -566,6 +619,133 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderDrilldown();
 });
 
+async function ensureCorrelationData() {
+    if (correlationData) return;
+    try {
+        const r = await fetch('assets/correlation.json');
+        if (!r.ok) throw new Error('correlation.json not found');
+        correlationData = await r.json();
+    } catch (e) {
+        console.warn('Correlation data unavailable:', e.message);
+        correlationData = null;
+    }
+}
+
+// Interpolates a correlation coefficient [-1, 1] to a CSS rgb() colour.
+// Positive: dark background → green; Negative: dark background → red; null → grey.
+function corrColor(v) {
+    if (v == null) return 'rgba(55,65,81,0.5)';
+    const t = Math.max(-1, Math.min(1, v));
+    const dark = [26, 32, 44];
+    if (t >= 0) {
+        const green = [16, 185, 129];
+        return `rgb(${Math.round(dark[0] + t*(green[0]-dark[0]))},${Math.round(dark[1] + t*(green[1]-dark[1]))},${Math.round(dark[2] + t*(green[2]-dark[2]))})`;
+    } else {
+        const red = [239, 68, 68];
+        const s = -t;
+        return `rgb(${Math.round(dark[0] + s*(red[0]-dark[0]))},${Math.round(dark[1] + s*(red[1]-dark[1]))},${Math.round(dark[2] + s*(red[2]-dark[2]))})`;
+    }
+}
+
+function renderCorrelationHeatmap() {
+    const container = document.getElementById('correlation-content');
+    if (!container) return;
+
+    if (!correlationData || !correlationData.assets || !correlationData.matrix) {
+        container.innerHTML = '<div class="loading">Correlation data unavailable.</div>';
+        return;
+    }
+
+    const assets = correlationData.assets;
+    const matrix = correlationData.matrix;
+    const n = assets.length;
+
+    container.innerHTML = '';
+
+    // Metadata line
+    const meta = document.createElement('p');
+    meta.className = 'correlation-meta';
+    meta.textContent = `${correlationData.lookback_days}-day Pearson · ${n} assets · as of ${correlationData.date}`;
+    container.appendChild(meta);
+
+    // Shared tooltip
+    let tooltip = document.getElementById('heatmap-tooltip');
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'heatmap-tooltip';
+        tooltip.className = 'heatmap-tooltip';
+        tooltip.hidden = true;
+        document.body.appendChild(tooltip);
+    }
+
+    const scroll = document.createElement('div');
+    scroll.className = 'heatmap-scroll';
+    container.appendChild(scroll);
+
+    const grid = document.createElement('div');
+    grid.className = 'heatmap-grid';
+    grid.style.gridTemplateColumns = `3.5rem repeat(${n}, 1.375rem)`;
+    scroll.appendChild(grid);
+
+    // Top-left corner spacer
+    const corner = document.createElement('div');
+    corner.className = 'heatmap-corner';
+    grid.appendChild(corner);
+
+    // Column headers
+    assets.forEach(asset => {
+        const wrap = document.createElement('div');
+        wrap.className = 'heatmap-col-label-wrap';
+        const lbl = document.createElement('span');
+        lbl.className = 'heatmap-col-label';
+        lbl.textContent = asset;
+        wrap.appendChild(lbl);
+        grid.appendChild(wrap);
+    });
+
+    // Data rows
+    assets.forEach((rowAsset, r) => {
+        const rowLabel = document.createElement('div');
+        rowLabel.className = 'heatmap-row-label';
+        rowLabel.textContent = rowAsset;
+        grid.appendChild(rowLabel);
+
+        matrix[r].forEach((v, c) => {
+            const cell = document.createElement('div');
+            cell.className = r === c ? 'heatmap-cell heatmap-cell--diag' : 'heatmap-cell';
+            cell.style.backgroundColor = corrColor(v);
+
+            cell.addEventListener('mouseover', () => {
+                tooltip.textContent = `${assets[r]} / ${assets[c]}: ${v != null ? v.toFixed(3) : 'N/A'}`;
+                tooltip.hidden = false;
+            });
+            cell.addEventListener('mousemove', e => {
+                tooltip.style.left = (e.clientX + 14) + 'px';
+                tooltip.style.top  = (e.clientY - 32) + 'px';
+            });
+            cell.addEventListener('mouseout', () => { tooltip.hidden = true; });
+
+            grid.appendChild(cell);
+        });
+    });
+
+    // Legend
+    const legend = document.createElement('div');
+    legend.className = 'heatmap-legend';
+    const negLabel = document.createElement('span');
+    negLabel.className = 'heatmap-legend-label heatmap-legend-neg';
+    negLabel.textContent = '−1';
+    const bar = document.createElement('div');
+    bar.className = 'heatmap-legend-bar';
+    const posLabel = document.createElement('span');
+    posLabel.className = 'heatmap-legend-label heatmap-legend-pos';
+    posLabel.textContent = '+1';
+    legend.appendChild(negLabel);
+    legend.appendChild(bar);
+    legend.appendChild(posLabel);
+    container.appendChild(legend);
+}
+
 // ─── Navigation ───────────────────────────────────────────────────────────────
 
 function navigateTo(tabId, asset) {
@@ -605,6 +785,9 @@ function setupNavigation() {
                 renderDrilldown();
             } else if (targetTab === 'macro-tab') {
                 renderMacro();
+            } else if (targetTab === 'correlation-tab') {
+                await ensureCorrelationData();
+                renderCorrelationHeatmap();
             }
         });
     });
@@ -1064,6 +1247,19 @@ function renderPortfolio() {
             if (rb == null) return -1;
             return ra - rb;
         });
+    } else if (portfolioFilter.sort === 'score_desc') {
+        assets.sort((a, b) => {
+            const getScore = x => {
+                const cur  = dashboardData.assets[x][portfolioFilter.timeframe]?.current;
+                const hist = dashboardData.assets[x][portfolioFilter.timeframe]?.historical;
+                return computeSignalScore(cur, hist);
+            };
+            const sa = getScore(a); const sb = getScore(b);
+            if (sa == null && sb == null) return 0;
+            if (sa == null) return 1;
+            if (sb == null) return -1;
+            return sb - sa;
+        });
     }
     // default: name A-Z (already sorted)
 
@@ -1111,6 +1307,7 @@ function renderPortfolio() {
         const sampleSize  = assetData[activeTf]?.historical?.sample_size ?? 0;
         const atrPct      = primary.atr_percentile;
         const atrColorCls = getAtrColorClass(atrDistP);
+        const sigScore    = computeSignalScore(primary, assetData[activeTf]?.historical);
         const badgeHtml   = (sampleSize > 30 && atrPct != null)
             ? `<span class="metric-percentile-badge" aria-label="${Math.round(atrPct)}th percentile">P${Math.round(atrPct)}%</span>`
             : '';
@@ -1197,6 +1394,11 @@ function renderPortfolio() {
                 <div class="metric">
                     <span class="metric-label">%B</span>
                     <span class="metric-value">${bbPctBHtml(primary.bb_pct_b)}</span>
+                </div>` : ''}
+                ${sigScore != null ? `
+                <div class="metric">
+                    <span class="metric-label">Score</span>
+                    <span class="metric-value">${signalScoreHtml(sigScore)}</span>
                 </div>` : ''}
             </div>
             <div class="card-sparkline" data-asset="${asset}" data-tf="${activeTf}"></div>
@@ -1791,6 +1993,11 @@ function renderDrilldown() {
                 <span class="summary-label">BB Width</span>
                 <span class="summary-value">${current.bb_bandwidth.toFixed(2)}%</span>
             </div>` : ''}
+            ${(() => { const s = computeSignalScore(current, timeframeData?.historical); return s != null ? `
+            <div class="summary-item">
+                <span class="summary-label">Signal Score</span>
+                <span class="summary-value">${signalScoreHtml(s)}</span>
+            </div>` : ''; })()}
         </div>
     `;
 
