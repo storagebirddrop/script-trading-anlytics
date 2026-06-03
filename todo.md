@@ -50,7 +50,7 @@
 
 ## Tier 1 — High value, moderate effort (build next)
 
-- [ ] **Crypto Fear & Greed Index badge**
+- [x] **Crypto Fear & Greed Index badge**
   Single daily number (0–100) from alternative.me — free, no-auth API. Extreme Fear (< 25) precedes bounces; Extreme Greed (> 75) is a caution signal. Display as a gauge or labelled badge on the Portfolio tab health bar. One `requests.get()` call added to the pipeline, refreshes daily.
 
 - [ ] **Funding rates + Open Interest (crypto)**
