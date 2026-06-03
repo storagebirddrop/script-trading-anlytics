@@ -1422,10 +1422,14 @@ body {
     border-top: 1px solid var(--border-color);
 }
 
-/* ── Nav: compact on very small screens with 5 buttons ───────────────────────── */
-@media (max-width: 400px) {
-    .nav-btn { padding: 0.5rem 0.4rem; }
-    .nav-label { font-size: 0.65rem; }
+/* ── Nav: compact on small screens to fit 6 buttons ─────────────────────────── */
+@media (max-width: 520px) {
+    .nav-btn { padding: 0.5rem 0.35rem; }
+    .nav-label { font-size: 0.62rem; }
+}
+@media (max-width: 380px) {
+    .nav-btn { padding: 0.5rem 0.25rem; }
+    .nav-label { font-size: 0.58rem; }
     .nav-icon { font-size: 1.2rem; }
 }
 
