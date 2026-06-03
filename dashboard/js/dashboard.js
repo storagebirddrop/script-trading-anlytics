@@ -1,6 +1,7 @@
 // Dashboard JavaScript
 let dashboardData = null;
 let chartHistoryData = null;
+let correlationData = null;
 let chartHistoryPromise = null;   // single in-flight fetch; all callers await this
 const charts = {};
 
@@ -618,6 +619,133 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderDrilldown();
 });
 
+async function ensureCorrelationData() {
+    if (correlationData) return;
+    try {
+        const r = await fetch('assets/correlation.json');
+        if (!r.ok) throw new Error('correlation.json not found');
+        correlationData = await r.json();
+    } catch (e) {
+        console.warn('Correlation data unavailable:', e.message);
+        correlationData = null;
+    }
+}
+
+// Interpolates a correlation coefficient [-1, 1] to a CSS rgb() colour.
+// Positive: dark background → green; Negative: dark background → red; null → grey.
+function corrColor(v) {
+    if (v == null) return 'rgba(55,65,81,0.5)';
+    const t = Math.max(-1, Math.min(1, v));
+    const dark = [26, 32, 44];
+    if (t >= 0) {
+        const green = [16, 185, 129];
+        return `rgb(${Math.round(dark[0] + t*(green[0]-dark[0]))},${Math.round(dark[1] + t*(green[1]-dark[1]))},${Math.round(dark[2] + t*(green[2]-dark[2]))})`;
+    } else {
+        const red = [239, 68, 68];
+        const s = -t;
+        return `rgb(${Math.round(dark[0] + s*(red[0]-dark[0]))},${Math.round(dark[1] + s*(red[1]-dark[1]))},${Math.round(dark[2] + s*(red[2]-dark[2]))})`;
+    }
+}
+
+function renderCorrelationHeatmap() {
+    const container = document.getElementById('correlation-content');
+    if (!container) return;
+
+    if (!correlationData || !correlationData.assets || !correlationData.matrix) {
+        container.innerHTML = '<div class="loading">Correlation data unavailable.</div>';
+        return;
+    }
+
+    const assets = correlationData.assets;
+    const matrix = correlationData.matrix;
+    const n = assets.length;
+
+    container.innerHTML = '';
+
+    // Metadata line
+    const meta = document.createElement('p');
+    meta.className = 'correlation-meta';
+    meta.textContent = `${correlationData.lookback_days}-day Pearson · ${n} assets · as of ${correlationData.date}`;
+    container.appendChild(meta);
+
+    // Shared tooltip
+    let tooltip = document.getElementById('heatmap-tooltip');
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'heatmap-tooltip';
+        tooltip.className = 'heatmap-tooltip';
+        tooltip.hidden = true;
+        document.body.appendChild(tooltip);
+    }
+
+    const scroll = document.createElement('div');
+    scroll.className = 'heatmap-scroll';
+    container.appendChild(scroll);
+
+    const grid = document.createElement('div');
+    grid.className = 'heatmap-grid';
+    grid.style.gridTemplateColumns = `3.5rem repeat(${n}, 1.375rem)`;
+    scroll.appendChild(grid);
+
+    // Top-left corner spacer
+    const corner = document.createElement('div');
+    corner.className = 'heatmap-corner';
+    grid.appendChild(corner);
+
+    // Column headers
+    assets.forEach(asset => {
+        const wrap = document.createElement('div');
+        wrap.className = 'heatmap-col-label-wrap';
+        const lbl = document.createElement('span');
+        lbl.className = 'heatmap-col-label';
+        lbl.textContent = asset;
+        wrap.appendChild(lbl);
+        grid.appendChild(wrap);
+    });
+
+    // Data rows
+    assets.forEach((rowAsset, r) => {
+        const rowLabel = document.createElement('div');
+        rowLabel.className = 'heatmap-row-label';
+        rowLabel.textContent = rowAsset;
+        grid.appendChild(rowLabel);
+
+        matrix[r].forEach((v, c) => {
+            const cell = document.createElement('div');
+            cell.className = r === c ? 'heatmap-cell heatmap-cell--diag' : 'heatmap-cell';
+            cell.style.backgroundColor = corrColor(v);
+
+            cell.addEventListener('mouseover', () => {
+                tooltip.textContent = `${assets[r]} / ${assets[c]}: ${v != null ? v.toFixed(3) : 'N/A'}`;
+                tooltip.hidden = false;
+            });
+            cell.addEventListener('mousemove', e => {
+                tooltip.style.left = (e.clientX + 14) + 'px';
+                tooltip.style.top  = (e.clientY - 32) + 'px';
+            });
+            cell.addEventListener('mouseout', () => { tooltip.hidden = true; });
+
+            grid.appendChild(cell);
+        });
+    });
+
+    // Legend
+    const legend = document.createElement('div');
+    legend.className = 'heatmap-legend';
+    const negLabel = document.createElement('span');
+    negLabel.className = 'heatmap-legend-label heatmap-legend-neg';
+    negLabel.textContent = '−1';
+    const bar = document.createElement('div');
+    bar.className = 'heatmap-legend-bar';
+    const posLabel = document.createElement('span');
+    posLabel.className = 'heatmap-legend-label heatmap-legend-pos';
+    posLabel.textContent = '+1';
+    legend.appendChild(negLabel);
+    legend.appendChild(bar);
+    legend.appendChild(posLabel);
+    container.appendChild(legend);
+}
+
 // ─── Navigation ───────────────────────────────────────────────────────────────
 
 function navigateTo(tabId, asset) {
@@ -657,6 +785,9 @@ function setupNavigation() {
                 renderDrilldown();
             } else if (targetTab === 'macro-tab') {
                 renderMacro();
+            } else if (targetTab === 'correlation-tab') {
+                await ensureCorrelationData();
+                renderCorrelationHeatmap();
             }
         });
     });

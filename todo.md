@@ -83,7 +83,7 @@
   CoinGlass / CryptoQuant free tiers: net exchange inflows (selling pressure) vs. outflows (accumulation). Simple in / out / neutral badge on crypto cards.
   _Requires API key (CoinGlass/CryptoQuant free tier) — discuss before building._
 
-- [ ] **Correlation heatmap (crypto)**
+- [x] **Correlation heatmap (crypto)**
   Rolling 90-day Pearson correlation matrix for the 28 crypto assets (`df.corr()` — computation is trivial). 28×28 colour-coded grid with hover tooltips showing the coefficient. Useful for identifying uncorrelated setups and rotation opportunities.
   _Note: the grid rendering and tab placement are the main design decisions._
 
@@ -114,3 +114,4 @@
 - [x] **Bollinger Band position / %B**
 - [x] **Price alerts / threshold notifications**
 - [x] **Composite signal score**
+- [x] **Correlation heatmap (crypto)**

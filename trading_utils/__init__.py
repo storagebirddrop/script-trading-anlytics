@@ -26,6 +26,7 @@ from .config import (
     VP_N_BUCKETS,
     COINGECKO_IDS,
     MARKET_CAPS_JSON_PATH,
+    CORRELATION_JSON_PATH,
     MACRO_ASSETS,
 )
 
@@ -76,6 +77,7 @@ __all__ = [
     'VP_N_BUCKETS',
     'COINGECKO_IDS',
     'MARKET_CAPS_JSON_PATH',
+    'CORRELATION_JSON_PATH',
     'MACRO_ASSETS',
     # Validation
     'ValidationResult',

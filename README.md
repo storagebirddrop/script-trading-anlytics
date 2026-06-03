@@ -120,6 +120,7 @@ After adding assets, run the backfill to populate their full history.
 | `data/chart_history.json` | Last 90 bars of ATR Distance, RSI, Price, EMA21 per asset+timeframe |
 | `data/metadata.json` | Pipeline run metadata (last updated, asset count) |
 | `data/market_caps.json` | CoinGecko market cap and rank data for crypto assets |
+| `data/correlation.json` | 90-day Pearson correlation matrix for 28 crypto assets |
 
 ## GitHub Actions
 

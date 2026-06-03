@@ -127,6 +127,14 @@
                 </div>
             </section>
 
+            <!-- Correlation Heatmap Tab -->
+            <section id="correlation-tab" class="tab-content" role="tabpanel" tabindex="-1" aria-labelledby="tab-correlation">
+                <h2>Crypto Correlation — 90-Day Rolling</h2>
+                <div id="correlation-content" class="correlation-content">
+                    <div class="loading">Loading…</div>
+                </div>
+            </section>
+
             <!-- Asset Drilldown Tab -->
             <section id="drilldown-tab" class="tab-content" role="tabpanel" tabindex="-1" aria-labelledby="tab-drilldown">
                 <h2>Asset Drilldown</h2>
@@ -187,6 +195,10 @@
             <button id="tab-drilldown" class="nav-btn" data-tab="drilldown-tab" role="tab" aria-selected="false" aria-label="Asset Drilldown" aria-controls="drilldown-tab">
                 <span class="nav-icon" aria-hidden="true">🔍</span>
                 <span class="nav-label">Drilldown</span>
+            </button>
+            <button id="tab-correlation" class="nav-btn" data-tab="correlation-tab" role="tab" aria-selected="false" aria-label="Correlation Heatmap" aria-controls="correlation-tab">
+                <span class="nav-icon" aria-hidden="true">🟦</span>
+                <span class="nav-label">Corr</span>
             </button>
         </nav>
     </div>
