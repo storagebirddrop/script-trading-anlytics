@@ -150,6 +150,9 @@ Computed by `calculate_volume_profile()` in `trading_utils/indicators.py`. Calle
 VP_LOOKBACK_BARS        = 90   # daily lookback (~4 months)
 VP_LOOKBACK_BARS_WEEKLY = 52   # weekly lookback (~1 year)
 VP_N_BUCKETS            = 24   # price distribution buckets
+ADX_PERIOD              = 14   # ADX period (shared with ATR/RSI)
+BB_PERIOD               = 20   # Bollinger Bands period
+BB_STD                  = 2.0  # Bollinger Bands standard deviation multiplier
 ```
 
 **Output fields** added to each `current` object in `dashboard.json`:
@@ -194,11 +197,11 @@ Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (
 - `dashboard/index.html` — main single-page app
 
 **Tabs:**
-- **Portfolio tab:** Portfolio Health Bar (oversold%/neutral%/extended%/sentiment + **Crypto Fear & Greed Index badge** from alternative.me — colour-coded Extreme Fear → green through Extreme Greed → red; hidden when unavailable), Opportunity panel (top-3 most oversold with signal-strength labels), Risk panel (top-3 most extended), **Recent Regime Transitions** section (animated yellow chips showing assets whose regime changed since the last bar, hidden when none), **Market Breadth 60-Day chart** (stacked bar chart of daily regime counts loaded from `breadth.json`, hidden when unavailable), a live **search input** (filters assets by name), then asset cards with ATR Distance (semantically coloured), inline historical percentile badge (P8%), VP position badge, **multi-timeframe alignment badge** (↑↑ aligned-bullish / ↓↓ aligned-bearish / ↕ diverging), **regime transition pulse** (animated yellow dot when regime changed last bar), **ATR trend icon** (expanding ↑ / compressing ↓ / flat ─), **RS/BTC badge** (crypto only — 30-day return ratio vs BTC, outperforming/underperforming), **star button** (watchlist, max 10, starred assets float to top via localStorage), and a 14-bar ATR Distance sparkline. Filterable by **timeframe (Daily/Weekly)**, regime, and category. Sort options include **Market Cap ↓** (uses `market_cap_rank`). Macro assets are excluded from this tab.
+- **Portfolio tab:** Portfolio Health Bar (oversold%/neutral%/extended%/sentiment + **Crypto Fear & Greed Index badge** from alternative.me — colour-coded Extreme Fear → green through Extreme Greed → red; hidden when unavailable), Opportunity panel (top-3 most oversold with signal-strength labels), Risk panel (top-3 most extended), **Recent Regime Transitions** section (animated yellow chips showing assets whose regime changed since the last bar, hidden when none), **Market Breadth 60-Day chart** (stacked bar chart of daily regime counts loaded from `breadth.json`, hidden when unavailable), a live **search input** (filters assets by name), then asset cards with ATR Distance (semantically coloured), inline historical percentile badge (P8%), VP position badge, **multi-timeframe alignment badge** (↑↑ aligned-bullish / ↓↓ aligned-bearish / ↕ diverging), **regime transition pulse** (animated yellow dot when regime changed last bar), **ATR trend icon** (expanding ↑ / compressing ↓ / flat ─), **RS/BTC badge** (crypto only — 30-day return ratio vs BTC, outperforming/underperforming), **Funding Rate badge** (crypto only — colour-coded by squeeze risk; hidden when null), **OI** (crypto only — open interest in USD; hidden when null), **ADX badge** (colour-coded Trending/Neutral/Ranging; hidden when null), **BB %B badge** (Bollinger Band position; hidden when null), **star button** (watchlist, max 10, starred assets float to top via localStorage), **alert bell button** (⚑ flag icon, orange when active; opens alert modal to set ATR Distance threshold or regime-change notification per asset; stored in `localStorage`; checked on every page load via `checkAndFireAlerts()`), and a 14-bar ATR Distance sparkline. Filterable by **timeframe (Daily/Weekly)**, regime, and category. Sort options include **Market Cap ↓** (uses `market_cap_rank`). Macro assets are excluded from this tab.
 - **Rankings tab:** top 10 most oversold / most extended assets with historical percentile rank and signal-strength label (Extreme Oversold → Mild Dip / Extreme Extended → Mild Extension). Macro assets excluded.
 - **Extremes tab** (formerly "Historical"): percentile gauge showing current ATR Distance position within historical range, with coloured regime zones; contextual interpretation paragraph explaining how frequently the asset has been at this level; metrics grid including RSI Z-Score. Macro assets excluded from selector.
 - **Macro tab:** 25 macro assets grouped into 5 sections (US Indices, EU Indices, APAC Indices, Commodities, Forex). Each card shows symbol, zone badge (`macroZoneLabel()`), price, ATR Distance, and Chg%. Clicking any card navigates to the Drilldown for that asset. Zone badges use neutral labels (Neutral/Oversold/Extended) rather than the crypto-flavoured regime names.
-- **Drilldown tab:** Key Takeaways panel (up to 5 auto-generated insights: ATR percentile, RSI status, weekly regime alignment, recent ATR trend direction, and VP position), then Chart.js line charts (Price vs EMA21, ATR Distance, RSI, Weekly ATR Distance, Volume Profile horizontal bar chart) plus summary metrics grid (includes VP Zone, POC, VAH, VAL, TF Align, ATR Trend, Transition, RS/BTC rows). Available for all 70 assets including macro.
+- **Drilldown tab:** Key Takeaways panel (up to 5 auto-generated insights: ATR percentile, RSI status, weekly regime alignment, recent ATR trend direction, and VP position), then Chart.js line charts (Price vs EMA21, ATR Distance, RSI, Weekly ATR Distance, Volume Profile horizontal bar chart) plus summary metrics grid (includes VP Zone, POC, VAH, VAL, TF Align, ATR Trend, Transition, RS/BTC, Funding Rate (crypto), Open Interest (crypto), ADX (14), BB %B (20), BB Width rows). Available for all 70 assets including macro.
 
 **Signal strength tiers** (used in Opportunity/Risk panels and Rankings):
 Uses the **more severe** of two independent signals — whichever gives the stronger label wins:
@@ -244,9 +247,20 @@ The gauge x-axis represents the empirical distribution, not a linear ATR Distanc
 - `alignBadgeClass(alignment)` / `alignBadgeLabel(alignment)` — returns CSS class / label for multi-TF alignment badge (`align-bullish`/`align-bearish`/`align-diverging`)
 - `atrTrendIcon(trend)` — returns ↑/↓/─ icon for ATR trend direction
 - `rsBadgeHtml(rs)` — returns RS/BTC badge HTML with outperforming/underperforming class and ×multiplier
+- `frBadgeHtml(fr)` — returns funding rate badge HTML (5 tiers: negative-strong / negative / neutral / positive / positive-strong); `fr` is the rate as a % per 8h period
+- `oiFormatted(usd)` — formats open interest USD as a human-readable string (`$12.5B` / `$450M`)
+- `fngCssClass(label)` — maps Fear & Greed label to CSS class (`fng--extreme-fear` through `fng--extreme-greed`)
+- `btcDomCssClass(pct)` — maps BTC dominance % to CSS class (`btcd--high/elevated/low/unknown`)
+- `altseasonCssClass(label)` — maps altseason label to CSS class (`alts--altseason` through `alts--btcseason`)
+- `renderMarketContextBar()` — renders `#market-context-bar` with BTC.D and Altseason index; hidden when both are null
 - `adxStrengthHtml(adx)` — returns ADX badge HTML with strength label (Trending >25 / Neutral 20–25 / Ranging <20) and colour class
 - `bbPctBHtml(pctB)` — returns BB %B badge HTML; colours: below 0 = green (oversold breakout), 0–0.2 = light green, 0.2–0.8 = neutral, 0.8–1.0 = amber, above 1 = red (overbought breakout)
 - `getStarred()` / `isStarred(asset)` / `toggleStar(asset)` — localStorage watchlist (key `starred_assets`, max 10)
+- `getAlerts()` / `saveAlerts()` / `hasAlertForAsset(asset)` — localStorage alert store (key `asset_alerts`); per-asset dict with `atr_enabled`, `atr_threshold`, `atr_direction`, `regime_enabled`, `last_atr`, `last_regime`
+- `openAlertModal(asset)` / `closeAlertModal()` / `initAlertModal()` — alert modal lifecycle; modal wired in `DOMContentLoaded`
+- `saveAlertFromModal()` / `removeAlertFromModal()` — save/remove alert from modal form
+- `checkAndFireAlerts(assetsData)` — checks all stored alerts against current `dashboardData.assets`; fires crossing-based notifications on load; updates `last_atr`/`last_regime` in localStorage
+- `fireNotification(title, body)` / `showToast(message)` — fires a browser Notification (when granted) or in-page toast fallback
 - `macroZoneLabel(atrDistance)` — returns `{ label, cssClass }` for a macro zone badge; uses ATR Distance thresholds with neutral display names (Neutral/Oversold/Extended rather than crypto regime names)
 - `renderPortfolioHealthBar()` — populates the health summary bar (excludes macro assets)
 - `renderOpportunityPanels()` — populates top-3 oversold / extended panels (excludes macro assets)

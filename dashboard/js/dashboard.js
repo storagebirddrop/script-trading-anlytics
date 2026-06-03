@@ -311,6 +311,182 @@ function toggleStar(asset) {
     localStorage.setItem(STARRED_KEY, JSON.stringify(starred));
 }
 
+// ─── Price Alert System ───────────────────────────────────────────────────────
+
+const ALERTS_KEY = 'asset_alerts';
+
+function getAlerts() {
+    try { return JSON.parse(localStorage.getItem(ALERTS_KEY) || '{}'); } catch { return {}; }
+}
+
+function saveAlerts(alerts) {
+    localStorage.setItem(ALERTS_KEY, JSON.stringify(alerts));
+}
+
+function hasAlertForAsset(asset) {
+    const cfg = getAlerts()[asset];
+    return !!(cfg && (cfg.atr_enabled || cfg.regime_enabled));
+}
+
+function openAlertModal(asset) {
+    const modal = document.getElementById('alert-modal');
+    if (!modal) return;
+    const alerts = getAlerts();
+    const cfg = alerts[asset] || {};
+    const current = dashboardData?.assets?.[asset]?.['1d']?.current;
+
+    document.getElementById('alert-modal-asset').textContent = asset;
+    document.getElementById('alert-modal-atr').textContent =
+        current?.atr_distance != null ? current.atr_distance.toFixed(2) : '—';
+    document.getElementById('alert-modal-regime').textContent = current?.regime ?? '—';
+
+    document.getElementById('alert-atr-enabled').checked = !!cfg.atr_enabled;
+    document.getElementById('alert-atr-value').value = cfg.atr_threshold ?? '';
+    if (cfg.atr_direction === 'above') {
+        document.getElementById('alert-dir-above').checked = true;
+    } else {
+        document.getElementById('alert-dir-below').checked = true;
+    }
+    document.getElementById('alert-regime-enabled').checked = !!cfg.regime_enabled;
+
+    const notifWarning = document.getElementById('alert-notif-warning');
+    if (notifWarning) {
+        notifWarning.hidden = typeof Notification === 'undefined' || Notification.permission !== 'denied';
+    }
+
+    modal.dataset.asset = asset;
+    modal.hidden = false;
+    document.getElementById('alert-save-btn').focus();
+}
+
+function closeAlertModal() {
+    const modal = document.getElementById('alert-modal');
+    if (modal) modal.hidden = true;
+}
+
+function saveAlertFromModal() {
+    const modal = document.getElementById('alert-modal');
+    if (!modal) return;
+    const asset = modal.dataset.asset;
+    if (!asset) return;
+
+    const atrEnabled = document.getElementById('alert-atr-enabled').checked;
+    const atrDirection = document.querySelector('input[name="alert-dir"]:checked')?.value ?? 'below';
+    const atrRaw = document.getElementById('alert-atr-value').value;
+    const atrThreshold = parseFloat(atrRaw);
+
+    if (atrEnabled && (atrRaw.trim() === '' || isNaN(atrThreshold))) {
+        document.getElementById('alert-atr-value').focus();
+        return;
+    }
+
+    const regimeEnabled = document.getElementById('alert-regime-enabled').checked;
+    const alerts = getAlerts();
+
+    if (atrEnabled || regimeEnabled) {
+        const prev = alerts[asset] || {};
+        alerts[asset] = {
+            atr_enabled:   atrEnabled,
+            atr_threshold: atrEnabled ? atrThreshold : null,
+            atr_direction: atrDirection,
+            regime_enabled: regimeEnabled,
+            last_atr:    prev.last_atr    ?? null,
+            last_regime: prev.last_regime ?? null,
+        };
+        if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    } else {
+        delete alerts[asset];
+    }
+    saveAlerts(alerts);
+    closeAlertModal();
+    renderPortfolio();
+}
+
+function removeAlertFromModal() {
+    const modal = document.getElementById('alert-modal');
+    if (!modal) return;
+    const asset = modal.dataset.asset;
+    if (!asset) return;
+    const alerts = getAlerts();
+    delete alerts[asset];
+    saveAlerts(alerts);
+    closeAlertModal();
+    renderPortfolio();
+}
+
+function showToast(message) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 5000);
+}
+
+function fireNotification(title, body) {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification(title, { body });
+    } else {
+        showToast(`${title}: ${body}`);
+    }
+}
+
+function checkAndFireAlerts(assetsData) {
+    const alerts = getAlerts();
+    let updated = false;
+
+    for (const [asset, cfg] of Object.entries(alerts)) {
+        const current = assetsData?.[asset]?.['1d']?.current;
+        if (!current) continue;
+
+        if (cfg.atr_enabled && current.atr_distance != null) {
+            const atr = current.atr_distance;
+            const thr = cfg.atr_threshold;
+            const nowBreached = cfg.atr_direction === 'below' ? atr < thr : atr > thr;
+            const wasBreached = cfg.last_atr != null && (
+                cfg.atr_direction === 'below' ? cfg.last_atr < thr : cfg.last_atr > thr
+            );
+            if (nowBreached && !wasBreached) {
+                const dir = cfg.atr_direction === 'below' ? '↓' : '↑';
+                fireNotification(`${asset} ATR Alert`,
+                    `ATR Distance ${dir} ${thr.toFixed(1)} (now ${atr.toFixed(2)})`);
+            }
+            cfg.last_atr = atr;
+            updated = true;
+        }
+
+        if (cfg.regime_enabled && current.regime) {
+            if (cfg.last_regime && cfg.last_regime !== current.regime) {
+                fireNotification(`${asset} Regime Change`,
+                    `${cfg.last_regime} → ${current.regime}`);
+            }
+            cfg.last_regime = current.regime;
+            updated = true;
+        }
+    }
+
+    if (updated) saveAlerts(alerts);
+}
+
+function initAlertModal() {
+    document.getElementById('alert-modal-close')?.addEventListener('click', closeAlertModal);
+    document.getElementById('alert-save-btn')?.addEventListener('click', saveAlertFromModal);
+    document.getElementById('alert-remove-btn')?.addEventListener('click', removeAlertFromModal);
+    document.getElementById('alert-request-perm')?.addEventListener('click', () => {
+        if (typeof Notification !== 'undefined') Notification.requestPermission();
+    });
+    document.getElementById('alert-modal')?.addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeAlertModal();
+    });
+    document.addEventListener('keydown', e => {
+        const modal = document.getElementById('alert-modal');
+        if (e.key === 'Escape' && modal && !modal.hidden) closeAlertModal();
+    });
+}
+
 // ─── Data loading ─────────────────────────────────────────────────────────────
 
 async function loadDashboardData() {
@@ -374,6 +550,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             Chart.register(ChartAnnotation);
         }
     }
+
+    initAlertModal();
+    checkAndFireAlerts(dashboardData.assets);
 
     setupNavigation();
     setupAssetSelectors();
@@ -948,6 +1127,7 @@ function renderPortfolio() {
                 ${primary.alignment ? `<span class="align-badge ${alignBadgeClass(primary.alignment)}" title="TF Alignment">${alignBadgeLabel(primary.alignment)}</span>` : ''}
                 <span class="asset-regime ${regimeClass(regime)}">${er}</span>
                 <button class="star-btn${isStarred(asset) ? ' starred' : ''}" data-star="${ea}" title="${isStarred(asset) ? 'Unstar' : 'Star'} ${ea}" aria-label="${isStarred(asset) ? 'Remove from watchlist' : 'Add to watchlist'}">&#9733;</button>
+                <button class="alert-btn${hasAlertForAsset(asset) ? ' alert-active' : ''}" data-alert="${ea}" title="${hasAlertForAsset(asset) ? 'Edit alert' : 'Set alert'} for ${ea}" aria-label="${hasAlertForAsset(asset) ? 'Edit alert' : 'Set alert'} for ${ea}">&#9873;</button>
             </div>
             <div class="asset-metrics">
                 <div class="metric">
@@ -1031,12 +1211,17 @@ function renderPortfolio() {
 
     renderPortfolioSparklines();
 
-    // Delegated click — star button takes priority, then card → Drilldown
+    // Delegated click — star/alert buttons take priority, then card → Drilldown
     container.onclick = e => {
         const starBtn = e.target.closest('.star-btn[data-star]');
         if (starBtn) {
             toggleStar(starBtn.dataset.star);
             renderPortfolio();
+            return;
+        }
+        const alertBtn = e.target.closest('.alert-btn[data-alert]');
+        if (alertBtn) {
+            openAlertModal(alertBtn.dataset.alert);
             return;
         }
         const card = e.target.closest('.asset-card[data-asset]');
