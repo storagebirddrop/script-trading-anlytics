@@ -5,7 +5,7 @@ Automated pipeline that fetches daily and weekly OHLCV data from Yahoo Finance, 
 ## Features
 
 - **Data sources:** Yahoo Finance (crypto + NASDAQ + LSE ETFs + macro), Binance/CCXT (SCP), GeckoTerminal (D2X); manual fallback for assets without API access
-- **Indicators:** EMA21, ATR (14-period, Wilder's smoothing), RSI (14-period, Wilder's smoothing), RSI Z-score (20-period), ATR Distance, % Above EMA
+- **Indicators:** EMA21, ATR (14-period, Wilder's smoothing), RSI (14-period, Wilder's smoothing), RSI Z-score (20-period), ATR Distance, % Above EMA, ADX (14-period, Wilder's smoothing — trend strength 0–100; >25 trending, <20 ranging)
 - **Volume Profile:** fixed-lookback price-by-volume distribution (POC, VAH, VAL, position classification) stored in `dashboard.json` and rendered as a horizontal bar chart in the Drilldown tab
 - **Timeframes:** Daily (`1d`) and Weekly (`1w`)
 - **Regime classification** based on ATR Distance thresholds (Capitulation → Accumulation → Trend → Distribution → Mania)

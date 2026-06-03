@@ -882,5 +882,69 @@ class TestMarketContextInDashboard:
         assert dash['altseason']['label'] == 'Leaning Alt'
 
 
+class TestADXInCurrentSnapshot:
+    """ADX field is written into dashboard.json current snapshot."""
+
+    @pytest.fixture
+    def df_with_adx(self):
+        return pd.DataFrame({
+            'Date': ['2026-06-01', '2026-06-02'],
+            'Asset': ['BTC', 'BTC'],
+            'Price': [65000.0, 64000.0],
+            'EMA21': [64000.0, 63600.0],
+            'ATR': [1000.0, 1000.0],
+            'RSI': [50.0, 45.0],
+            'RSI_Z_Score': [0.0, -0.5],
+            'ATR_Distance': [1.0, 0.4],
+            'Pct_Above_EMA': [1.56, 0.63],
+            'ADX': [30.5, 28.1],
+            'Timeframe': ['1d', '1d'],
+        })
+
+    @pytest.fixture
+    def df_without_adx(self):
+        return pd.DataFrame({
+            'Date': ['2026-06-01', '2026-06-02'],
+            'Asset': ['BTC', 'BTC'],
+            'Price': [65000.0, 64000.0],
+            'EMA21': [64000.0, 63600.0],
+            'ATR': [1000.0, 1000.0],
+            'RSI': [50.0, 45.0],
+            'RSI_Z_Score': [0.0, -0.5],
+            'ATR_Distance': [1.0, 0.4],
+            'Pct_Above_EMA': [1.56, 0.63],
+            'Timeframe': ['1d', '1d'],
+        })
+
+    def test_adx_present_in_snapshot_when_column_exists(self, df_with_adx):
+        """current snapshot includes adx float when ADX column is present."""
+        metrics = calculate_current_metrics(df_with_adx)
+        assert 'adx' in metrics['BTC']['1d']['current']
+        assert metrics['BTC']['1d']['current']['adx'] == pytest.approx(28.1)
+
+    def test_adx_null_when_column_missing(self, df_without_adx):
+        """current snapshot sets adx=None when ADX column is absent."""
+        metrics = calculate_current_metrics(df_without_adx)
+        assert metrics['BTC']['1d']['current']['adx'] is None
+
+    def test_adx_null_when_nan(self):
+        """current snapshot sets adx=None when ADX value is NaN."""
+        df = pd.DataFrame({
+            'Date': ['2026-06-01', '2026-06-02'],
+            'Asset': ['BTC', 'BTC'],
+            'Price': [65000.0, 64000.0],
+            'EMA21': [64000.0, 63600.0],
+            'ATR': [1000.0, 1000.0],
+            'RSI': [50.0, 45.0],
+            'RSI_Z_Score': [0.0, -0.5],
+            'ATR_Distance': [1.0, 0.4],
+            'Pct_Above_EMA': [1.56, 0.63],
+            'ADX': [float('nan'), float('nan')],
+            'Timeframe': ['1d', '1d'],
+        })
+        metrics = calculate_current_metrics(df)
+        assert metrics['BTC']['1d']['current']['adx'] is None
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

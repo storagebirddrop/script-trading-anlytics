@@ -207,6 +207,17 @@ function frBadgeHtml(fr) {
     return `<span class="fr-badge ${cls}">${sign}${pct}%</span>`;
 }
 
+// ADX strength badge: > 25 Trending, < 20 Ranging, 20–25 Neutral.
+function adxStrengthHtml(adx) {
+    if (adx == null) return '';
+    const val = adx.toFixed(1);
+    let cls, label;
+    if      (adx > 25) { cls = 'adx--trending'; label = 'Trending'; }
+    else if (adx < 20) { cls = 'adx--ranging';  label = 'Ranging';  }
+    else               { cls = 'adx--neutral';   label = 'Neutral';  }
+    return `<span class="adx-badge ${cls}">${val} ${label}</span>`;
+}
+
 // Formats open interest USD as a human-readable string.
 function oiFormatted(usd) {
     if (usd == null) return 'N/A';
@@ -984,6 +995,11 @@ function renderPortfolio() {
                     <span class="metric-label">OI</span>
                     <span class="metric-value">${oiFormatted(primary.open_interest_usd)}</span>
                 </div>` : ''}
+                ${primary.adx != null ? `
+                <div class="metric">
+                    <span class="metric-label">ADX</span>
+                    <span class="metric-value">${adxStrengthHtml(primary.adx)}</span>
+                </div>` : ''}
             </div>
             <div class="card-sparkline" data-asset="${asset}" data-tf="${activeTf}"></div>
             <div class="asset-card-footer">
@@ -1556,6 +1572,11 @@ function renderDrilldown() {
             <div class="summary-item">
                 <span class="summary-label">Open Interest</span>
                 <span class="summary-value">${oiFormatted(current.open_interest_usd)}</span>
+            </div>` : ''}
+            ${current?.adx != null ? `
+            <div class="summary-item">
+                <span class="summary-label">ADX (14)</span>
+                <span class="summary-value">${adxStrengthHtml(current.adx)}</span>
             </div>` : ''}
         </div>
     `;
