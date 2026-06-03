@@ -270,6 +270,8 @@ The gauge x-axis represents the empirical distribution, not a linear ATR Distanc
 
 **Top-level fields in `dashboard.json`** (added by `calculate_metrics.py`):
 - `fear_greed` — `{value: int, label: str, timestamp: str}|null` — Crypto Fear & Greed Index fetched from `https://api.alternative.me/fng/?limit=1` (free, no auth). Written by `fetch_fear_greed()`. `null` when the fetch fails. Labels: `Extreme Fear` | `Fear` | `Neutral` | `Greed` | `Extreme Greed`.
+- `btc_dominance` — `float|null` — BTC market-cap dominance % from CoinGecko `/api/v3/global` (free, no auth). `null` on failure.
+- `altseason` — `{score: int, label: str, alts_outperforming: int, total: int}|null` — Altcoin Season Index computed from `history.csv`. Score = % of tracked crypto assets (excl. BTC) that outperformed BTC over the last 90 days. Labels: `Altcoin Season` | `Leaning Alt` | `Neutral` | `Leaning BTC` | `Bitcoin Season`. `null` when insufficient history. Displayed in the `market-context-bar` above the Portfolio health bar.
 
 **Per-asset `current` fields added by Binance USDT-M futures (crypto assets only, free/no auth):**
 - `funding_rate` — `float|null` — Last settled funding rate converted to % per 8h period (e.g. `0.0100` = 0.01%). Fetched from `https://fapi.binance.com/fapi/v1/premiumIndex` via `fetch_binance_futures()`. `null` when asset has no USDT-M perpetual contract on Binance (e.g. D2X, SCP, NIGHT).

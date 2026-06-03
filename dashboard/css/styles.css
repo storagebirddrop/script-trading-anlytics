@@ -847,6 +847,55 @@ body {
 .fng--greed        { background-color: rgba(249,115,22,0.12);  color: var(--accent-orange); }
 .fng--extreme-greed{ background-color: rgba(239,68,68,0.12);   color: var(--accent-red); }
 
+/* ── Market context bar (BTC Dom + Altseason) ───────────────────────────────── */
+.market-context-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    padding: 0.45rem 0.875rem;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    margin-bottom: 0.5rem;
+    font-size: 0.78rem;
+}
+
+.ctx-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.ctx-label {
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+}
+
+.ctx-value {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* BTC dominance colour tiers */
+.btcd--high     { color: var(--accent-orange); }
+.btcd--elevated { color: var(--accent-yellow); }
+.btcd--low      { color: var(--accent-green); }
+.btcd--unknown  { color: var(--text-secondary); }
+
+/* Altseason badge */
+.altseason-badge {
+    padding: 0.1rem 0.45rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.72rem;
+    cursor: default;
+}
+.alts--altseason  { background: rgba(16,185,129,0.15);  color: var(--accent-green); }
+.alts--leaning-alt{ background: rgba(110,231,183,0.10); color: #6ee7b7; }
+.alts--neutral    { background: rgba(160,174,192,0.10); color: var(--text-secondary); }
+.alts--leaning-btc{ background: rgba(249,115,22,0.10);  color: var(--accent-orange); }
+.alts--btcseason  { background: rgba(239,68,68,0.12);   color: var(--accent-red); }
+
 .portfolio-panels {
     display: grid;
     grid-template-columns: 1fr;
