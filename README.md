@@ -10,6 +10,7 @@ Automated pipeline that fetches daily and weekly OHLCV data from Yahoo Finance, 
 - **Timeframes:** Daily (`1d`) and Weekly (`1w`)
 - **Regime classification** based on ATR Distance thresholds (Capitulation → Accumulation → Trend → Distribution → Mania)
 - **70 tracked assets** across crypto, NASDAQ stocks, LSE ETFs, and macro (indices, commodities, forex)
+- **Crypto Fear & Greed Index** badge on the Portfolio health bar — fetched daily from alternative.me (free, no auth); colour-coded from Extreme Fear (green) to Extreme Greed (red)
 - **Automated daily pipeline** via GitHub Actions
 
 ## Assets
