@@ -271,11 +271,11 @@ The gauge x-axis represents the empirical distribution, not a linear ATR Distanc
 **Top-level fields in `dashboard.json`** (added by `calculate_metrics.py`):
 - `fear_greed` — `{value: int, label: str, timestamp: str}|null` — Crypto Fear & Greed Index fetched from `https://api.alternative.me/fng/?limit=1` (free, no auth). Written by `fetch_fear_greed()`. `null` when the fetch fails. Labels: `Extreme Fear` | `Fear` | `Neutral` | `Greed` | `Extreme Greed`.
 
-**Per-asset `current` fields added by CoinGlass (crypto assets only):**
-- `funding_rate` — `float|null` — OI-weighted average funding rate in % per 8h period (e.g. `0.0100` = 0.01%). Written by `fetch_coinglass_markets()` via `/api/futures/coins-markets`. Requires `COINGLASS_API_KEY` env var (paid CoinGlass subscription). `null` when key absent or asset has no futures market.
-- `open_interest_usd` — `float|null` — Total open interest aggregated across exchanges, in USD. Same source as `funding_rate`. `null` when unavailable.
+**Per-asset `current` fields added by Binance USDT-M futures (crypto assets only, free/no auth):**
+- `funding_rate` — `float|null` — Last settled funding rate converted to % per 8h period (e.g. `0.0100` = 0.01%). Fetched from `https://fapi.binance.com/fapi/v1/premiumIndex` via `fetch_binance_futures()`. `null` when asset has no USDT-M perpetual contract on Binance (e.g. D2X, SCP, NIGHT).
+- `open_interest_usd` — `float|null` — Open interest in USD (= contracts × mark price). Per-symbol from `/fapi/v1/openInterest`. `null` when OI call fails.
 
-Set `COINGLASS_API_KEY` in GitHub Actions secrets to enable these fields in production. Both fields degrade gracefully to `null` when the key is absent — no pipeline failure.
+No API key required. Both fields degrade gracefully to `null` on network failure — no pipeline impact.
 
 **New pipeline output** — `data/breadth.json` / `dashboard/assets/breadth.json`:
 Written by `generate_breadth_json()` in `calculate_metrics.py`. Covers the last 60 trading days of daily (1d) non-macro assets. Structure: `{ "dates": [...], "capitulation": [...], "accumulation": [...], "trend": [...], "distribution": [...], "mania": [...] }` — each array has one count per date entry. Copied by `build_dashboard.py` alongside `data.json` and `chart_history.json`.

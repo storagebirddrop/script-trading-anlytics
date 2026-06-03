@@ -14,7 +14,7 @@ from calculate_metrics import (
     generate_dashboard_json,
     generate_chart_history,
     fetch_fear_greed,
-    fetch_coinglass_markets,
+    fetch_binance_futures,
 )
 
 
@@ -562,73 +562,109 @@ class TestGenerateChartHistory:
             assert bar['d'].count('-') == 2
 
 
-class TestFetchCoinglassMarkets:
-    """Tests for fetch_coinglass_markets()."""
+class TestFetchBinanceFutures:
+    """Tests for fetch_binance_futures() — Binance USDT-M futures, no auth required."""
 
-    def _mock_resp(self, symbols):
-        """Build a mock response with the given list of (symbol, fr, oi) tuples."""
+    def _premium_mock(self, entries):
+        """Build a mock premiumIndex response. entries: list of (symbol, lastFundingRate, markPrice)."""
         mock = MagicMock()
-        mock.json.return_value = {
-            'data': [
-                {'symbol': sym, 'avg_funding_rate_by_oi': fr, 'open_interest_usd': oi}
-                for sym, fr, oi in symbols
-            ]
-        }
+        mock.json.return_value = [
+            {'symbol': sym, 'lastFundingRate': str(fr), 'markPrice': str(mp)}
+            for sym, fr, mp in entries
+        ]
         return mock
 
-    def test_returns_empty_when_no_api_key(self, monkeypatch):
-        monkeypatch.delenv('COINGLASS_API_KEY', raising=False)
-        result = fetch_coinglass_markets()
-        assert result == {}
+    def _oi_mock(self, oi_contracts):
+        mock = MagicMock()
+        mock.json.return_value = {'openInterest': str(oi_contracts), 'symbol': 'BTCUSDT'}
+        return mock
 
-    def test_returns_empty_when_key_is_blank(self, monkeypatch):
-        monkeypatch.setenv('COINGLASS_API_KEY', '   ')
-        result = fetch_coinglass_markets()
-        assert result == {}
-
-    def test_successful_fetch_keyed_by_symbol(self, monkeypatch):
-        monkeypatch.setenv('COINGLASS_API_KEY', 'test-key')
-        mock = self._mock_resp([('BTC', 0.0100, 30_000_000_000), ('ETH', -0.0050, 12_000_000_000)])
-        with patch('calculate_metrics.requests.get', return_value=mock):
-            result = fetch_coinglass_markets()
+    def test_successful_fetch_returns_coin_keyed_dict(self):
+        def side_effect(url, **kwargs):
+            if 'premiumIndex' in url:
+                return self._premium_mock([('BTCUSDT', 0.0001, 43000.0), ('ETHUSDT', -0.0002, 2500.0)])
+            return self._oi_mock(1000.0)
+        with patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_binance_futures()
         assert 'BTC' in result
         assert 'ETH' in result
-        assert result['BTC']['avg_funding_rate_by_oi'] == 0.0100
-        assert result['ETH']['open_interest_usd'] == 12_000_000_000
 
-    def test_symbol_upcased(self, monkeypatch):
-        monkeypatch.setenv('COINGLASS_API_KEY', 'test-key')
-        mock = MagicMock()
-        mock.json.return_value = {'data': [{'symbol': 'btc', 'avg_funding_rate_by_oi': 0.01, 'open_interest_usd': 1e9}]}
-        with patch('calculate_metrics.requests.get', return_value=mock):
-            result = fetch_coinglass_markets()
+    def test_funding_rate_converted_to_percent(self):
+        def side_effect(url, **kwargs):
+            if 'premiumIndex' in url:
+                return self._premium_mock([('BTCUSDT', 0.0001, 43000.0)])
+            return self._oi_mock(100.0)
+        with patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_binance_futures()
+        assert result['BTC']['funding_rate'] == pytest.approx(0.01)  # 0.0001 × 100 = 0.01%
+
+    def test_negative_funding_rate_preserved(self):
+        def side_effect(url, **kwargs):
+            if 'premiumIndex' in url:
+                return self._premium_mock([('ETHUSDT', -0.0003, 2500.0)])
+            return self._oi_mock(500.0)
+        with patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_binance_futures()
+        assert result['ETH']['funding_rate'] == pytest.approx(-0.03)
+
+    def test_quarterly_contracts_excluded(self):
+        def side_effect(url, **kwargs):
+            if 'premiumIndex' in url:
+                return self._premium_mock([
+                    ('BTCUSDT', 0.0001, 43000.0),
+                    ('BTCUSDT_240329', 0.0002, 43100.0),  # delivery contract — skip
+                ])
+            return self._oi_mock(100.0)
+        with patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_binance_futures()
         assert 'BTC' in result
+        # Delivery contract should not create a separate entry
+        assert 'BTCUSDT_240329' not in result
 
-    def test_network_error_returns_empty(self, monkeypatch):
-        monkeypatch.setenv('COINGLASS_API_KEY', 'test-key')
+    def test_oi_calculated_as_contracts_times_price(self):
+        mark_price = 43000.0
+        oi_contracts = 1000.0
+        def side_effect(url, **kwargs):
+            if 'premiumIndex' in url:
+                return self._premium_mock([('BTCUSDT', 0.0001, mark_price)])
+            return self._oi_mock(oi_contracts)
+        with patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_binance_futures()
+        assert result['BTC']['open_interest_usd'] == pytest.approx(oi_contracts * mark_price)
+
+    def test_premiumindex_network_error_returns_empty(self):
         with patch('calculate_metrics.requests.get', side_effect=Exception('timeout')):
-            result = fetch_coinglass_markets()
+            result = fetch_binance_futures()
         assert result == {}
 
-    def test_http_error_returns_empty(self, monkeypatch):
+    def test_oi_failure_leaves_oi_as_none(self):
         import requests as req
-        monkeypatch.setenv('COINGLASS_API_KEY', 'test-key')
-        mock = MagicMock()
-        mock.raise_for_status.side_effect = req.exceptions.HTTPError('429')
-        with patch('calculate_metrics.requests.get', return_value=mock):
-            result = fetch_coinglass_markets()
-        assert result == {}
+        def side_effect(url, **kwargs):
+            if 'premiumIndex' in url:
+                return self._premium_mock([('BTCUSDT', 0.0001, 43000.0)])
+            mock = MagicMock()
+            mock.raise_for_status.side_effect = req.exceptions.HTTPError('429')
+            return mock
+        with patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_binance_futures()
+        assert result['BTC']['funding_rate'] == pytest.approx(0.01)
+        assert result['BTC']['open_interest_usd'] is None
 
-    def test_empty_data_list_returns_empty(self, monkeypatch):
-        monkeypatch.setenv('COINGLASS_API_KEY', 'test-key')
-        mock = MagicMock()
-        mock.json.return_value = {'data': []}
-        with patch('calculate_metrics.requests.get', return_value=mock):
-            result = fetch_coinglass_markets()
-        assert result == {}
+    def test_untracked_symbols_ignored(self):
+        def side_effect(url, **kwargs):
+            if 'premiumIndex' in url:
+                return self._premium_mock([
+                    ('BTCUSDT', 0.0001, 43000.0),
+                    ('DOGEUSDT', 0.0001, 0.1),  # DOGE not in our tracked set
+                ])
+            return self._oi_mock(100.0)
+        with patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_binance_futures()
+        assert 'BTC' in result
+        assert 'DOGE' not in result
 
 
-class TestCoinglassInDashboard:
+class TestBinanceFuturesInDashboard:
     """Tests that funding_rate and open_interest_usd flow into dashboard.json."""
 
     @pytest.fixture
@@ -646,47 +682,56 @@ class TestCoinglassInDashboard:
             'Timeframe': ['1d', '1d'],
         })
 
-    def test_funding_rate_injected_when_coinglass_succeeds(self, btc_df):
-        mock_cg = {'BTC': {'avg_funding_rate_by_oi': 0.0125, 'open_interest_usd': 28_000_000_000}}
-        with patch('calculate_metrics.fetch_coinglass_markets', return_value=mock_cg), \
+    def test_funding_rate_injected_when_binance_succeeds(self, btc_df):
+        mock_bf = {'BTC': {'funding_rate': 0.0125, 'open_interest_usd': 28_000_000_000}}
+        with patch('calculate_metrics.fetch_binance_futures', return_value=mock_bf), \
              patch('calculate_metrics.fetch_fear_greed', return_value=None):
             dashboard = generate_dashboard_json(btc_df)
-        current = dashboard['assets']['BTC']['1d']['current']
-        assert current['funding_rate'] == pytest.approx(0.0125)
+        assert dashboard['assets']['BTC']['1d']['current']['funding_rate'] == pytest.approx(0.0125)
 
-    def test_open_interest_injected_when_coinglass_succeeds(self, btc_df):
-        mock_cg = {'BTC': {'avg_funding_rate_by_oi': 0.0100, 'open_interest_usd': 28_000_000_000}}
-        with patch('calculate_metrics.fetch_coinglass_markets', return_value=mock_cg), \
+    def test_open_interest_injected_when_binance_succeeds(self, btc_df):
+        mock_bf = {'BTC': {'funding_rate': 0.0100, 'open_interest_usd': 28_000_000_000}}
+        with patch('calculate_metrics.fetch_binance_futures', return_value=mock_bf), \
              patch('calculate_metrics.fetch_fear_greed', return_value=None):
             dashboard = generate_dashboard_json(btc_df)
-        current = dashboard['assets']['BTC']['1d']['current']
-        assert current['open_interest_usd'] == pytest.approx(28_000_000_000)
+        assert dashboard['assets']['BTC']['1d']['current']['open_interest_usd'] == pytest.approx(28_000_000_000)
 
-    def test_fields_null_when_coinglass_returns_empty(self, btc_df):
-        with patch('calculate_metrics.fetch_coinglass_markets', return_value={}), \
+    def test_fields_null_when_binance_returns_empty(self, btc_df):
+        with patch('calculate_metrics.fetch_binance_futures', return_value={}), \
              patch('calculate_metrics.fetch_fear_greed', return_value=None):
             dashboard = generate_dashboard_json(btc_df)
         current = dashboard['assets']['BTC']['1d']['current']
         assert current['funding_rate'] is None
         assert current['open_interest_usd'] is None
 
-    def test_fields_null_when_symbol_absent_from_coinglass(self, btc_df):
-        mock_cg = {'ETH': {'avg_funding_rate_by_oi': 0.01, 'open_interest_usd': 1e9}}
-        with patch('calculate_metrics.fetch_coinglass_markets', return_value=mock_cg), \
+    def test_fields_null_when_symbol_absent(self, btc_df):
+        mock_bf = {'ETH': {'funding_rate': 0.01, 'open_interest_usd': 1e9}}
+        with patch('calculate_metrics.fetch_binance_futures', return_value=mock_bf), \
              patch('calculate_metrics.fetch_fear_greed', return_value=None):
             dashboard = generate_dashboard_json(btc_df)
         current = dashboard['assets']['BTC']['1d']['current']
         assert current['funding_rate'] is None
         assert current['open_interest_usd'] is None
 
-    def test_malformed_coinglass_value_stored_as_null(self, btc_df):
-        mock_cg = {'BTC': {'avg_funding_rate_by_oi': 'n/a', 'open_interest_usd': None}}
-        with patch('calculate_metrics.fetch_coinglass_markets', return_value=mock_cg), \
+    def test_injected_into_both_timeframes(self):
+        df = pd.DataFrame({
+            'Date': ['2026-06-01', '2026-06-01'],
+            'Asset': ['BTC', 'BTC'],
+            'Price': [64000.0, 64000.0],
+            'EMA21': [63600.0, 63600.0],
+            'ATR': [1000.0, 1000.0],
+            'RSI': [45.0, 45.0],
+            'RSI_Z_Score': [-0.5, -0.5],
+            'ATR_Distance': [0.4, 0.4],
+            'Pct_Above_EMA': [0.63, 0.63],
+            'Timeframe': ['1d', '1w'],
+        })
+        mock_bf = {'BTC': {'funding_rate': 0.0200, 'open_interest_usd': 5e9}}
+        with patch('calculate_metrics.fetch_binance_futures', return_value=mock_bf), \
              patch('calculate_metrics.fetch_fear_greed', return_value=None):
-            dashboard = generate_dashboard_json(btc_df)
-        current = dashboard['assets']['BTC']['1d']['current']
-        assert current['funding_rate'] is None
-        assert current['open_interest_usd'] is None
+            dashboard = generate_dashboard_json(df)
+        assert dashboard['assets']['BTC']['1d']['current']['funding_rate'] == pytest.approx(0.0200)
+        assert dashboard['assets']['BTC']['1w']['current']['funding_rate'] == pytest.approx(0.0200)
 
 
 if __name__ == '__main__':

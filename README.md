@@ -11,7 +11,7 @@ Automated pipeline that fetches daily and weekly OHLCV data from Yahoo Finance, 
 - **Regime classification** based on ATR Distance thresholds (Capitulation → Accumulation → Trend → Distribution → Mania)
 - **70 tracked assets** across crypto, NASDAQ stocks, LSE ETFs, and macro (indices, commodities, forex)
 - **Crypto Fear & Greed Index** badge on the Portfolio health bar — fetched daily from alternative.me (free, no auth); colour-coded from Extreme Fear (green) to Extreme Greed (red)
-- **Funding rates + Open Interest** — CoinGlass v4 API (`COINGLASS_API_KEY` env var required); per-asset funding rate badge (colour-coded by squeeze risk) and OI on crypto cards and in Drilldown
+- **Funding rates + Open Interest** — Binance USDT-M futures API (free, no auth); per-asset funding rate badge (colour-coded by squeeze risk) and OI on crypto cards and in Drilldown
 - **Automated daily pipeline** via GitHub Actions
 
 ## Assets
