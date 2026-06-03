@@ -230,6 +230,8 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
             'atr_distance': float(atr_distance) if pd.notna(atr_distance) else None,
             'pct_above_ema': float(row['Pct_Above_EMA']) if pd.notna(row.get('Pct_Above_EMA')) else None,
             'adx': float(row['ADX']) if 'ADX' in row.index and pd.notna(row.get('ADX')) else None,
+            'bb_pct_b':    float(row['BB_Pct_B'])    if 'BB_Pct_B'    in row.index and pd.notna(row.get('BB_Pct_B'))    else None,
+            'bb_bandwidth': float(row['BB_Bandwidth']) if 'BB_Bandwidth' in row.index and pd.notna(row.get('BB_Bandwidth')) else None,
             'regime': regime,
             'atr_percentile': percentile,
             'price_change_pct': price_change_pct,

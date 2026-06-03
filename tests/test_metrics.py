@@ -882,6 +882,57 @@ class TestMarketContextInDashboard:
         assert dash['altseason']['label'] == 'Leaning Alt'
 
 
+class TestBBInCurrentSnapshot:
+    """bb_pct_b and bb_bandwidth are written into dashboard.json current snapshot."""
+
+    @pytest.fixture
+    def df_with_bb(self):
+        return pd.DataFrame({
+            'Date': ['2026-06-01', '2026-06-02'],
+            'Asset': ['BTC', 'BTC'],
+            'Price': [65000.0, 64000.0],
+            'EMA21': [64000.0, 63600.0],
+            'ATR': [1000.0, 1000.0],
+            'RSI': [50.0, 45.0],
+            'RSI_Z_Score': [0.0, -0.5],
+            'ATR_Distance': [1.0, 0.4],
+            'Pct_Above_EMA': [1.56, 0.63],
+            'BB_Pct_B': [0.75, 0.32],
+            'BB_Bandwidth': [8.5, 7.9],
+            'Timeframe': ['1d', '1d'],
+        })
+
+    def test_bb_pct_b_in_snapshot(self, df_with_bb):
+        """current snapshot includes bb_pct_b when column is present."""
+        metrics = calculate_current_metrics(df_with_bb)
+        assert 'bb_pct_b' in metrics['BTC']['1d']['current']
+        assert metrics['BTC']['1d']['current']['bb_pct_b'] == pytest.approx(0.32)
+
+    def test_bb_bandwidth_in_snapshot(self, df_with_bb):
+        """current snapshot includes bb_bandwidth when column is present."""
+        metrics = calculate_current_metrics(df_with_bb)
+        assert 'bb_bandwidth' in metrics['BTC']['1d']['current']
+        assert metrics['BTC']['1d']['current']['bb_bandwidth'] == pytest.approx(7.9)
+
+    def test_bb_null_when_column_missing(self):
+        """current snapshot sets bb fields to None when columns absent."""
+        df = pd.DataFrame({
+            'Date': ['2026-06-01', '2026-06-02'],
+            'Asset': ['BTC', 'BTC'],
+            'Price': [65000.0, 64000.0],
+            'EMA21': [64000.0, 63600.0],
+            'ATR': [1000.0, 1000.0],
+            'RSI': [50.0, 45.0],
+            'RSI_Z_Score': [0.0, -0.5],
+            'ATR_Distance': [1.0, 0.4],
+            'Pct_Above_EMA': [1.56, 0.63],
+            'Timeframe': ['1d', '1d'],
+        })
+        metrics = calculate_current_metrics(df)
+        assert metrics['BTC']['1d']['current']['bb_pct_b'] is None
+        assert metrics['BTC']['1d']['current']['bb_bandwidth'] is None
+
+
 class TestADXInCurrentSnapshot:
     """ADX field is written into dashboard.json current snapshot."""
 

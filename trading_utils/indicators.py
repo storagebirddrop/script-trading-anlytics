@@ -1,11 +1,12 @@
 """
 Technical indicator calculations.
 
-All three indicators (EMA, ATR, RSI) use SMA-seeded initialisation to match
-TradingView's behaviour exactly:
+EMA, ATR, RSI, and ADX use SMA-seeded initialisation to match TradingView:
   - EMA:  seed = SMA(close, period) at bar `period-1`, then standard EMA
   - ATR:  seed = SMA(TR,    period) at bar `period-1`, then Wilder's RMA
   - RSI:  seed = SMA(gain/loss, period) at bar `period`, then Wilder's RMA
+  - ADX:  seed = SMA(DX, period) at bar `2*(period-1)`, after Wilder RMA on DM/TR
+  - BB:   rolling SMA ± std_dev × rolling sample-std (ddof=1); standard pandas rolling
 
 Without SMA seeding, pandas ewm() assigns full exponential weight from bar 0,
 causing ATR/EMA to diverge significantly on short-history assets (e.g. new ETFs
@@ -15,7 +16,7 @@ with only 20-30 weekly bars).
 import numpy as np
 import pandas as pd
 
-from .config import EMA_PERIOD, ATR_PERIOD, RSI_PERIOD, ADX_PERIOD, Z_SCORE_PERIOD, VP_LOOKBACK_BARS, VP_N_BUCKETS
+from .config import EMA_PERIOD, ATR_PERIOD, RSI_PERIOD, ADX_PERIOD, BB_PERIOD, BB_STD, Z_SCORE_PERIOD, VP_LOOKBACK_BARS, VP_N_BUCKETS
 
 
 def calculate_ema(df, period=EMA_PERIOD):
@@ -156,6 +157,28 @@ def calculate_adx(df, period=ADX_PERIOD):
     return pd.Series(out, index=df.index)
 
 
+def calculate_bollinger_bands(df, period=BB_PERIOD, std_dev=BB_STD):
+    """
+    Bollinger Bands %B and normalised bandwidth.
+
+    Uses rolling SMA ± std_dev × rolling sample-std (ddof=1), matching the
+    standard finance convention.  First valid bar is `period - 1`.
+
+    Returns:
+      pct_b     — (close − lower) / (upper − lower); NaN when bandwidth = 0
+      bandwidth — (upper − lower) / mid × 100; percentage of mid-band price
+    """
+    close = df['close']
+    mid   = close.rolling(window=period).mean()
+    std   = close.rolling(window=period).std(ddof=1)
+    upper = mid + std_dev * std
+    lower = mid - std_dev * std
+    band  = (upper - lower).replace(0, np.nan)
+    pct_b    = (close - lower) / band
+    bandwidth = band / mid * 100
+    return pct_b, bandwidth
+
+
 def calculate_volume_profile(df, lookback_bars=VP_LOOKBACK_BARS, n_buckets=VP_N_BUCKETS):
     """
     Compute a fixed-lookback Volume Profile from OHLCV history.
@@ -290,5 +313,7 @@ def calculate_indicators(df):
 
     if 'high' in df.columns and 'low' in df.columns:
         df['ADX'] = calculate_adx(df, ADX_PERIOD)
+
+    df['BB_Pct_B'], df['BB_Bandwidth'] = calculate_bollinger_bands(df, BB_PERIOD, BB_STD)
 
     return df
