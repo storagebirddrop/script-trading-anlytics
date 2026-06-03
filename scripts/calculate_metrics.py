@@ -10,7 +10,9 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+
+import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -304,6 +306,22 @@ def generate_chart_history(df: pd.DataFrame, n_bars: int = 90) -> Dict[str, Any]
     return result
 
 
+def fetch_fear_greed() -> Optional[Dict[str, Any]]:
+    """Fetch latest Crypto Fear & Greed Index from alternative.me (free, no auth)."""
+    try:
+        resp = requests.get('https://api.alternative.me/fng/?limit=1', timeout=10)
+        resp.raise_for_status()
+        entry = resp.json()['data'][0]
+        return {
+            'value': int(entry['value']),
+            'label': entry['value_classification'],
+            'timestamp': entry['timestamp'],
+        }
+    except Exception as e:
+        print(f"  Warning: Fear & Greed fetch failed: {e}")
+        return None
+
+
 def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
     """Build the complete dashboard.json payload."""
     print("Calculating historical metrics...")
@@ -366,6 +384,11 @@ def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
         else:
             c1d['rs_vs_btc'] = None
 
+    print("Fetching Fear & Greed Index...")
+    fear_greed = fetch_fear_greed()
+    if fear_greed:
+        print(f"  Fear & Greed: {fear_greed['value']} ({fear_greed['label']})")
+
     dashboard = {
         'metadata': {
             'last_updated': datetime.now(timezone.utc).isoformat(),
@@ -376,6 +399,7 @@ def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
                 'end': str(history_df['Date'].max()),
             },
         },
+        'fear_greed': fear_greed,
         'assets': assets_data,
     }
 

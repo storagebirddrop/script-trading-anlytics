@@ -454,6 +454,19 @@ function setupPortfolioFilters() {
     }
 }
 
+// ─── Fear & Greed badge ───────────────────────────────────────────────────────
+
+function fngCssClass(label) {
+    const map = {
+        'Extreme Fear':  'fng--extreme-fear',
+        'Fear':          'fng--fear',
+        'Neutral':       'fng--neutral',
+        'Greed':         'fng--greed',
+        'Extreme Greed': 'fng--extreme-greed',
+    };
+    return map[label] || 'fng--neutral';
+}
+
 // ─── Portfolio health bar ─────────────────────────────────────────────────────
 
 function renderPortfolioHealthBar() {
@@ -495,6 +508,16 @@ function renderPortfolioHealthBar() {
     else if ((regimeCounts['Accumulation'] || 0) > 0 || (regimeCounts['Distribution'] || 0) > 0) sentiment = 'Mixed';
     else                                                                                       sentiment = 'Neutral';
 
+    const fg = dashboardData.fear_greed;
+    const fngHtml = fg
+        ? `<div class="health-divider" aria-hidden="true"></div>
+        <div class="fng-badge ${fngCssClass(fg.label)}" title="Crypto Fear &amp; Greed Index (alternative.me)">
+            <span class="fng-label">F&amp;G</span>
+            <strong>${fg.value}</strong>
+            <span class="fng-label">${escapeHtml(fg.label)}</span>
+        </div>`
+        : '';
+
     bar.innerHTML = `
         <div class="health-stat">
             <span class="health-dot health-dot--oversold" aria-hidden="true"></span>
@@ -515,6 +538,7 @@ function renderPortfolioHealthBar() {
         <div class="health-stat">
             <span>Notable: <strong>${escapeHtml(notableRegime)}</strong> (${notableCount})</span>
         </div>
+        ${fngHtml}
         <div class="health-sentiment" aria-label="Market sentiment: ${escapeHtml(sentiment)}">${escapeHtml(sentiment)}</div>
     `;
 }

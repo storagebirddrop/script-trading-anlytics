@@ -48,12 +48,61 @@
 
 ---
 
-## Bigger scope — discuss before building
+## Tier 1 — High value, moderate effort (build next)
+
+- [x] **Crypto Fear & Greed Index badge**
+  Single daily number (0–100) from alternative.me — free, no-auth API. Extreme Fear (< 25) precedes bounces; Extreme Greed (> 75) is a caution signal. Display as a gauge or labelled badge on the Portfolio tab health bar. One `requests.get()` call added to the pipeline, refreshes daily.
+
+- [ ] **Funding rates + Open Interest (crypto)**
+  CoinGlass free tier: per-asset funding rates and aggregated open interest. High positive funding + rising OI = crowded long = squeeze risk; negative funding + rising OI = short squeeze setup. Two extra fields on crypto cards and a sparkline in Drilldown.
+
+- [ ] **BTC Dominance + Altcoin Season Index**
+  BTC.D above ~65% suppresses altcoins; falling BTC.D with ETH/BTC strengthening = capital rotation. CMC Altcoin Season Index (free endpoint): % of top-100 alts outperforming BTC over 90 days (>75 = altseason, <25 = BTC season). Add as a persistent macro bar or dedicated row on the Portfolio tab.
+
+- [ ] **ADX (Average Directional Index)**
+  Measures trend strength independently of direction (0–100; >25 = trending, <20 = ranging). ATR Distance tells you where price is; ADX tells you whether the move has momentum. Low ATR Distance + high ADX = strong oversold trend vs. low + low ADX = sideways drift. Pipeline field + Drilldown metric; optionally an icon on cards. Computable from existing OHLCV data.
+
+- [ ] **Bollinger Band position / %B**
+  `%B = (Price − Lower Band) / (Upper Band − Lower Band)`. Below 0 = outside lower band (oversold breakout), above 1 = outside upper band. Complements ATR Distance with a volatility-adjusted absolute band. Also exposes BB squeezes (bandwidth at multi-month lows) — reliable pre-signal for large moves. Computable from existing price data.
+
+---
+
+## Tier 2 — Good value, lower effort (quick wins)
+
+- [ ] **Price alerts / threshold notifications**
+  Browser Notification API alert when an asset crosses a regime boundary or a user-set ATR Distance threshold. Store thresholds in `localStorage`. Entirely client-side, no pipeline changes.
+
+- [ ] **Composite signal score**
+  Aggregate existing signals (ATR Distance percentile + RSI Z-Score + ADX + VP position + alignment) into a single −10 to +10 score per asset. Shown as a sortable column. Simple weighted formula — reduces cognitive load for "what's the best setup right now."
+
+- [ ] **Exchange flow badge (crypto)**
+  CoinGlass / CryptoQuant free tiers: net exchange inflows (selling pressure) vs. outflows (accumulation). Simple in / out / neutral badge on crypto cards.
+
+---
+
+## Tier 3 — High effort, high payoff (discuss before building)
 
 - [ ] **Correlation heatmap (crypto)**
-  `history.csv` has daily returns for all assets. Compute a rolling 90-day correlation matrix for the 28 crypto assets. New tab or panel. Useful for position sizing and diversification decisions.
-  _Note: computation is light; the 28×28 colour grid rendering needs design work._
+  Rolling 90-day Pearson correlation matrix for the 28 crypto assets (`df.corr()` — computation is trivial). 28×28 colour-coded grid with hover tooltips showing the coefficient. Useful for identifying uncorrelated setups and rotation opportunities.
+  _Note: the grid rendering and tab placement are the main design decisions._
+
+- [ ] **Social sentiment timeline**
+  Twitter/X sentiment via free APIs (CoinyBubble, cfgi.io) correlated with price for individual tokens. Higher integration complexity (rate limits, NLP). Strong signal quality justifies v2 roadmap placement.
 
 - [ ] **Hypothetical portfolio overlay**
-  User inputs holdings (asset + weight or $ size) stored in `localStorage`. Dashboard computes weighted-average ATR Distance exposure and displays which regime the combined portfolio sits in, alongside a regime breakdown by allocation.
-  _Entirely client-side — no backend or pipeline changes required._
+  User inputs holdings (asset + weight or $ size) stored in `localStorage`. Dashboard computes weighted-average ATR Distance exposure and displays which regime the combined portfolio sits in, alongside a regime breakdown by allocation. Entirely client-side — no pipeline changes required.
+
+---
+
+## Previously completed
+
+- [x] **Timeframe toggle on Portfolio cards**
+- [x] **ATR Distance sparklines on cards**
+- [x] **Starred / watchlist**
+- [x] **Quick search**
+- [x] **Market cap sort on Portfolio tab**
+- [x] **Multi-timeframe alignment badge**
+- [x] **Regime transition flag**
+- [x] **ATR compression metric**
+- [x] **Market breadth history chart**
+- [x] **Relative strength vs BTC (crypto assets)**

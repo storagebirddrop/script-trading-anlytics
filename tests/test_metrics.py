@@ -6,12 +6,14 @@ Unit tests for metrics calculation.
 import pytest
 import pandas as pd
 import numpy as np
+from unittest.mock import patch, MagicMock
 from calculate_metrics import (
     classify_regime,
     calculate_historical_metrics,
     calculate_current_metrics,
     generate_dashboard_json,
     generate_chart_history,
+    fetch_fear_greed,
 )
 
 
@@ -389,7 +391,7 @@ class TestGenerateDashboardJson:
 
 class TestMultipleTimeframes:
     """Test handling of multiple timeframes."""
-    
+
     def test_multiple_timeframes(self):
         """Test metrics calculation with multiple timeframes."""
         df = pd.DataFrame({
@@ -402,10 +404,101 @@ class TestMultipleTimeframes:
             'ATR_Distance': [1.0, 1.0],
             'Timeframe': ['1d', '1w']
         })
-        
+
         metrics = calculate_historical_metrics(df)
         assert '1d' in metrics['BTC']
         assert '1w' in metrics['BTC']
+
+
+class TestFetchFearGreed:
+    """Tests for the Fear & Greed Index fetch helper."""
+
+    def _mock_response(self, value, classification):
+        mock = MagicMock()
+        mock.json.return_value = {
+            'data': [{'value': str(value), 'value_classification': classification, 'timestamp': '1748908800'}]
+        }
+        return mock
+
+    def test_successful_fetch_returns_dict(self):
+        with patch('calculate_metrics.requests.get') as mock_get:
+            mock_get.return_value = self._mock_response(25, 'Fear')
+            result = fetch_fear_greed()
+        assert result == {'value': 25, 'label': 'Fear', 'timestamp': '1748908800'}
+
+    def test_value_cast_to_int(self):
+        with patch('calculate_metrics.requests.get') as mock_get:
+            mock_get.return_value = self._mock_response('72', 'Greed')
+            result = fetch_fear_greed()
+        assert isinstance(result['value'], int)
+        assert result['value'] == 72
+
+    def test_all_classifications_parsed(self):
+        labels = ['Extreme Fear', 'Fear', 'Neutral', 'Greed', 'Extreme Greed']
+        for label in labels:
+            with patch('calculate_metrics.requests.get') as mock_get:
+                mock_get.return_value = self._mock_response(50, label)
+                result = fetch_fear_greed()
+            assert result['label'] == label
+
+    def test_network_error_returns_none(self):
+        with patch('calculate_metrics.requests.get', side_effect=Exception('timeout')):
+            result = fetch_fear_greed()
+        assert result is None
+
+    def test_malformed_response_returns_none(self):
+        mock = MagicMock()
+        mock.json.return_value = {'data': []}  # empty data list
+        with patch('calculate_metrics.requests.get', return_value=mock):
+            result = fetch_fear_greed()
+        assert result is None
+
+    def test_http_error_returns_none(self):
+        import requests as req
+        mock = MagicMock()
+        mock.raise_for_status.side_effect = req.exceptions.HTTPError('429')
+        with patch('calculate_metrics.requests.get', return_value=mock):
+            result = fetch_fear_greed()
+        assert result is None
+
+
+class TestFearGreedInDashboard:
+    """Tests that fear_greed key flows correctly into dashboard.json."""
+
+    @pytest.fixture
+    def minimal_df(self):
+        return pd.DataFrame({
+            'Date': ['2026-06-01', '2026-06-02'],
+            'Asset': ['BTC', 'BTC'],
+            'Price': [65000.0, 64000.0],
+            'EMA21': [64000.0, 63600.0],
+            'ATR': [1000.0, 1000.0],
+            'RSI': [50.0, 45.0],
+            'RSI_Z_Score': [0.0, -0.5],
+            'ATR_Distance': [1.0, 0.4],
+            'Pct_Above_EMA': [1.56, 0.63],
+            'Timeframe': ['1d', '1d'],
+        })
+
+    def test_fear_greed_key_present_when_fetch_succeeds(self, minimal_df):
+        mock_fg = {'value': 42, 'label': 'Fear', 'timestamp': '1748908800'}
+        with patch('calculate_metrics.fetch_fear_greed', return_value=mock_fg):
+            dashboard = generate_dashboard_json(minimal_df)
+        assert 'fear_greed' in dashboard
+        assert dashboard['fear_greed']['value'] == 42
+        assert dashboard['fear_greed']['label'] == 'Fear'
+
+    def test_fear_greed_key_none_when_fetch_fails(self, minimal_df):
+        with patch('calculate_metrics.fetch_fear_greed', return_value=None):
+            dashboard = generate_dashboard_json(minimal_df)
+        assert 'fear_greed' in dashboard
+        assert dashboard['fear_greed'] is None
+
+    def test_fear_greed_does_not_affect_assets(self, minimal_df):
+        mock_fg = {'value': 80, 'label': 'Extreme Greed', 'timestamp': '1748908800'}
+        with patch('calculate_metrics.fetch_fear_greed', return_value=mock_fg):
+            dashboard = generate_dashboard_json(minimal_df)
+        assert 'BTC' in dashboard['assets']
 
 
 class TestGenerateChartHistory:
