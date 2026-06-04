@@ -8,6 +8,7 @@ import json
 import math
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -365,6 +366,46 @@ def fetch_binance_futures() -> Dict[str, Any]:
     return result
 
 
+def fetch_lunarcrush_sentiment() -> Dict[str, int]:
+    """Fetch per-asset social sentiment scores from LunarCrush v4.
+
+    Requires LUNARCRUSH_API_KEY environment variable (Bearer token).
+    Returns a dict keyed by asset symbol: {symbol: sentiment_score (0-100)}.
+    Silently returns {} when the key is absent or the network is unavailable.
+    """
+    api_key = os.environ.get('LUNARCRUSH_API_KEY')
+    if not api_key:
+        return {}
+
+    _LC_ASSETS = [
+        'BTC', 'ETH', 'SOL', 'XLM', 'REZ', 'RSR', 'NEAR', 'RENDER', 'ONDO', 'ACH',
+        'BNB', 'XRP', 'ADA', 'NIGHT', 'VTHO', 'LINK', 'NEO', 'GAS', 'DRIFT', 'SEI',
+        'PEAQ', 'AEVO', 'EIGEN', 'W', 'WOO', 'JASMY', 'D2X', 'SCP',
+    ]
+    headers = {'Authorization': f'Bearer {api_key}'}
+    results: Dict[str, int] = {}
+
+    for symbol in _LC_ASSETS:
+        try:
+            resp = requests.get(
+                f'https://lunarcrush.com/api4/public/coins/{symbol}/v1',
+                headers=headers,
+                timeout=10,
+            )
+            if resp.status_code == 404:
+                continue
+            resp.raise_for_status()
+            data = resp.json().get('data', {})
+            score = data.get('sentiment')
+            if score is not None:
+                results[symbol] = int(score)
+        except Exception as e:
+            print(f"  Warning: LunarCrush {symbol}: {e}")
+        time.sleep(0.1)
+
+    return results
+
+
 def fetch_btc_dominance() -> Optional[float]:
     """Fetch BTC market-cap dominance % from CoinGecko (free, no auth).
 
@@ -537,6 +578,18 @@ def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
                 continue
             c['funding_rate'] = bf['funding_rate'] if bf else None
             c['open_interest_usd'] = bf['open_interest_usd'] if bf else None
+
+    print("Fetching LunarCrush social sentiment...")
+    lunarcrush = fetch_lunarcrush_sentiment()
+    if lunarcrush:
+        print(f"  LunarCrush: {len(lunarcrush)} assets received")
+    for asset in _CRYPTO_ASSETS:
+        score = lunarcrush.get(asset)
+        for tf in ('1d', '1w'):
+            c = assets_data.get(asset, {}).get(tf, {}).get('current')
+            if c is None:
+                continue
+            c['social_sentiment'] = score
 
     print("Fetching BTC dominance...")
     btc_dominance = fetch_btc_dominance()

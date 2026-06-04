@@ -209,6 +209,18 @@ function frBadgeHtml(fr) {
     return `<span class="fr-badge ${cls}">${sign}${pct}%</span>`;
 }
 
+// Social sentiment badge (LunarCrush 0–100): green = bullish, red = bearish.
+function socialSentimentHtml(score) {
+    if (score == null) return '';
+    let cls, label;
+    if      (score >= 76) { cls = 'ss--bullish';         label = 'Bullish'; }
+    else if (score >= 56) { cls = 'ss--leaning-bullish'; label = 'Leaning Bull'; }
+    else if (score >= 46) { cls = 'ss--neutral';         label = 'Neutral'; }
+    else if (score >= 26) { cls = 'ss--leaning-bearish'; label = 'Leaning Bear'; }
+    else                  { cls = 'ss--bearish';         label = 'Bearish'; }
+    return `<span class="ss-badge ${cls}" title="LunarCrush Social Sentiment · ${score}/100">${label} ${score}</span>`;
+}
+
 // Bollinger Band %B badge: colours extremes; 0 = lower band, 1 = upper band.
 function bbPctBHtml(pctB) {
     if (pctB == null) return '';
@@ -1437,6 +1449,11 @@ function renderPortfolio() {
                     <span class="metric-label">OI</span>
                     <span class="metric-value">${oiFormatted(primary.open_interest_usd)}</span>
                 </div>` : ''}
+                ${primary.social_sentiment != null && ASSET_CATEGORIES.crypto.has(asset) ? `
+                <div class="metric">
+                    <span class="metric-label">Sentiment</span>
+                    <span class="metric-value">${socialSentimentHtml(primary.social_sentiment)}</span>
+                </div>` : ''}
                 ${primary.adx != null ? `
                 <div class="metric">
                     <span class="metric-label">ADX</span>
@@ -2029,6 +2046,11 @@ function renderDrilldown() {
             <div class="summary-item">
                 <span class="summary-label">Open Interest</span>
                 <span class="summary-value">${oiFormatted(current.open_interest_usd)}</span>
+            </div>` : ''}
+            ${current?.social_sentiment != null && ASSET_CATEGORIES.crypto.has(asset) ? `
+            <div class="summary-item">
+                <span class="summary-label">Social Sentiment</span>
+                <span class="summary-value">${socialSentimentHtml(current.social_sentiment)}</span>
             </div>` : ''}
             ${current?.adx != null ? `
             <div class="summary-item">
