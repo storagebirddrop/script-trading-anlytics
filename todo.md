@@ -131,3 +131,4 @@
 - [x] **Composite signal score**
 - [x] **Debug pass + UX quick wins** _(defaultdict import fix, defensive confluence guard, docstring fix; phase badge first on BTC page; mobile nav labels hidden; badge tooltips; BTC era note; Corr tab removed; 13 new tests)_
 - [x] **Hamburger nav for mobile** _(≤520px: ☰ toggle replaces bottom tab bar; slide-up drawer with all 5 tabs; backdrop + Escape to close; body scroll lock)_
+- [x] **Novice/Expert card detail toggle** _(filter-bar chip; Novice hides 11 advanced fields and alignment header badge; Expert (default) shows all; persists to `localStorage`)_
