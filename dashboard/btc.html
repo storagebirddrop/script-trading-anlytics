@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTC Cycle Signals — Trading Analytics</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/btc.css">
+</head>
+<body>
+    <div class="btc-page-container">
+
+        <header class="btc-header">
+            <div class="btc-header-left">
+                <h1 class="btc-title">&#x20BF; Bitcoin Cycle Signals</h1>
+                <p class="btc-subtitle">Accumulation &amp; Distribution Indicators</p>
+                <div class="btc-last-updated" id="btc-last-updated">Loading&hellip;</div>
+            </div>
+            <a href="index.html" class="btc-back-link" aria-label="Back to main dashboard">&larr; Dashboard</a>
+        </header>
+
+        <div class="btc-price-banner">
+            <span class="btc-price" id="btc-current-price">&mdash;</span>
+        </div>
+
+        <div class="confluence-banner" id="confluence-banner" role="status" aria-label="Signal confluence summary"></div>
+
+        <div class="btc-era-note">
+            <strong>Post-ETF Era (Jan 2024+):</strong> US spot ETF approval fundamentally shifted the signal landscape. Classic on-chain metrics (MVRV, NUPL) have degraded as BTC moved into custodial off-chain vehicles and institutional wrapping. <strong>Primary indicators are now:</strong> ETF net flows, derivatives OI and funding, global M2 liquidity, and macro cycles &mdash; alongside price-structure signals (200WMA, Pi Cycle) which remain fully applicable. On-chain metrics are shown below as locked placeholders, ready to activate with a Glassnode API key.
+        </div>
+
+        <div class="btc-loading" id="btc-loading">Loading BTC cycle signals&hellip;</div>
+        <div class="btc-error" id="btc-error" hidden></div>
+
+        <div id="btc-content" hidden>
+            <div id="signals-container"></div>
+        </div>
+
+        <footer class="btc-footer">
+            <strong>Data sources:</strong> Price history &amp; indicators (200WMA, 200DMA, Pi Cycle, RSI, ATR Distance, Volume Profile) &mdash; computed from history.csv via Yahoo Finance.
+            Funding rate &amp; Open Interest &mdash; Binance USDT-M Futures API (free).
+            Fear &amp; Greed Index &mdash; alternative.me (free).
+            BTC Dominance &amp; Stablecoin supply &mdash; CoinGecko (free).
+            Hash Ribbons (30/60-day hashrate MAs) &mdash; mempool.space (free).
+            On-chain metrics (locked cards) &mdash; Glassnode (paid API, Phase 2).
+        </footer>
+
+    </div>
+
+    <script src="js/btc.js"></script>
+</body>
+</html>

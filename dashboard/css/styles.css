@@ -1070,6 +1070,12 @@ body {
     align-items: flex-start;
 }
 
+.header-links {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
 .header-home-link {
     font-size: 0.75rem;
     color: var(--text-secondary);
