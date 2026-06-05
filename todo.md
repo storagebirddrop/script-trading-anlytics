@@ -95,6 +95,11 @@
 
 ---
 
+- [x] **BTC Cycle Signals page**
+  Standalone `dashboard/btc.html` page with 21 signal cards across 4 sections (Price Structure, Sentiment & Positioning, Mining & Liquidity, On-chain locked). Confluence banner shows accumulate/distribute/neutral counts and a phase badge. Pipeline: `generate_btc_signals_json()`, `fetch_hash_ribbons()`, `fetch_stablecoin_trend()` added to `calculate_metrics.py`. Path constant `BTC_SIGNALS_JSON_PATH` in `trading_utils/config.py`. Linked from main dashboard header via `₿ BTC` link.
+
+---
+
 ## Previously completed
 
 - [x] **Timeframe toggle on Portfolio cards**

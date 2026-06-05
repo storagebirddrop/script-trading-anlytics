@@ -63,13 +63,15 @@ Manual input ─────────┘                      └──→ AT
                                           data/chart_history.json
                                           data/breadth.json
                                           data/correlation.json
+                                          data/btc_signals.json
                                                         ↓
                                           scripts/build_dashboard.py
                                                         ↓
                                           dashboard/assets/data.json
                                           dashboard/assets/chart_history.json
                                           dashboard/assets/breadth.json
-                                          dashboard/assets/correlation.json → Cloudflare Pages
+                                          dashboard/assets/correlation.json
+                                          dashboard/assets/btc_signals.json → Cloudflare Pages
 ```
 
 ### `trading_utils/` Module
@@ -97,8 +99,9 @@ Shared library used by both `crypto_tracker.py` and `backfill_historical.py`. Av
 | `data/chart_history.json` | Last 90 bars of ATR Distance, RSI, Price, EMA21 per asset+timeframe; used by Drilldown charts |
 | `data/breadth.json` | Last 60 days of daily regime counts for portfolio assets (non-macro); used by breadth chart on Portfolio tab |
 | `data/correlation.json` | 90-day Pearson correlation matrix for 28 crypto assets; used by the Corr tab heatmap |
+| `data/btc_signals.json` | BTC cycle indicator confluence data; consumed by `dashboard/btc.html` |
 
-`history.csv` is the source of truth. `master.csv`, `dashboard.json`, `chart_history.json`, `breadth.json`, and `correlation.json` are all derived from it.
+`history.csv` is the source of truth. `master.csv`, `dashboard.json`, `chart_history.json`, `breadth.json`, `correlation.json`, and `btc_signals.json` are all derived from it.
 
 ### Tracked Assets
 
@@ -314,6 +317,12 @@ Written by `generate_breadth_json()` in `calculate_metrics.py`. Covers the last 
 
 **New pipeline output** — `data/correlation.json` / `dashboard/assets/correlation.json`:
 Written by `generate_correlation_json()` in `calculate_metrics.py`. Rolling 90-day Pearson correlation matrix for the 28 crypto assets using daily close prices. Assets with fewer than 30 non-NaN rows in the window are excluded. Structure: `{ "date": "YYYY-MM-DD", "lookback_days": 90, "assets": [...], "matrix": [[float|null]...] }`. Copied by `build_dashboard.py`.
+
+**New pipeline output** — `data/btc_signals.json` / `dashboard/assets/btc_signals.json`:
+Written by `generate_btc_signals_json(history_df, dashboard)` in `calculate_metrics.py`. BTC cycle indicator confluence data for the standalone `btc.html` page. Sections: `price_indicators` (200WMA, 200DMA, Pi Cycle, RSI daily/weekly, ATR regime, VP position), `sentiment` (Fear & Greed, Funding Rate, OI), `market_structure` (BTC dominance, Altseason), `mining` (Hash Ribbons — 30/60DMA of hashrate via mempool.space), `liquidity` (USDT+USDC combined supply and stablecoin dominance via CoinGecko), `confluence` (accumulate/distribute/neutral counts, phase, strength). Path constant: `BTC_SIGNALS_JSON_PATH` in `trading_utils/config.py`. Two new Tier-3 fetch functions added to `calculate_metrics.py`: `fetch_hash_ribbons()` (mempool.space free API) and `fetch_stablecoin_trend()` (CoinGecko free API). Copied by `build_dashboard.py`.
+
+**`btc.html` page** — `dashboard/btc.html`, `dashboard/js/btc.js`, `dashboard/css/btc.css`:
+Standalone BTC cycle signals page (not a tab). Linked from main dashboard header via `₿ BTC` link. Loads `assets/btc_signals.json` on page init and renders four signal sections: Price Structure (6 cards), Sentiment & Positioning (5 cards), Mining & Liquidity (2 cards), On-Chain (8 locked Glassnode placeholder cards). Confluence banner shows accumulate/neutral/distribute counts and a phase badge. All DOM construction is CSP-safe (`createElement`/`textContent`/`element.style` — no `innerHTML` for dynamic data).
 
 ### CI/CD
 

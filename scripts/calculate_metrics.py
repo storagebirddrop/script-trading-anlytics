@@ -21,7 +21,7 @@ import pandas as pd
 
 from trading_utils import (
     HISTORY_CSV_PATH, DASHBOARD_JSON_PATH, CHART_HISTORY_JSON_PATH, METADATA_JSON_PATH,
-    MARKET_CAPS_JSON_PATH, CORRELATION_JSON_PATH,
+    MARKET_CAPS_JSON_PATH, CORRELATION_JSON_PATH, BTC_SIGNALS_JSON_PATH,
     calculate_volume_profile, VP_LOOKBACK_BARS, VP_LOOKBACK_BARS_WEEKLY,
     MACRO_ASSETS,
 )
@@ -642,6 +642,300 @@ def generate_correlation_json(history_df: pd.DataFrame, lookback_days: int = 90)
     return _sanitise(result)
 
 
+def fetch_hash_ribbons() -> Optional[Dict[str, Any]]:
+    """Fetch Bitcoin hash ribbons from mempool.space (free, no auth).
+
+    Computes 30DMA vs 60DMA of daily network hashrate (EH/s) and detects crosses.
+    Signal: 'recovery' (bullish cross), 'bull', 'bear', 'capitulation' (bearish cross).
+    """
+    try:
+        resp = requests.get('https://mempool.space/api/v1/mining/hashrate/6m', timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        rates_raw = [r['avgHashrate'] for r in data.get('hashrates', []) if r.get('avgHashrate')]
+        if len(rates_raw) < 61:
+            return None
+        rates_eh = [r / 1e18 for r in rates_raw]
+
+        def _sma(vals: list, n: int) -> float:
+            return sum(vals[-n:]) / n
+
+        hr30 = _sma(rates_eh, 30)
+        hr60 = _sma(rates_eh, 60)
+
+        if len(rates_eh) >= 62:
+            prev30 = sum(rates_eh[-31:-1]) / 30
+            prev60 = sum(rates_eh[-61:-1]) / 60
+            if hr30 > hr60 and prev30 <= prev60:
+                signal = 'recovery'
+            elif hr30 < hr60 and prev30 >= prev60:
+                signal = 'capitulation'
+            elif hr30 > hr60:
+                signal = 'bull'
+            else:
+                signal = 'bear'
+        else:
+            signal = 'bull' if hr30 > hr60 else 'bear'
+
+        return {
+            'hashrate_30d_eh': round(hr30, 2),
+            'hashrate_60d_eh': round(hr60, 2),
+            'signal': signal,
+        }
+    except Exception as e:
+        print(f"  Warning: Hash ribbons fetch failed: {e}")
+        return None
+
+
+def fetch_stablecoin_trend() -> Optional[Dict[str, Any]]:
+    """Fetch USDT + USDC combined supply trend and stablecoin dominance via CoinGecko.
+
+    Returns supply totals, 30-day change %, dominance %, and a directional signal.
+    Signal: 'expanding' (supply growing > 2%) | 'contracting' (< -2%) | 'flat'.
+    """
+    try:
+        def _mcaps(coin_id: str) -> list:
+            r = requests.get(
+                f'https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart',
+                params={'vs_currency': 'usd', 'days': '90', 'interval': 'daily'},
+                timeout=15,
+            )
+            r.raise_for_status()
+            return r.json().get('market_caps', [])
+
+        usdt_caps = _mcaps('tether')
+        usdc_caps = _mcaps('usd-coin')
+        if not usdt_caps or not usdc_caps:
+            return None
+
+        usdt_now = usdt_caps[-1][1]
+        usdc_now = usdc_caps[-1][1]
+        combined_now = usdt_now + usdc_now
+
+        idx30 = max(len(usdt_caps) - 31, 0)
+        usdt_30d = usdt_caps[idx30][1]
+        usdc_30d = usdc_caps[min(idx30, len(usdc_caps) - 1)][1]
+        combined_30d = usdt_30d + usdc_30d
+        change_pct = (combined_now - combined_30d) / combined_30d * 100 if combined_30d > 0 else None
+
+        global_resp = requests.get('https://api.coingecko.com/api/v3/global', timeout=10)
+        global_resp.raise_for_status()
+        total_mcap = global_resp.json()['data']['total_market_cap'].get('usd', 0)
+        dominance_pct = combined_now / total_mcap * 100 if total_mcap > 0 else None
+
+        if change_pct is not None:
+            signal: Optional[str] = 'expanding' if change_pct > 2 else ('contracting' if change_pct < -2 else 'flat')
+        else:
+            signal = None
+
+        return {
+            'usdt_supply_usd': usdt_now,
+            'usdc_supply_usd': usdc_now,
+            'combined_supply_usd': combined_now,
+            'change_30d_pct': round(change_pct, 2) if change_pct is not None else None,
+            'dominance_pct': round(dominance_pct, 2) if dominance_pct is not None else None,
+            'signal': signal,
+        }
+    except Exception as e:
+        print(f"  Warning: Stablecoin trend fetch failed: {e}")
+        return None
+
+
+def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any]) -> Dict[str, Any]:
+    """Build btc_signals.json — BTC cycle indicator confluence page data.
+
+    Computes price-based signals from history_df and reuses already-fetched data
+    from dashboard to avoid duplicate API calls.
+    """
+    btc_asset = dashboard.get('assets', {}).get('BTC', {})
+    d_cur: dict = btc_asset.get('1d', {}).get('current', {})
+    w_cur: dict = btc_asset.get('1w', {}).get('current', {})
+    price = d_cur.get('price')
+
+    norm_series = history_df['Timeframe'].apply(
+        lambda t: _norm_timeframe(str(t)) if pd.notna(t) else ''
+    )
+    btc_daily = (
+        history_df[(history_df['Asset'] == 'BTC') & (norm_series == '1d')]
+        .sort_values('Date', ascending=True)
+        .dropna(subset=['Price'])
+    )
+    btc_weekly = (
+        history_df[(history_df['Asset'] == 'BTC') & (norm_series == '1w')]
+        .sort_values('Date', ascending=True)
+        .dropna(subset=['Price'])
+    )
+
+    # 200WMA / 200DMA
+    ma200w = float(btc_weekly['Price'].iloc[-200:].mean()) if len(btc_weekly) >= 200 else None
+    ma200d = float(btc_daily['Price'].iloc[-200:].mean()) if len(btc_daily) >= 200 else None
+    pct_above_200w = round((price - ma200w) / ma200w * 100, 1) if price and ma200w else None
+    pct_above_200d = round((price - ma200d) / ma200d * 100, 1) if price and ma200d else None
+
+    # Pi Cycle Top: 111DMA vs 350DMA×2
+    ma111d = float(btc_daily['Price'].iloc[-111:].mean()) if len(btc_daily) >= 111 else None
+    ma350d = float(btc_daily['Price'].iloc[-350:].mean()) if len(btc_daily) >= 350 else None
+    pi_350d_2x = ma350d * 2 if ma350d else None
+    pi_gap_pct = round((ma111d - pi_350d_2x) / pi_350d_2x * 100, 1) if ma111d and pi_350d_2x else None
+
+    # Pull from already-computed dashboard data
+    rsi_d = d_cur.get('rsi')
+    rsi_w = w_cur.get('rsi')
+    atr_dist = d_cur.get('atr_distance')
+    regime = d_cur.get('regime')
+    vp_pos = d_cur.get('vp_position')
+    fr = d_cur.get('funding_rate')
+    oi = d_cur.get('open_interest_usd')
+    fear_greed = dashboard.get('fear_greed')
+    btc_dominance = dashboard.get('btc_dominance')
+    altseason = dashboard.get('altseason')
+
+    # Signal helpers
+    def _sig_200w(p, ma):
+        if p is None or ma is None: return 'neutral'
+        return 'accumulate' if p < ma else ('distribute' if p > ma * 3 else 'neutral')
+
+    def _sig_200d(p, ma):
+        if p is None or ma is None: return 'neutral'
+        return 'accumulate' if p < ma else ('distribute' if p > ma * 1.5 else 'neutral')
+
+    def _sig_pi(gap):
+        if gap is None: return 'neutral'
+        return 'accumulate' if gap > 30 else ('distribute' if gap <= 5 else 'neutral')
+
+    def _sig_rsi(rsi):
+        if rsi is None: return 'neutral'
+        return 'accumulate' if rsi < 40 else ('distribute' if rsi > 70 else 'neutral')
+
+    def _sig_regime(r):
+        if r in ('Capitulation', 'Accumulation'): return 'accumulate'
+        if r in ('Distribution', 'Mania'): return 'distribute'
+        return 'neutral'
+
+    def _sig_vp(pos):
+        if pos == 'below_val': return 'accumulate'
+        if pos == 'above_vah': return 'distribute'
+        return 'neutral'
+
+    def _sig_fg(fg):
+        if fg is None: return None
+        v = fg.get('value', 50)
+        return 'accumulate' if v < 25 else ('distribute' if v > 75 else 'neutral')
+
+    def _sig_fr(rate):
+        if rate is None: return None
+        return 'accumulate' if rate < -0.01 else ('distribute' if rate > 0.1 else 'neutral')
+
+    def _sig_alts(alts):
+        if alts is None: return None
+        s = alts.get('score', 50)
+        return 'accumulate' if s < 25 else ('distribute' if s > 75 else 'neutral')
+
+    def _sig_hash(data):
+        if not data or data.get('signal') is None: return None
+        return 'accumulate' if data['signal'] == 'recovery' else 'neutral'
+
+    def _sig_stable(data):
+        if not data or data.get('signal') is None: return None
+        return 'accumulate' if data['signal'] == 'expanding' else 'neutral'
+
+    # Fetch new Tier-3 data
+    print("  Fetching hash ribbons (mempool.space)...")
+    hash_data = fetch_hash_ribbons()
+    print("  Fetching stablecoin supply trend (CoinGecko)...")
+    stable_data = fetch_stablecoin_trend()
+
+    sig_200w = _sig_200w(price, ma200w)
+    sig_200d = _sig_200d(price, ma200d)
+    sig_pi = _sig_pi(pi_gap_pct)
+    sig_rsi_d = _sig_rsi(rsi_d)
+    sig_rsi_w = _sig_rsi(rsi_w)
+    sig_atr = _sig_regime(regime)
+    sig_vp = _sig_vp(vp_pos)
+    sig_fg = _sig_fg(fear_greed)
+    sig_fr = _sig_fr(fr)
+    sig_oi = 'neutral' if oi is not None else None
+    sig_btcd = 'neutral' if btc_dominance is not None else None
+    sig_alts = _sig_alts(altseason)
+    sig_hash = _sig_hash(hash_data)
+    sig_stable = _sig_stable(stable_data)
+
+    all_sigs = [
+        sig_200w, sig_200d, sig_pi, sig_rsi_d, sig_rsi_w, sig_atr, sig_vp,
+        sig_fg, sig_fr, sig_alts, sig_hash, sig_stable,
+    ]
+    active = [s for s in all_sigs if s is not None]
+    acc_count = active.count('accumulate')
+    dist_count = active.count('distribute')
+    neut_count = active.count('neutral')
+
+    if acc_count > dist_count:
+        phase = 'Accumulation'
+        strength = 'strong' if acc_count >= 7 else ('moderate' if acc_count >= 5 else 'weak')
+    elif dist_count > acc_count:
+        phase = 'Distribution'
+        strength = 'strong' if dist_count >= 7 else ('moderate' if dist_count >= 5 else 'weak')
+    else:
+        phase = 'Neutral'
+        strength = 'mixed' if active else 'insufficient data'
+
+    result: Dict[str, Any] = {
+        'date': str(datetime.now(timezone.utc).date()),
+        'price': price,
+        'price_indicators': {
+            'ma200w': round(ma200w, 2) if ma200w else None,
+            'pct_above_200w': pct_above_200w,
+            'signal_200w': sig_200w,
+            'ma200d': round(ma200d, 2) if ma200d else None,
+            'pct_above_200d': pct_above_200d,
+            'signal_200d': sig_200d,
+            'pi_cycle_111d': round(ma111d, 2) if ma111d else None,
+            'pi_cycle_350d_2x': round(pi_350d_2x, 2) if pi_350d_2x else None,
+            'pi_cycle_gap_pct': pi_gap_pct,
+            'signal_pi_cycle': sig_pi,
+            'rsi_daily': rsi_d,
+            'signal_rsi_d': sig_rsi_d,
+            'rsi_weekly': rsi_w,
+            'signal_rsi_w': sig_rsi_w,
+            'atr_distance': atr_dist,
+            'regime': regime,
+            'signal_atr': sig_atr,
+            'vp_position': vp_pos,
+            'signal_vp': sig_vp,
+        },
+        'sentiment': {
+            'fear_greed': fear_greed,
+            'signal_fear_greed': sig_fg,
+            'funding_rate': fr,
+            'signal_funding': sig_fr,
+            'open_interest_usd': oi,
+            'signal_oi': sig_oi,
+        },
+        'market_structure': {
+            'btc_dominance': btc_dominance,
+            'signal_btcd': sig_btcd,
+            'altseason': altseason,
+            'signal_alts': sig_alts,
+        },
+        'mining': hash_data or {
+            'hashrate_30d_eh': None, 'hashrate_60d_eh': None, 'signal': None,
+        },
+        'liquidity': stable_data or {
+            'usdt_supply_usd': None, 'usdc_supply_usd': None,
+            'combined_supply_usd': None, 'change_30d_pct': None,
+            'dominance_pct': None, 'signal': None,
+        },
+        'confluence': {
+            'accumulate_count': acc_count,
+            'distribute_count': dist_count,
+            'neutral_count': neut_count,
+            'phase': phase,
+            'strength': strength,
+        },
+    }
+    return _sanitise(result)
+
+
 def main():
     """Main execution function."""
     print("=" * 60)
@@ -696,6 +990,15 @@ def main():
     with open(CORRELATION_JSON_PATH, 'w') as f:
         json.dump(corr, f, separators=(',', ':'))
     print(f"✓ Saved correlation.json to {CORRELATION_JSON_PATH} ({len(corr['assets'])} assets)")
+    print()
+
+    print("Generating btc_signals.json (BTC cycle indicators)...")
+    btc_signals = generate_btc_signals_json(history_df, dashboard)
+    with open(BTC_SIGNALS_JSON_PATH, 'w') as f:
+        json.dump(btc_signals, f, separators=(',', ':'))
+    conf = btc_signals['confluence']
+    print(f"✓ Saved btc_signals.json — phase: {conf['phase']} ({conf['strength']}), "
+          f"acc={conf['accumulate_count']} dist={conf['distribute_count']} neut={conf['neutral_count']}")
     print()
 
     print("=" * 60)
