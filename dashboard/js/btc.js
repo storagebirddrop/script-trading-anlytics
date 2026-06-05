@@ -468,7 +468,6 @@ function buildAllSections(d) {
         { name: 'NUPL',               description: 'Net Unrealised Profit/Loss. Shows aggregate emotional state of all BTC holders. < 0 = Capitulation zone; > 0.75 = Euphoria / distribution.' },
         { name: 'RHODL Ratio',        description: 'Realised HODL Ratio — ratio of short-term to long-term holder wealth. Spikes at cycle tops when short-term holders dominate.' },
         { name: 'CVDD',               description: 'Cumulative Value Days Destroyed — historically touches BTC price at every major cycle bottom.' },
-        { name: 'Puell Multiple',     description: 'Daily issuance value / 365-day MA. Low = miners underpaid (bottom); high = miners selling into strength (top).' },
         { name: 'aSOPR',              description: 'Adjusted Spent Output Profit Ratio. < 1 = holders spending at a loss (capitulation); bouncing off 1.0 = support confirmation.' },
         { name: 'LTH / STH MVRV Cross', description: 'LTH-MVRV crossing above STH-MVRV signals cycle bottom recovery; the reverse marks distribution by long-term holders.' },
         { name: 'Reserve Risk',       description: 'Confidence of long-term holders vs current price. Low = strong HODLer conviction; high = HODLers distributing into strength.' },
