@@ -1700,6 +1700,10 @@ body {
     display: block;
 }
 
+/* ── Novice / Expert card toggle ──────────────────────────────────────────── */
+.cards--novice .metric--adv    { display: none; }
+.cards--novice .hdr-badge--adv { display: none; }
+
 /* ── Portfolio search input ─────────────────────────────────────────────────── */
 .portfolio-search-wrap {
     margin-bottom: 0.75rem;
