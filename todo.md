@@ -129,3 +129,5 @@
 - [x] **Bollinger Band position / %B**
 - [x] **Price alerts / threshold notifications**
 - [x] **Composite signal score**
+- [x] **Debug pass + UX quick wins** _(defaultdict import fix, defensive confluence guard, docstring fix; phase badge first on BTC page; mobile nav labels hidden; badge tooltips; BTC era note; Corr tab removed; 13 new tests)_
+- [x] **Hamburger nav for mobile** _(≤520px: ☰ toggle replaces bottom tab bar; slide-up drawer with all 5 tabs; backdrop + Escape to close; body scroll lock)_

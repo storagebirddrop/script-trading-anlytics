@@ -193,7 +193,9 @@ All fields are `null` when `High`/`Low`/`Volume` columns are absent from `histor
 
 ### Web Dashboard
 
-Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (copied from `data/dashboard.json`) and `dashboard/assets/chart_history.json` via `fetch()`. Two pages, six tabs. Uses Chart.js (CDN) for charts.
+Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (copied from `data/dashboard.json`) and `dashboard/assets/chart_history.json` via `fetch()`. Two pages, five tabs. Uses Chart.js (CDN) for charts.
+
+**Mobile navigation:** on screens ≤520px the five tab buttons are replaced by a hamburger toggle (☰) that opens a slide-up drawer listing all tabs with icon + label. The drawer closes on tap, backdrop click, or Escape. Body scroll is locked while the drawer is open. CSS classes (`nav-open`, `nav-drawer-open`) drive all state — no inline styles (CSP constraint). Implemented in `dashboard/js/dashboard.js` (`openNavDrawer`, `closeNavDrawer`, extended `setupNavigation`) and `dashboard/css/styles.css`.
 
 **Pages:**
 - `dashboard/landing.html` — static landing page (no JS, no data fetch); explains ATR Distance, regime classification, and the four-step workflow. Linked from the "About" button in the dashboard header.
@@ -277,6 +279,7 @@ The gauge x-axis represents the empirical distribution, not a linear ATR Distanc
 - `renderVolumeProfileChart(current, tf)` — renders horizontal bar VP chart; CSP-compliant legend via DOM API
 - `makeSparklineSvg(values, currentAtrDistance)` — returns inline SVG string for a 14-bar ATR Distance sparkline; stroke colour matches ATR semantics; dashed zero line when range straddles neutral
 - `renderPortfolioSparklines()` — fills `.card-sparkline[data-asset]` placeholders using `chartHistoryData`; no-op if data not yet loaded
+- `openNavDrawer()` / `closeNavDrawer()` — toggle the mobile hamburger drawer; manage `nav-open` / `nav-drawer-open` CSS classes, `aria-expanded`, and `aria-hidden`; body scroll locked while open
 
 **Key JS constants:**
 - `ASSET_CATEGORIES` — sets for `crypto`, `nasdaq`, `lse`, `macro`; used to filter assets across all tabs
