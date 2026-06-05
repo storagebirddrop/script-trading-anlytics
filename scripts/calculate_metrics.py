@@ -741,6 +741,54 @@ def fetch_stablecoin_trend() -> Optional[Dict[str, Any]]:
         return None
 
 
+def fetch_global_m2() -> Optional[Dict[str, Any]]:
+    """Fetch US M2 weekly money supply from FRED (WM2NS series).
+
+    The 12-week lag: M2 from 12 weeks ago predicts BTC direction today.
+    Returns None when FRED_API_KEY env var is not set or the fetch fails.
+    """
+    api_key = os.environ.get('FRED_API_KEY')
+    if not api_key:
+        return None
+    try:
+        resp = requests.get(
+            'https://api.stlouisfed.org/fred/series/observations',
+            params={
+                'series_id': 'WM2NS',
+                'api_key': api_key,
+                'file_type': 'json',
+                'sort_order': 'desc',
+                'limit': 30,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        obs = [o for o in resp.json()['observations'] if o['value'] != '.']
+        if len(obs) < 25:
+            return None
+        m2_now  = float(obs[0]['value'])
+        m2_12w  = float(obs[12]['value'])
+        m2_24w  = float(obs[24]['value'])
+        lagged_change_pct  = (m2_12w - m2_24w) / m2_24w * 100
+        current_change_pct = (m2_now - m2_12w) / m2_12w * 100
+        if lagged_change_pct > 1.5:
+            signal: str = 'accumulate'
+        elif lagged_change_pct < -0.5:
+            signal = 'distribute'
+        else:
+            signal = 'neutral'
+        print(f"  FRED M2: {m2_now:.1f}B USD, lagged change {lagged_change_pct:.2f}%, signal: {signal}")
+        return {
+            'm2_billion_usd': round(m2_now, 1),
+            'm2_12w_lagged_change_pct': round(lagged_change_pct, 2),
+            'm2_current_change_pct': round(current_change_pct, 2),
+            'signal': signal,
+        }
+    except Exception as e:
+        print(f"  Warning: FRED M2 fetch failed: {e}")
+        return None
+
+
 def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any]) -> Dict[str, Any]:
     """Build btc_signals.json — BTC cycle indicator confluence page data.
 
@@ -844,6 +892,8 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     hash_data = fetch_hash_ribbons()
     print("  Fetching stablecoin supply trend (CoinGecko)...")
     stable_data = fetch_stablecoin_trend()
+    print("  Fetching Global M2 (FRED WM2NS)...")
+    m2_data = fetch_global_m2()
 
     sig_200w = _sig_200w(price, ma200w)
     sig_200d = _sig_200d(price, ma200d)
@@ -859,11 +909,14 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     sig_alts = _sig_alts(altseason)
     sig_hash = _sig_hash(hash_data)
     sig_stable = _sig_stable(stable_data)
+    sig_m2 = m2_data['signal'] if m2_data else None
 
     all_sigs = [
         sig_200w, sig_200d, sig_pi, sig_rsi_d, sig_rsi_w, sig_atr, sig_vp,
         sig_fg, sig_fr, sig_alts, sig_hash, sig_stable,
     ]
+    if sig_m2 is not None:
+        all_sigs.append(sig_m2)
     active = [s for s in all_sigs if s is not None]
     acc_count = active.count('accumulate')
     dist_count = active.count('distribute')
@@ -920,10 +973,16 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
         'mining': hash_data or {
             'hashrate_30d_eh': None, 'hashrate_60d_eh': None, 'signal': None,
         },
-        'liquidity': stable_data or {
-            'usdt_supply_usd': None, 'usdc_supply_usd': None,
-            'combined_supply_usd': None, 'change_30d_pct': None,
-            'dominance_pct': None, 'signal': None,
+        'liquidity': {
+            **(stable_data or {
+                'usdt_supply_usd': None, 'usdc_supply_usd': None,
+                'combined_supply_usd': None, 'change_30d_pct': None,
+                'dominance_pct': None, 'signal': None,
+            }),
+            'global_m2_billion_usd': m2_data['m2_billion_usd'] if m2_data else None,
+            'm2_12w_lagged_change_pct': m2_data['m2_12w_lagged_change_pct'] if m2_data else None,
+            'm2_current_change_pct': m2_data['m2_current_change_pct'] if m2_data else None,
+            'signal_global_m2': sig_m2,
         },
         'confluence': {
             'accumulate_count': acc_count,

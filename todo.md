@@ -98,6 +98,9 @@
 - [x] **BTC Cycle Signals page**
   Standalone `dashboard/btc.html` page with 21 signal cards across 4 sections (Price Structure, Sentiment & Positioning, Mining & Liquidity, On-chain locked). Confluence banner shows accumulate/distribute/neutral counts and a phase badge. Pipeline: `generate_btc_signals_json()`, `fetch_hash_ribbons()`, `fetch_stablecoin_trend()` added to `calculate_metrics.py`. Path constant `BTC_SIGNALS_JSON_PATH` in `trading_utils/config.py`. Linked from main dashboard header via `₿ BTC` link.
 
+- [x] **BTC Cycle Signals — Phase 2 (Global M2 + landing page)**
+  `fetch_global_m2()` added to `calculate_metrics.py` using FRED `WM2NS` weekly series (free, requires `FRED_API_KEY` secret). M2 fields added to `liquidity` section of `btc_signals.json`; `sig_m2` counted in confluence when key is present (max 13 active signals). Global M2 card added as 3rd card in Mining & Liquidity. ETF Net Daily Flows added as locked card (6th in Sentiment & Positioning). `FRED_API_KEY` wired into CI. `landing.html` updated with 7th feature card and step, CTA updated to "7 views". `btc.html` footer updated.
+
 ---
 
 ## Previously completed

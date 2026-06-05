@@ -164,7 +164,7 @@ function renderLockedCard(cfg) {
 
     const lbl = document.createElement('div');
     lbl.className = 'signal-locked-label';
-    lbl.textContent = 'Requires Glassnode API key';
+    lbl.textContent = cfg.lockLabel || 'Requires Glassnode API key';
     card.appendChild(lbl);
 
     return card;
@@ -343,6 +343,12 @@ function buildAllSections(d) {
             signal: mkt.signal_alts || (mkt.altseason ? 'neutral' : null),
             tooltip: 'Altcoin Season Index: % of tracked crypto assets outperforming BTC over 90 days. < 25 = BTC season (accumulate BTC); > 75 = alt season (late cycle).',
         }),
+
+        renderLockedCard({
+            name: 'ETF Net Daily Flows',
+            description: 'Net inflows/outflows across all US spot BTC ETFs (IBIT, FBTC, ARKB, etc). Now the #1 demand signal post-Jan 2024 — BlackRock IBIT flows directly move spot price.',
+            lockLabel: 'Requires SoSoValue API key',
+        }),
     ];
 
     // ── Mining & Liquidity ────────────────────────────────────────────────────
@@ -401,6 +407,22 @@ function buildAllSections(d) {
             })(),
             signal: stableSig,
             tooltip: 'Combined USDT + USDC market cap and dominance (% of total crypto market). Expanding supply = dry powder building; high dominance = risk-off positioning.',
+        }),
+
+        renderSignalCard({
+            name: 'Global M2 (12w Lag)',
+            value: liq.global_m2_billion_usd != null
+                ? '$' + (liq.global_m2_billion_usd / 1000).toFixed(1) + 'T'
+                : 'N/A',
+            context: (() => {
+                if (liq.signal_global_m2 == null) return 'Requires FRED_API_KEY';
+                const lag  = liq.m2_12w_lagged_change_pct;
+                const curr = liq.m2_current_change_pct;
+                return (lag >= 0 ? '+' : '') + lag.toFixed(1) + '% change (12–24w ago) · '
+                     + 'current: ' + (curr >= 0 ? '+' : '') + curr.toFixed(1) + '%';
+            })(),
+            signal: liq.signal_global_m2 || null,
+            tooltip: 'US M2 money supply with 12-week lag (FRED WM2NS). When M2 was expanding 12 weeks ago it historically predicts BTC strength today — the strongest macro leading indicator post-ETF launch.',
         }),
     ];
 
