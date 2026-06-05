@@ -1469,14 +1469,109 @@ body {
     border-top: 1px solid var(--border-color);
 }
 
-/* ── Nav: compact on small screens ──────────────────────────────────────────── */
-@media (max-width: 480px) {
-    .nav-label { display: none; }
-    .nav-btn   { padding: 0.5rem 0.6rem; font-size: 1.4rem; }
+/* ── Hamburger toggle (desktop: hidden) ─────────────────────────────────────── */
+.hamburger-toggle {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    transition: color var(--transition-base);
+    flex: 1;
+    justify-content: center;
 }
+.hamburger-toggle.active { color: var(--accent-blue); }
+.hamburger-toggle:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+}
+.hamburger-icon        { font-size: 1.4rem; line-height: 1; }
+.hamburger-current-tab { font-size: 0.9rem; font-weight: 600; }
+
+/* ── Nav drawer + backdrop (desktop: hidden) ─────────────────────────────────── */
+.nav-drawer   { display: none; }
+.nav-backdrop { display: none; }
+
+/* ── Mobile nav: hamburger + slide-up drawer (≤520px) ───────────────────────── */
+@media (max-width: 520px) {
+    /* Show hamburger, hide individual tab buttons */
+    .hamburger-toggle { display: flex; }
+    .nav-btn          { display: none; }
+
+    /* Drawer: positioned above the bottom bar; starts translated off-screen */
+    .nav-drawer {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        bottom: 3.5rem;
+        left: 0;
+        right: 0;
+        background: var(--bg-secondary);
+        border-top: 1px solid var(--border-color);
+        z-index: 100;
+        transform: translateY(100%);
+        visibility: hidden;
+        pointer-events: none;
+        transition: transform 0.22s ease-out, visibility 0s linear 0.22s;
+    }
+    .nav-drawer.nav-open {
+        transform: translateY(0);
+        visibility: visible;
+        pointer-events: auto;
+        transition: transform 0.22s ease-out, visibility 0s linear 0s;
+    }
+
+    /* Semi-transparent backdrop */
+    .nav-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        z-index: 99;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.22s ease-out;
+    }
+    .nav-backdrop.nav-open {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Body scroll lock when drawer is open */
+    body.nav-drawer-open { overflow: hidden; }
+
+    /* Drawer items */
+    .drawer-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.9rem 1.5rem;
+        background: none;
+        border: none;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        cursor: pointer;
+        width: 100%;
+        text-align: left;
+        transition: background-color 0.1s, color var(--transition-base);
+    }
+    .drawer-item:last-child    { border-bottom: none; }
+    .drawer-item:hover         { background: rgba(255, 255, 255, 0.04); }
+    .drawer-item.active        { color: var(--accent-blue); }
+    .drawer-item:focus-visible {
+        outline: 2px solid var(--accent-blue);
+        outline-offset: -2px;
+    }
+    .drawer-item-icon  { font-size: 1.4rem; }
+    .drawer-item-label { font-size: 1rem; font-weight: 500; }
+}
+
 @media (max-width: 380px) {
-    .nav-btn  { padding: 0.5rem 0.4rem; }
-    .nav-icon { font-size: 1.2rem; }
+    .hamburger-toggle { padding: 0.5rem 0.75rem; }
 }
 
 /* ── Macro tab layout ────────────────────────────────────────────────────────── */

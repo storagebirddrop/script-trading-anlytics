@@ -635,6 +635,17 @@ function navigateTo(tabId, asset) {
         tab.classList.toggle('active', tab.id === tabId);
     });
 
+    // Sync hamburger drawer active state and current-tab label
+    document.querySelectorAll('.drawer-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.tab === tabId);
+    });
+    const hamburgerLabel = document.getElementById('hamburger-current-tab');
+    const activeNavBtn   = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
+    if (hamburgerLabel && activeNavBtn) {
+        const lbl = activeNavBtn.querySelector('.nav-label');
+        if (lbl) hamburgerLabel.textContent = lbl.textContent;
+    }
+
     // Move focus to the new tab panel
     const panel = document.getElementById(tabId);
     if (panel) panel.focus({ preventScroll: false });
@@ -646,6 +657,34 @@ function navigateTo(tabId, asset) {
             renderDrilldown();
         }
     }
+}
+
+function openNavDrawer() {
+    const drawer   = document.getElementById('nav-drawer');
+    const backdrop = document.getElementById('nav-backdrop');
+    const toggle   = document.getElementById('hamburger-toggle');
+    if (!drawer) return;
+    drawer.classList.add('nav-open');
+    drawer.setAttribute('aria-hidden', 'false');
+    backdrop.classList.add('nav-open');
+    document.body.classList.add('nav-drawer-open');
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.classList.add('active');
+    toggle.querySelector('.hamburger-icon').textContent = '✕'; // ✕
+}
+
+function closeNavDrawer() {
+    const drawer   = document.getElementById('nav-drawer');
+    const backdrop = document.getElementById('nav-backdrop');
+    const toggle   = document.getElementById('hamburger-toggle');
+    if (!drawer) return;
+    drawer.classList.remove('nav-open');
+    drawer.setAttribute('aria-hidden', 'true');
+    backdrop.classList.remove('nav-open');
+    document.body.classList.remove('nav-drawer-open');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.classList.remove('active');
+    toggle.querySelector('.hamburger-icon').textContent = '☰'; // ☰
 }
 
 function setupNavigation() {
@@ -660,6 +699,40 @@ function setupNavigation() {
                 renderMacro();
             }
         });
+    });
+
+    // Hamburger toggle
+    const hamburgerToggle = document.getElementById('hamburger-toggle');
+    if (hamburgerToggle) {
+        hamburgerToggle.addEventListener('click', () => {
+            document.getElementById('nav-drawer').classList.contains('nav-open')
+                ? closeNavDrawer()
+                : openNavDrawer();
+        });
+    }
+
+    // Drawer item clicks
+    document.querySelectorAll('.drawer-item').forEach(item => {
+        item.addEventListener('click', async () => {
+            const targetTab = item.dataset.tab;
+            closeNavDrawer();
+            navigateTo(targetTab);
+            if (targetTab === 'drilldown-tab') {
+                await ensureChartHistory();
+                renderDrilldown();
+            } else if (targetTab === 'macro-tab') {
+                renderMacro();
+            }
+        });
+    });
+
+    // Close on backdrop click
+    document.getElementById('nav-backdrop')
+        ?.addEventListener('click', closeNavDrawer);
+
+    // Close on Escape
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeNavDrawer();
     });
 }
 
