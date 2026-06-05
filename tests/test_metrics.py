@@ -997,5 +997,259 @@ class TestADXInCurrentSnapshot:
         assert metrics['BTC']['1d']['current']['adx'] is None
 
 
+class TestFetchCoinmetricsOnchain:
+    """Tests for fetch_coinmetrics_onchain()."""
+
+    from calculate_metrics import fetch_coinmetrics_onchain
+
+    def _make_rows(self, n, mvrv_ratio=1.5, sopr=1.01, cdd=1e8):
+        """Build n fake Coinmetrics rows."""
+        return [
+            {
+                'CapMrktCurUSD': str(600e9 * mvrv_ratio),
+                'CapRealUSD':    str(600e9),
+                'SOPR':          str(sopr),
+                'CDD':           str(cdd),
+            }
+            for _ in range(n)
+        ]
+
+    def _mock_resp(self, rows):
+        mock = MagicMock()
+        mock.json.return_value = {'data': rows}
+        return mock
+
+    def test_success_returns_all_fields(self):
+        from calculate_metrics import fetch_coinmetrics_onchain
+        rows = self._make_rows(200, mvrv_ratio=1.5, sopr=1.01)
+        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(rows)):
+            result = fetch_coinmetrics_onchain()
+        assert result is not None
+        for key in ('mvrv_z_score', 'mvrv_ratio', 'nupl', 'sopr',
+                    'signal_mvrv_z', 'signal_nupl', 'signal_sopr', 'signal_cvdd'):
+            assert key in result
+        assert result['signal_mvrv_z'] in ('accumulate', 'neutral', 'distribute')
+        assert result['signal_nupl'] in ('accumulate', 'neutral', 'distribute')
+
+    def test_insufficient_rows_returns_none(self):
+        from calculate_metrics import fetch_coinmetrics_onchain
+        rows = self._make_rows(30)
+        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(rows)):
+            result = fetch_coinmetrics_onchain()
+        assert result is None
+
+    def test_network_error_returns_none(self):
+        from calculate_metrics import fetch_coinmetrics_onchain
+        with patch('calculate_metrics.requests.get', side_effect=Exception('timeout')):
+            result = fetch_coinmetrics_onchain()
+        assert result is None
+
+    def test_mvrv_zscore_zero_std(self):
+        """Z-score is 0.0 when all MVRV values are identical (std_mv = 0)."""
+        from calculate_metrics import fetch_coinmetrics_onchain
+        rows = self._make_rows(200, mvrv_ratio=1.0)
+        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(rows)):
+            result = fetch_coinmetrics_onchain()
+        assert result is not None
+        assert result['mvrv_z_score'] == 0.0
+
+    def test_accumulate_signal_when_zscore_negative(self):
+        """signal_mvrv_z is 'accumulate' when MVRV Z-Score < 0."""
+        from calculate_metrics import fetch_coinmetrics_onchain
+        # Make mvrv_ratio vary so std > 0; final row has low value → negative z-score
+        rows = self._make_rows(199, mvrv_ratio=3.0) + self._make_rows(1, mvrv_ratio=0.1)
+        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(rows)):
+            result = fetch_coinmetrics_onchain()
+        assert result is not None
+        assert result['signal_mvrv_z'] == 'accumulate'
+
+
+class TestFetchPuellMultiple:
+    """Tests for fetch_puell_multiple()."""
+
+    def _btc_prices(self, n=400, price=60000.0):
+        """Build a pd.Series of BTC prices indexed by date (aligned with _make_mempool_rows)."""
+        import pandas as pd
+        dates = pd.date_range(start='2024-01-01', periods=n, freq='D')
+        return pd.Series([price] * n, index=dates, name='Price')
+
+    def _make_mempool_rows(self, n, avg_rewards=3125 * 1e8, avg_fees=0):
+        """Build n fake mempool.space block reward rows."""
+        import pandas as pd
+        base_ts = int(pd.Timestamp('2024-01-01').timestamp())
+        return [
+            {
+                'timestamp': base_ts + i * 86400,
+                'avgRewards': avg_rewards,
+                'avgFees':    avg_fees,
+            }
+            for i in range(n)
+        ]
+
+    def _mock_resp(self, rows):
+        mock = MagicMock()
+        mock.json.return_value = rows
+        return mock
+
+    def test_success_returns_all_fields(self):
+        from calculate_metrics import fetch_puell_multiple
+        rows = self._make_mempool_rows(400)
+        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(rows)):
+            result = fetch_puell_multiple(self._btc_prices())
+        assert result is not None
+        for key in ('puell_multiple', 'daily_revenue_usd', 'ma_365d_usd', 'signal'):
+            assert key in result
+        assert result['puell_multiple'] > 0
+        assert result['signal'] in ('accumulate', 'neutral', 'distribute')
+
+    def test_insufficient_rows_returns_none(self):
+        from calculate_metrics import fetch_puell_multiple
+        rows = self._make_mempool_rows(30)
+        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(rows)):
+            result = fetch_puell_multiple(self._btc_prices())
+        assert result is None
+
+    def test_no_price_overlap_returns_none(self):
+        """Returns None when joined DataFrame has fewer than 30 rows."""
+        import pandas as pd
+        from calculate_metrics import fetch_puell_multiple
+        rows = self._make_mempool_rows(400)
+        # Provide prices from a completely non-overlapping date range
+        far_future_dates = pd.date_range(start='2030-01-01', periods=400, freq='D')
+        prices = pd.Series([60000.0] * 400, index=far_future_dates)
+        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(rows)):
+            result = fetch_puell_multiple(prices)
+        assert result is None
+
+    def test_network_error_returns_none(self):
+        from calculate_metrics import fetch_puell_multiple
+        with patch('calculate_metrics.requests.get', side_effect=Exception('timeout')):
+            result = fetch_puell_multiple(self._btc_prices())
+        assert result is None
+
+    def test_accumulate_signal_low_puell(self):
+        """signal is 'accumulate' when Puell < 0.6."""
+        from calculate_metrics import fetch_puell_multiple
+        # Low rewards today → low Puell; high MA from historical rows
+        # Use tiny rewards for today (last row) and normal for the rest
+        rows = self._make_mempool_rows(399, avg_rewards=3125 * 1e8)
+        rows.append({
+            'timestamp': rows[-1]['timestamp'] + 86400,
+            'avgRewards': 10,  # almost zero — produces very small Puell
+            'avgFees': 0,
+        })
+        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(rows)):
+            result = fetch_puell_multiple(self._btc_prices(400))
+        assert result is not None
+        assert result['signal'] == 'accumulate'
+
+
+class TestGenerateBtcSignalsJsonConfluence:
+    """Tests for generate_btc_signals_json() confluence logic."""
+
+    def _history_df(self):
+        """Minimal history DataFrame with 30 BTC daily rows."""
+        import pandas as pd
+        n = 30
+        dates = pd.date_range(end='2026-06-05', periods=n, freq='D').strftime('%Y-%m-%d').tolist()
+        return pd.DataFrame({
+            'Date':         dates * 2,
+            'Asset':        ['BTC'] * n + ['BTC'] * n,
+            'Timeframe':    ['1d'] * n + ['1w'] * n,
+            'Price':        [60000.0] * n * 2,
+            'EMA21':        [58000.0] * n * 2,
+            'ATR':          [1500.0]  * n * 2,
+            'RSI':          [50.0]    * n * 2,
+            'RSI_Z_Score':  [0.0]     * n * 2,
+            'ATR_Distance': [1.33]    * n * 2,
+            'Pct_Above_EMA':[3.44]    * n * 2,
+        })
+
+    def _dashboard(self, history_df):
+        """Minimal dashboard dict derived from history_df."""
+        from calculate_metrics import generate_dashboard_json
+        return generate_dashboard_json(history_df)
+
+    def _patch_all_fetchers(self, **overrides):
+        """Context manager that patches all external fetchers to return None."""
+        defaults = {
+            'calculate_metrics.fetch_hash_ribbons':       None,
+            'calculate_metrics.fetch_stablecoin_trend':   None,
+            'calculate_metrics.fetch_global_m2':          None,
+            'calculate_metrics.fetch_etf_flows':          None,
+            'calculate_metrics.fetch_binance_futures':    {},
+            'calculate_metrics.fetch_coinmetrics_onchain': None,
+            'calculate_metrics.fetch_puell_multiple':     None,
+        }
+        defaults.update(overrides)
+        patches = [patch(k, return_value=v) for k, v in defaults.items()]
+        return patches
+
+    def _apply_patches(self, patches):
+        for p in patches:
+            p.start()
+        return patches
+
+    def _stop_patches(self, patches):
+        for p in patches:
+            p.stop()
+
+    def test_on_chain_section_always_present(self):
+        """on_chain section is always present even when Coinmetrics fails (returns None)."""
+        from calculate_metrics import generate_btc_signals_json
+        hdf = self._history_df()
+        dash = self._dashboard(hdf)
+        patches = self._apply_patches(self._patch_all_fetchers())
+        try:
+            result = generate_btc_signals_json(hdf, dash)
+        finally:
+            self._stop_patches(patches)
+        assert 'on_chain' in result
+        assert result['on_chain']['mvrv_z_score'] is None
+
+    def test_confluence_section_present(self):
+        """confluence section is always present with required keys."""
+        from calculate_metrics import generate_btc_signals_json
+        hdf = self._history_df()
+        dash = self._dashboard(hdf)
+        patches = self._apply_patches(self._patch_all_fetchers())
+        try:
+            result = generate_btc_signals_json(hdf, dash)
+        finally:
+            self._stop_patches(patches)
+        conf = result['confluence']
+        for key in ('accumulate_count', 'distribute_count', 'neutral_count', 'phase', 'strength'):
+            assert key in conf
+
+    def test_accumulation_phase_when_acc_dominates(self):
+        """phase is 'Accumulation' when accumulate_count > distribute_count."""
+        from calculate_metrics import generate_btc_signals_json
+        hdf = self._history_df()
+        # Use very negative ATR Distance → accumulate signals
+        hdf['ATR_Distance'] = -3.5
+        dash = self._dashboard(hdf)
+        patches = self._apply_patches(self._patch_all_fetchers(
+            **{'calculate_metrics.fetch_coinmetrics_onchain': {
+                'realized_cap_usd': int(500e9),
+                'market_cap_usd':   int(300e9),
+                'mvrv_ratio':       0.6,
+                'mvrv_z_score':     -1.5,
+                'nupl':             -0.4,
+                'sopr':             0.96,
+                'cdd_latest':       int(1e8),
+                'cdd_90d_change_pct': -15.0,
+                'signal_mvrv_z':    'accumulate',
+                'signal_nupl':      'accumulate',
+                'signal_sopr':      'accumulate',
+                'signal_cvdd':      'accumulate',
+            }}
+        ))
+        try:
+            result = generate_btc_signals_json(hdf, dash)
+        finally:
+            self._stop_patches(patches)
+        assert result['confluence']['phase'] == 'Accumulation'
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

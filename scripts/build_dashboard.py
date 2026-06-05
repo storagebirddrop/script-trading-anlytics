@@ -15,7 +15,6 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DASHBOARD_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'dashboard.json')
 CHART_HISTORY_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'chart_history.json')
 BREADTH_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'breadth.json')
-CORRELATION_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'correlation.json')
 BTC_SIGNALS_JSON_PATH = str(_PROJECT_ROOT / 'data' / 'btc_signals.json')
 DASHBOARD_OUTPUT_DIR = str(_PROJECT_ROOT / 'dashboard')
 ASSETS_OUTPUT_DIR = str(_PROJECT_ROOT / 'dashboard' / 'assets')
@@ -79,12 +78,6 @@ def main():
         print(f"✓ Copied breadth.json to {ASSETS_OUTPUT_DIR}/breadth.json")
     else:
         print("  (breadth.json not found — skipping; breadth chart will be hidden)")
-
-    if os.path.exists(CORRELATION_JSON_PATH):
-        shutil.copy2(CORRELATION_JSON_PATH, os.path.join(ASSETS_OUTPUT_DIR, 'correlation.json'))
-        print(f"✓ Copied correlation.json to {ASSETS_OUTPUT_DIR}/correlation.json")
-    else:
-        print("  (correlation.json not found — skipping; correlation heatmap will be hidden)")
 
     if os.path.exists(BTC_SIGNALS_JSON_PATH):
         shutil.copy2(BTC_SIGNALS_JSON_PATH, os.path.join(ASSETS_OUTPUT_DIR, 'btc_signals.json'))

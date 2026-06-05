@@ -135,6 +135,12 @@
     white-space: nowrap;
 }
 
+.phase-badge--headline {
+    font-size: 1.05rem;
+    font-weight: 700;
+    padding: 0.35rem 1rem;
+}
+
 .phase-badge--strong-accumulation { background: rgba(16,185,129,0.20); color: var(--accent-green); }
 .phase-badge--accumulation        { background: rgba(16,185,129,0.13); color: var(--accent-green); }
 .phase-badge--weak-accumulation   { background: rgba(16,185,129,0.08); color: var(--accent-green); }
