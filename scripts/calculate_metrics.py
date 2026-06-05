@@ -972,6 +972,85 @@ def fetch_global_m2() -> Optional[Dict[str, Any]]:
         return None
 
 
+def fetch_puell_multiple(btc_prices: pd.Series) -> Optional[Dict[str, Any]]:
+    """Compute Puell Multiple from mempool.space block rewards + historical BTC prices.
+
+    Puell Multiple = today's miner revenue (USD) / 365-day MA of daily miner revenue.
+    Block rewards (subsidy + fees) come from mempool.space /api/v1/mining/blocks/rewards/2y
+    (free, no auth). BTC prices come from history.csv via btc_prices.
+
+    Signal thresholds (empirically calibrated to BTC cycle data):
+      < 0.6  → accumulate  (deep miner stress / capitulation)
+      0.6–3.0 → neutral
+      > 3.0  → distribute  (elevated miner profitability / late cycle)
+    """
+    try:
+        resp = requests.get(
+            'https://mempool.space/api/v1/mining/blocks/rewards/2y',
+            timeout=15,
+        )
+        resp.raise_for_status()
+        rows = resp.json()
+        if not rows or len(rows) < 60:
+            return None
+
+        records = []
+        for row in rows:
+            ts = row.get('timestamp')
+            # mempool.space uses camelCase; guard against both variants
+            avg_r = row.get('avgRewards', row.get('avg_rewards'))
+            avg_f = row.get('avgFees', row.get('avg_fees', 0))
+            if ts and avg_r is not None:
+                date = pd.Timestamp(ts, unit='s').normalize()
+                # avgRewards/avgFees are sats per block; ~144 blocks/day
+                daily_btc = (float(avg_r) + float(avg_f)) / 1e8 * 144
+                records.append({'date': date, 'daily_btc': daily_btc})
+
+        if not records:
+            return None
+
+        mpool_df = pd.DataFrame(records).set_index('date').sort_index()
+
+        prices = btc_prices.copy()
+        prices.index = pd.to_datetime(prices.index).normalize()
+        prices.name = 'price'
+
+        joined = mpool_df.join(prices, how='inner').dropna()
+        if len(joined) < 30:
+            return None
+
+        joined['revenue_usd'] = joined['daily_btc'] * joined['price']
+        ma365 = joined['revenue_usd'].rolling(365, min_periods=60).mean()
+
+        if ma365.empty or pd.isna(ma365.iloc[-1]):
+            return None
+
+        current_revenue = float(joined['revenue_usd'].iloc[-1])
+        ma_value = float(ma365.iloc[-1])
+        puell = current_revenue / ma_value if ma_value > 0 else None
+        if puell is None:
+            return None
+
+        if puell < 0.6:
+            signal = 'accumulate'
+        elif puell > 3.0:
+            signal = 'distribute'
+        else:
+            signal = 'neutral'
+
+        print(f"  Puell Multiple: {puell:.3f} (rev ${current_revenue/1e6:.1f}M/day, "
+              f"365d MA ${ma_value/1e6:.1f}M), signal: {signal}")
+        return {
+            'puell_multiple': round(puell, 3),
+            'daily_revenue_usd': round(current_revenue),
+            'ma_365d_usd': round(ma_value),
+            'signal': signal,
+        }
+    except Exception as e:
+        print(f"  Warning: Puell Multiple fetch failed: {e}")
+        return None
+
+
 def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any]) -> Dict[str, Any]:
     """Build btc_signals.json — BTC cycle indicator confluence page data.
 
@@ -1077,6 +1156,9 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     # Fetch new Tier-3 data
     print("  Fetching hash ribbons (mempool.space)...")
     hash_data = fetch_hash_ribbons()
+    print("  Fetching Puell Multiple (mempool.space rewards + history prices)...")
+    btc_price_series = btc_daily.set_index('Date')['Price']
+    puell_data = fetch_puell_multiple(btc_price_series)
     print("  Fetching stablecoin supply trend (CoinGecko)...")
     stable_data = fetch_stablecoin_trend()
     print("  Fetching Global M2 (FRED WM2NS)...")
@@ -1097,6 +1179,7 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     sig_btcd = 'neutral' if btc_dominance is not None else None
     sig_alts = _sig_alts(altseason)
     sig_hash = _sig_hash(hash_data)
+    sig_puell = puell_data['signal'] if puell_data else None
     sig_stable = _sig_stable(stable_data)
     sig_m2 = m2_data['signal'] if m2_data else None
     sig_etf = _sig_etf(etf_data)
@@ -1105,6 +1188,8 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
         sig_200w, sig_200d, sig_pi, sig_rsi_d, sig_rsi_w, sig_atr, sig_vp,
         sig_fg, sig_fr, sig_alts, sig_hash, sig_stable,
     ]
+    if sig_puell is not None:
+        all_sigs.append(sig_puell)
     if sig_m2 is not None:
         all_sigs.append(sig_m2)
     if sig_etf is not None:
@@ -1164,8 +1249,12 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
             'altseason': altseason,
             'signal_alts': sig_alts,
         },
-        'mining': hash_data or {
-            'hashrate_30d_eh': None, 'hashrate_60d_eh': None, 'signal': None,
+        'mining': {
+            **(hash_data or {'hashrate_30d_eh': None, 'hashrate_60d_eh': None, 'signal': None}),
+            'puell_multiple': puell_data['puell_multiple'] if puell_data else None,
+            'puell_daily_revenue_usd': puell_data['daily_revenue_usd'] if puell_data else None,
+            'puell_ma_365d_usd': puell_data['ma_365d_usd'] if puell_data else None,
+            'signal_puell': sig_puell,
         },
         'liquidity': {
             **(stable_data or {

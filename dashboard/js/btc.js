@@ -407,6 +407,22 @@ function buildAllSections(d) {
         }),
 
         renderSignalCard({
+            name: 'Puell Multiple',
+            value: mine.puell_multiple != null ? mine.puell_multiple.toFixed(2) : 'N/A',
+            context: (() => {
+                if (mine.puell_multiple == null) return 'Data unavailable';
+                const rev = mine.puell_daily_revenue_usd;
+                const ma  = mine.puell_ma_365d_usd;
+                const parts = [];
+                if (rev != null) parts.push('Daily rev: $' + (rev / 1e6).toFixed(0) + 'M');
+                if (ma  != null) parts.push('365d MA: $' + (ma  / 1e6).toFixed(0) + 'M');
+                return parts.join(' · ') || '';
+            })(),
+            signal: mine.signal_puell || null,
+            tooltip: 'Puell Multiple = today\'s miner revenue ÷ 365-day MA of daily miner revenue. Below 0.6 signals deep miner stress and capitulation (historically a strong buy zone). Above 3.0 indicates elevated profitability typical of late-cycle distribution. Computed from mempool.space block rewards (free, no API key).',
+        }),
+
+        renderSignalCard({
             name: 'Stablecoin Supply',
             value: liq.combined_supply_usd != null ? fmtLargeNum(liq.combined_supply_usd) : 'N/A',
             context: (() => {
