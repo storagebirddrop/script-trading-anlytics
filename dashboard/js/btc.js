@@ -344,11 +344,31 @@ function buildAllSections(d) {
             tooltip: 'Altcoin Season Index: % of tracked crypto assets outperforming BTC over 90 days. < 25 = BTC season (accumulate BTC); > 75 = alt season (late cycle).',
         }),
 
-        renderLockedCard({
-            name: 'ETF Net Daily Flows',
-            description: 'Net inflows/outflows across all US spot BTC ETFs (IBIT, FBTC, ARKB, etc). Now the #1 demand signal post-Jan 2024 — BlackRock IBIT flows directly move spot price.',
-            lockLabel: 'Requires SoSoValue API key',
-        }),
+        (() => {
+            const ef = sent.etf_flows;
+            if (ef) {
+                const inflow = ef.net_inflow_usd;
+                const flow7d = ef.flow_7d_usd;
+                const aum    = ef.total_net_assets_usd;
+                const parts  = [];
+                if (flow7d != null) parts.push('7d: ' + (flow7d >= 0 ? '+' : '') + (flow7d / 1e9).toFixed(2) + 'B');
+                if (aum    != null) parts.push('AUM: $' + (aum / 1e9).toFixed(0) + 'B');
+                return renderSignalCard({
+                    name: 'ETF Net Daily Flows',
+                    value: inflow != null
+                        ? (inflow >= 0 ? '+' : '') + (inflow / 1e9).toFixed(2) + 'B USD'
+                        : 'N/A',
+                    context: parts.join(' · ') || (ef.date || 'Data available'),
+                    signal: ef.signal,
+                    tooltip: 'Net inflows/outflows across all US spot BTC ETFs (SoSoValue). The #1 demand signal post-Jan 2024 — BlackRock IBIT flows directly move spot price. Signal: >$500M = Accumulate, <−$200M = Distribute.',
+                });
+            }
+            return renderLockedCard({
+                name: 'ETF Net Daily Flows',
+                description: 'Net inflows/outflows across all US spot BTC ETFs (IBIT, FBTC, ARKB, etc). Now the #1 demand signal post-Jan 2024 — BlackRock IBIT flows directly move spot price.',
+                lockLabel: 'Requires SoSoValue API key',
+            });
+        })(),
     ];
 
     // ── Mining & Liquidity ────────────────────────────────────────────────────
