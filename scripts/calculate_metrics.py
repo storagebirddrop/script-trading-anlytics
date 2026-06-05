@@ -741,6 +741,58 @@ def fetch_stablecoin_trend() -> Optional[Dict[str, Any]]:
         return None
 
 
+def fetch_etf_flows() -> Optional[Dict[str, Any]]:
+    """Fetch US spot BTC ETF total daily net flows from SoSoValue.
+
+    Uses /etfs/summary-history with symbol=BTC, country_code=US.
+    Returns None when SOSOVALUE_API_KEY env var is not set or fetch fails.
+    """
+    api_key = os.environ.get('SOSOVALUE_API_KEY')
+    if not api_key:
+        return None
+    try:
+        resp = requests.get(
+            'https://openapi.sosovalue.com/openapi/v1/etfs/summary-history',
+            params={'symbol': 'BTC', 'country_code': 'US', 'limit': 7},
+            headers={'x-soso-api-key': api_key},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+        # Handle both plain array and {"data": [...]} wrapped response
+        rows = payload.get('data', payload) if isinstance(payload, dict) else payload
+        if not rows:
+            return None
+        # Rows are in reverse chronological order (latest first)
+        latest = rows[0]
+        net_inflow = float(latest['total_net_inflow'])
+        date_str   = latest['date']
+        flow_7d    = sum(float(r['total_net_inflow']) for r in rows)
+        net_assets = float(latest['total_net_assets']) if latest.get('total_net_assets') else None
+        cum_inflow = float(latest['cum_net_inflow']) if latest.get('cum_net_inflow') else None
+
+        if net_inflow > 500_000_000:
+            signal: str = 'accumulate'
+        elif net_inflow < -200_000_000:
+            signal = 'distribute'
+        else:
+            signal = 'neutral'
+
+        print(f"  SoSoValue ETF flows: {net_inflow/1e9:+.2f}B USD (latest {date_str}), "
+              f"7d sum: {flow_7d/1e9:+.2f}B, signal: {signal}")
+        return {
+            'date': date_str,
+            'net_inflow_usd': net_inflow,
+            'flow_7d_usd': flow_7d,
+            'total_net_assets_usd': net_assets,
+            'cum_net_inflow_usd': cum_inflow,
+            'signal': signal,
+        }
+    except Exception as e:
+        print(f"  Warning: SoSoValue ETF flows fetch failed: {e}")
+        return None
+
+
 def fetch_global_m2() -> Optional[Dict[str, Any]]:
     """Fetch US M2 weekly money supply from FRED (WM2NS series).
 
@@ -887,6 +939,10 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
         if not data or data.get('signal') is None: return None
         return 'accumulate' if data['signal'] == 'expanding' else 'neutral'
 
+    def _sig_etf(data):
+        if not data or data.get('signal') is None: return None
+        return data['signal']
+
     # Fetch new Tier-3 data
     print("  Fetching hash ribbons (mempool.space)...")
     hash_data = fetch_hash_ribbons()
@@ -894,6 +950,8 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     stable_data = fetch_stablecoin_trend()
     print("  Fetching Global M2 (FRED WM2NS)...")
     m2_data = fetch_global_m2()
+    print("  Fetching ETF net flows (SoSoValue)...")
+    etf_data = fetch_etf_flows()
 
     sig_200w = _sig_200w(price, ma200w)
     sig_200d = _sig_200d(price, ma200d)
@@ -910,6 +968,7 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     sig_hash = _sig_hash(hash_data)
     sig_stable = _sig_stable(stable_data)
     sig_m2 = m2_data['signal'] if m2_data else None
+    sig_etf = _sig_etf(etf_data)
 
     all_sigs = [
         sig_200w, sig_200d, sig_pi, sig_rsi_d, sig_rsi_w, sig_atr, sig_vp,
@@ -917,6 +976,8 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     ]
     if sig_m2 is not None:
         all_sigs.append(sig_m2)
+    if sig_etf is not None:
+        all_sigs.append(sig_etf)
     active = [s for s in all_sigs if s is not None]
     acc_count = active.count('accumulate')
     dist_count = active.count('distribute')
@@ -963,6 +1024,8 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
             'signal_funding': sig_fr,
             'open_interest_usd': oi,
             'signal_oi': sig_oi,
+            'etf_flows': etf_data,
+            'signal_etf': sig_etf,
         },
         'market_structure': {
             'btc_dominance': btc_dominance,
