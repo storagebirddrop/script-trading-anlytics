@@ -31,6 +31,10 @@ jobs:
         run: python backfill_historical.py
 
       - name: Calculate metrics
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          SOSOVALUE_API_KEY: ${{ secrets.SOSOVALUE_API_KEY }}
+          COINMETRICS_API_KEY: ${{ secrets.COINMETRICS_API_KEY }}
         run: python scripts/calculate_metrics.py
 
       - name: Build dashboard
@@ -45,7 +49,6 @@ jobs:
           git add ATR_Tracker_Dashboard.xlsx data/master.csv data/history.csv data/dashboard.json data/metadata.json dashboard/assets/data.json
           git add data/chart_history.json dashboard/assets/chart_history.json 2>/dev/null || true
           git add data/breadth.json dashboard/assets/breadth.json 2>/dev/null || true
-          git add data/correlation.json dashboard/assets/correlation.json 2>/dev/null || true
           git add data/btc_signals.json dashboard/assets/btc_signals.json 2>/dev/null || true
           git diff --staged --quiet || git commit -m "Backfill history with High/Low/Volume columns"
           gh auth setup-git

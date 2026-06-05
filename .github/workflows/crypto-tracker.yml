@@ -41,6 +41,7 @@ jobs:
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           SOSOVALUE_API_KEY: ${{ secrets.SOSOVALUE_API_KEY }}
+          COINMETRICS_API_KEY: ${{ secrets.COINMETRICS_API_KEY }}
         run: python scripts/calculate_metrics.py
       
       - name: Build dashboard
@@ -56,7 +57,6 @@ jobs:
           git add data/chart_history.json dashboard/assets/chart_history.json 2>/dev/null || true
           git add data/market_caps.json 2>/dev/null || true
           git add data/breadth.json dashboard/assets/breadth.json 2>/dev/null || true
-          git add data/correlation.json dashboard/assets/correlation.json 2>/dev/null || true
           git add data/btc_signals.json dashboard/assets/btc_signals.json 2>/dev/null || true
           git diff --staged --quiet || git commit -m "Update crypto tracker data"
           gh auth setup-git
