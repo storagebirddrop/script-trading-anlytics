@@ -462,21 +462,75 @@ function buildAllSections(d) {
         }),
     ];
 
-    // ── On-chain (Glassnode locked) ───────────────────────────────────────────
-    const lockedCards = [
-        { name: 'MVRV Z-Score',       description: 'Market Value vs Realised Value Z-score. Best standalone on-chain cycle indicator pre-ETF. Degraded post-Jan 2024 as institutions moved BTC off-chain into custodial vehicles.' },
-        { name: 'NUPL',               description: 'Net Unrealised Profit/Loss. Shows aggregate emotional state of all BTC holders. < 0 = Capitulation zone; > 0.75 = Euphoria / distribution.' },
-        { name: 'RHODL Ratio',        description: 'Realised HODL Ratio — ratio of short-term to long-term holder wealth. Spikes at cycle tops when short-term holders dominate.' },
-        { name: 'CVDD',               description: 'Cumulative Value Days Destroyed — historically touches BTC price at every major cycle bottom.' },
-        { name: 'aSOPR',              description: 'Adjusted Spent Output Profit Ratio. < 1 = holders spending at a loss (capitulation); bouncing off 1.0 = support confirmation.' },
-        { name: 'LTH / STH MVRV Cross', description: 'LTH-MVRV crossing above STH-MVRV signals cycle bottom recovery; the reverse marks distribution by long-term holders.' },
-        { name: 'Reserve Risk',       description: 'Confidence of long-term holders vs current price. Low = strong HODLer conviction; high = HODLers distributing into strength.' },
-    ].map(cfg => renderLockedCard(cfg));
+    // ── On-chain (4 active via Coinmetrics Community + 3 locked Glassnode) ──────
+    const onc = d.on_chain || {};
+
+    const onChainCards = [
+
+        renderSignalCard({
+            name: 'MVRV Z-Score',
+            value: onc.mvrv_z_score != null ? onc.mvrv_z_score.toFixed(2) : 'N/A',
+            context: onc.mvrv_ratio != null
+                ? 'MVRV: ' + onc.mvrv_ratio.toFixed(2)
+                  + ' · Realized Cap: $' + (onc.realized_cap_usd / 1e9).toFixed(0) + 'B'
+                : 'Data unavailable',
+            signal: onc.signal_mvrv_z || null,
+            tooltip: 'Market Cap / Realized Cap, Z-scored over 2 years. Below 0 = price below aggregate cost basis — historically every major cycle bottom. Above 6 = historically every cycle top. Source: Coinmetrics Community API (free, no auth).',
+        }),
+
+        renderSignalCard({
+            name: 'NUPL',
+            value: onc.nupl != null ? (onc.nupl * 100).toFixed(1) + '%' : 'N/A',
+            context: (() => {
+                if (onc.nupl == null) return 'Data unavailable';
+                const v = onc.nupl;
+                return v < 0     ? 'Capitulation — market in aggregate unrealised loss'
+                     : v < 0.25 ? 'Hope / Fear'
+                     : v < 0.5  ? 'Optimism / Belief'
+                                 : 'Euphoria / Greed — distribution zone';
+            })(),
+            signal: onc.signal_nupl || null,
+            tooltip: 'Net Unrealised Profit/Loss = (Market Cap − Realized Cap) / Market Cap. Negative = aggregate loss (historically strong accumulation). Above 0.5 = euphoria / distribution. Source: Coinmetrics Community API (free, no auth).',
+        }),
+
+        renderSignalCard({
+            name: 'SOPR',
+            value: onc.sopr != null ? onc.sopr.toFixed(3) : 'N/A',
+            context: onc.sopr == null ? 'Data unavailable'
+                : onc.sopr < 0.98 ? 'Below 1 — holders spending at a loss (capitulation zone)'
+                : onc.sopr > 1.05 ? 'Above 1 — significant profit-taking underway'
+                                  : 'Near 1 — breakeven / consolidation',
+            signal: onc.signal_sopr || null,
+            tooltip: 'Spent Output Profit Ratio. < 1 = coins moved at a loss (capitulation); > 1 = moved at profit (distribution pressure). Basic SOPR (not age-adjusted). Source: Coinmetrics Community API (free, no auth).',
+        }),
+
+        renderSignalCard({
+            name: 'CVDD',
+            value: onc.cdd_90d_change_pct != null
+                ? (onc.cdd_90d_change_pct >= 0 ? '+' : '') + onc.cdd_90d_change_pct.toFixed(1) + '% (90d)'
+                : 'N/A',
+            context: onc.cdd_90d_change_pct == null ? 'Data unavailable'
+                : onc.signal_cvdd === 'accumulate'
+                    ? 'CDD declining — long-term holders HODLing, low sell pressure'
+                : onc.signal_cvdd === 'distribute'
+                    ? 'CDD accelerating — old coins reactivating, distribution pressure'
+                    : 'CDD trend neutral — mixed HODL/spend behaviour',
+            signal: onc.signal_cvdd || null,
+            tooltip: 'Coin Days Destroyed 90-day trend. Declining = HODLers holding (bullish). Accelerating = old coins moving = potential distribution. Source: Coinmetrics Community API (free, no auth).',
+        }),
+
+        // Remaining locked — require UTXO age-band data (Glassnode only, no free alternative)
+        ...[
+            { name: 'RHODL Ratio',           description: 'Realised HODL Ratio — ratio of short-term to long-term holder wealth. Spikes at cycle tops. Requires UTXO age-banded Realized Cap — Glassnode only.' },
+            { name: 'LTH / STH MVRV Cross',  description: 'LTH-MVRV crossing above STH-MVRV signals cycle bottom recovery. Requires 155-day age-split Realized Cap — Glassnode only.' },
+            { name: 'Reserve Risk',           description: 'Confidence of long-term holders vs current price. Low = strong HODLer conviction. Requires HODL Bank (cumulative LTH opportunity cost) — Glassnode only.' },
+        ].map(cfg => renderLockedCard(cfg)),
+    ];
 
     container.appendChild(renderSection('Price Structure', priceCards));
     container.appendChild(renderSection('Sentiment & Positioning', sentCards));
     container.appendChild(renderSection('Mining & Liquidity', miningCards));
-    container.appendChild(renderSection('On-Chain — Requires Glassnode', lockedCards));
+    container.appendChild(renderSection('On-Chain', onChainCards));
 }
 
 // ── Load and render ───────────────────────────────────────────────────────────

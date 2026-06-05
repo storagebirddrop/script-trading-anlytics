@@ -1051,6 +1051,112 @@ def fetch_puell_multiple(btc_prices: pd.Series) -> Optional[Dict[str, Any]]:
         return None
 
 
+def fetch_coinmetrics_onchain() -> Optional[Dict[str, Any]]:
+    """Fetch on-chain metrics from Coinmetrics Community API (free, no auth).
+
+    Single call retrieves CapRealUSD, CapMrktCurUSD, SOPR, and CDD.
+    MVRV Z-Score and NUPL are derived here from the raw cap data.
+    Coinmetrics doesn't pre-compute Z-Score/NUPL on the free tier, but
+    the raw inputs are free — we compute everything in Python.
+
+    Signals:
+      MVRV Z-Score < 0      → accumulate   (historically every major cycle bottom)
+      MVRV Z-Score ≥ 6      → distribute   (historically every cycle top)
+      NUPL < 0              → accumulate   (market in aggregate unrealised loss)
+      NUPL ≥ 0.5            → distribute   (euphoria zone)
+      SOPR < 0.98           → accumulate   (holders spending at a loss — capitulation)
+      SOPR > 1.05           → distribute   (significant profit-taking)
+      CDD 90d Δ < -10%      → accumulate   (HODLers holding, low sell pressure)
+      CDD 90d Δ > +30%      → distribute   (old coins reactivating)
+    """
+    try:
+        resp = requests.get(
+            'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics',
+            params={
+                'assets': 'btc',
+                'metrics': 'CapRealUSD,CapMrktCurUSD,SOPR,CDD',
+                'frequency': '1d',
+                'limit': 730,
+            },
+            timeout=20,
+        )
+        resp.raise_for_status()
+        rows = resp.json().get('data', [])
+        if len(rows) < 60:
+            return None
+
+        mrkts, reals, soprs, cdds = [], [], [], []
+        for row in rows:
+            m = row.get('CapMrktCurUSD')
+            r = row.get('CapRealUSD')
+            s = row.get('SOPR')
+            c = row.get('CDD')
+            if m and r:
+                mrkts.append(float(m))
+                reals.append(float(r))
+                soprs.append(float(s) if s else None)
+                cdds.append(float(c) if c else None)
+
+        if len(mrkts) < 60:
+            return None
+
+        # MVRV Z-Score
+        mvrv_series = [m / r for m, r in zip(mrkts, reals)]
+        mvrv_now = mvrv_series[-1]
+        mean_mv = sum(mvrv_series) / len(mvrv_series)
+        std_mv = (sum((x - mean_mv) ** 2 for x in mvrv_series) / len(mvrv_series)) ** 0.5
+        z_score = (mvrv_now - mean_mv) / std_mv if std_mv > 0 else 0.0
+
+        # NUPL
+        nupl = (mrkts[-1] - reals[-1]) / mrkts[-1]
+
+        # SOPR — latest non-null value
+        sopr_now = next((s for s in reversed(soprs) if s is not None), None)
+
+        # CVDD trend: 90d MA rate of change of CDD
+        cdd_clean = [c for c in cdds if c is not None]
+        cdd_now = cdd_clean[-1] if cdd_clean else None
+        if len(cdd_clean) >= 180:
+            w = 90
+            ma_now = sum(cdd_clean[-w:]) / w
+            ma_prev = sum(cdd_clean[-w * 2:-w]) / w
+            cdd_change_pct: Optional[float] = (ma_now - ma_prev) / ma_prev * 100 if ma_prev > 0 else 0.0
+        else:
+            cdd_change_pct = None
+
+        sig_mvrv = 'accumulate' if z_score < 0 else ('distribute' if z_score >= 6 else 'neutral')
+        sig_nupl = 'accumulate' if nupl < 0 else ('distribute' if nupl >= 0.5 else 'neutral')
+        sig_sopr = (
+            'accumulate' if sopr_now < 0.98 else ('distribute' if sopr_now > 1.05 else 'neutral')
+        ) if sopr_now is not None else None
+        sig_cvdd = (
+            'accumulate' if cdd_change_pct < -10 else ('distribute' if cdd_change_pct > 30 else 'neutral')
+        ) if cdd_change_pct is not None else None
+
+        print(
+            f"  Coinmetrics: MVRV {mvrv_now:.3f}, Z-score {z_score:.2f}, "
+            f"NUPL {nupl * 100:.1f}%, SOPR {sopr_now}, "
+            f"signals: mvrv_z={sig_mvrv} nupl={sig_nupl} sopr={sig_sopr} cvdd={sig_cvdd}"
+        )
+        return {
+            'realized_cap_usd': round(reals[-1]),
+            'market_cap_usd': round(mrkts[-1]),
+            'mvrv_ratio': round(mvrv_now, 4),
+            'mvrv_z_score': round(z_score, 2),
+            'nupl': round(nupl, 4),
+            'sopr': round(sopr_now, 4) if sopr_now is not None else None,
+            'cdd_latest': round(cdd_now) if cdd_now is not None else None,
+            'cdd_90d_change_pct': round(cdd_change_pct, 1) if cdd_change_pct is not None else None,
+            'signal_mvrv_z': sig_mvrv,
+            'signal_nupl': sig_nupl,
+            'signal_sopr': sig_sopr,
+            'signal_cvdd': sig_cvdd,
+        }
+    except Exception as e:
+        print(f"  Warning: Coinmetrics on-chain fetch failed: {e}")
+        return None
+
+
 def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any]) -> Dict[str, Any]:
     """Build btc_signals.json — BTC cycle indicator confluence page data.
 
@@ -1165,6 +1271,8 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     m2_data = fetch_global_m2()
     print("  Fetching ETF net flows (SoSoValue)...")
     etf_data = fetch_etf_flows()
+    print("  Fetching on-chain metrics (Coinmetrics Community — free, no auth)...")
+    onchain_data = fetch_coinmetrics_onchain()
 
     sig_200w = _sig_200w(price, ma200w)
     sig_200d = _sig_200d(price, ma200d)
@@ -1183,6 +1291,10 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     sig_stable = _sig_stable(stable_data)
     sig_m2 = m2_data['signal'] if m2_data else None
     sig_etf = _sig_etf(etf_data)
+    sig_mvrv_z = onchain_data['signal_mvrv_z'] if onchain_data else None
+    sig_nupl   = onchain_data['signal_nupl']   if onchain_data else None
+    sig_sopr   = onchain_data['signal_sopr']   if onchain_data else None
+    sig_cvdd   = onchain_data['signal_cvdd']   if onchain_data else None
 
     all_sigs = [
         sig_200w, sig_200d, sig_pi, sig_rsi_d, sig_rsi_w, sig_atr, sig_vp,
@@ -1194,6 +1306,9 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
         all_sigs.append(sig_m2)
     if sig_etf is not None:
         all_sigs.append(sig_etf)
+    for sig in (sig_mvrv_z, sig_nupl, sig_sopr, sig_cvdd):
+        if sig is not None:
+            all_sigs.append(sig)
     active = [s for s in all_sigs if s is not None]
     acc_count = active.count('accumulate')
     dist_count = active.count('distribute')
@@ -1266,6 +1381,13 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
             'm2_12w_lagged_change_pct': m2_data['m2_12w_lagged_change_pct'] if m2_data else None,
             'm2_current_change_pct': m2_data['m2_current_change_pct'] if m2_data else None,
             'signal_global_m2': sig_m2,
+        },
+        'on_chain': onchain_data or {
+            'realized_cap_usd': None, 'market_cap_usd': None,
+            'mvrv_ratio': None, 'mvrv_z_score': None, 'nupl': None,
+            'sopr': None, 'cdd_latest': None, 'cdd_90d_change_pct': None,
+            'signal_mvrv_z': None, 'signal_nupl': None,
+            'signal_sopr': None, 'signal_cvdd': None,
         },
         'confluence': {
             'accumulate_count': acc_count,

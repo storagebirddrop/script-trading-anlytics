@@ -26,7 +26,7 @@
         <div class="confluence-banner" id="confluence-banner" role="status" aria-label="Signal confluence summary"></div>
 
         <div class="btc-era-note">
-            <strong>Post-ETF Era (Jan 2024+):</strong> US spot ETF approval fundamentally shifted the signal landscape. Classic on-chain metrics (MVRV, NUPL) have degraded as BTC moved into custodial off-chain vehicles and institutional wrapping. <strong>Primary indicators are now:</strong> ETF net flows, derivatives OI and funding, global M2 liquidity, and macro cycles &mdash; alongside price-structure signals (200WMA, Pi Cycle) which remain fully applicable. On-chain metrics are shown below as locked placeholders, ready to activate with a Glassnode API key.
+            <strong>Post-ETF Era (Jan 2024+):</strong> US spot ETF approval fundamentally shifted the signal landscape. Classic on-chain metrics have degraded as BTC moved into custodial off-chain vehicles and institutional wrapping. <strong>Primary indicators are now:</strong> ETF net flows, derivatives OI and funding, global M2 liquidity, and macro cycles &mdash; alongside price-structure signals (200WMA, Pi Cycle) which remain fully applicable. <strong>On-chain section:</strong> MVRV Z-Score, NUPL, SOPR, and CVDD are now active using the Coinmetrics Community API (free, no API key). RHODL Ratio, LTH/STH MVRV Cross, and Reserve Risk remain locked &mdash; these require UTXO age-band data only available from Glassnode (paid).
         </div>
 
         <div class="btc-loading" id="btc-loading">Loading BTC cycle signals&hellip;</div>
@@ -44,7 +44,8 @@
             Hash Ribbons (30/60-day hashrate MAs) &amp; Puell Multiple (block rewards) &mdash; mempool.space (free).
             Global M2 &mdash; FRED (Federal Reserve Bank of St. Louis, WM2NS series, free API key required).
             ETF Net Daily Flows &mdash; SoSoValue (openapi.sosovalue.com, requires SOSOVALUE_API_KEY secret).
-            On-chain metrics (locked cards) &mdash; Glassnode (paid API, Phase 2).
+            MVRV Z-Score, NUPL, SOPR, CVDD &mdash; Coinmetrics Community API (community-api.coinmetrics.io, free, no API key).
+            RHODL Ratio, LTH/STH MVRV Cross, Reserve Risk (locked) &mdash; Glassnode (paid API, requires UTXO age-band data).
         </footer>
 
     </div>
