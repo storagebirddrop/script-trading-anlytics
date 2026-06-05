@@ -309,11 +309,11 @@ def generate_chart_history(df: pd.DataFrame, n_bars: int = 90) -> Dict[str, Any]
     return result
 
 
-def _fetch_bybit_futures() -> Dict[str, Any]:
+def _fetch_bybit_futures() -> Optional[Dict[str, Any]]:
     """Fetch USDT perpetual funding rates and OI from Bybit (fallback for geo-blocked envs).
 
-    Called automatically when Binance returns HTTP 451. Bybit's linear tickers
-    endpoint returns all symbols in a single call — no per-symbol OI request needed.
+    Called automatically when Binance returns HTTP 451. Returns None on network
+    failure so the caller can chain to the next fallback (CoinGecko).
     """
     _TRACKED = {
         'BTC', 'ETH', 'SOL', 'XLM', 'NEAR', 'BNB', 'XRP', 'ADA', 'LINK', 'NEO',
@@ -330,7 +330,7 @@ def _fetch_bybit_futures() -> Dict[str, Any]:
         items = resp.json()['result']['list']
     except Exception as e:
         print(f"  Warning: Bybit futures fallback fetch failed: {e}")
-        return {}
+        return None  # signal caller to try next fallback
 
     result: Dict[str, Any] = {}
     for item in items:
@@ -356,6 +356,80 @@ def _fetch_bybit_futures() -> Dict[str, Any]:
     return result
 
 
+def _fetch_coingecko_futures() -> Dict[str, Any]:
+    """Fetch perpetual funding rates from CoinGecko /api/v3/derivatives (no auth, no geo-block).
+
+    CoinGecko proxies this data through their CDN so it works from GitHub Actions
+    even when Binance (451) and Bybit (403) are both blocked. OI is not available
+    via this endpoint, so open_interest_usd is always None.
+    """
+    _ID_MAP = {
+        'bitcoin': 'BTC',
+        'ethereum': 'ETH',
+        'solana': 'SOL',
+        'ripple': 'XRP',
+        'cardano': 'ADA',
+        'binancecoin': 'BNB',
+        'chainlink': 'LINK',
+        'stellar': 'XLM',
+        'near': 'NEAR',
+        'neo': 'NEO',
+        'render-token': 'RENDER',
+        'sei-network': 'SEI',
+        'woo-network': 'WOO',
+        'jasmy': 'JASMY',
+        'aevo': 'AEVO',
+        'drift-protocol': 'DRIFT',
+        'eigenlayer': 'EIGEN',
+        'wormhole': 'W',
+        'gas': 'GAS',
+        'reserve-rights-token': 'RSR',
+        'alchemy-pay': 'ACH',
+        'ondo-finance': 'ONDO',
+        'vethor-token': 'VTHO',
+        'rezolve-ai': 'REZ',
+        'peaq-network': 'PEAQ',
+    }
+    try:
+        resp = requests.get(
+            'https://api.coingecko.com/api/v3/derivatives',
+            timeout=20,
+        )
+        resp.raise_for_status()
+        items = resp.json()
+    except Exception as e:
+        print(f"  Warning: CoinGecko derivatives fallback failed: {e}")
+        return {}
+
+    # CoinGecko returns many exchanges/contracts per coin — average perpetuals per index_id
+    from collections import defaultdict
+    rates: Dict[str, list] = defaultdict(list)
+    for item in items:
+        if item.get('contract_type') != 'perpetual':
+            continue
+        index_id = item.get('index_id', '')
+        coin = _ID_MAP.get(index_id)
+        if not coin:
+            continue
+        fr = item.get('funding_rate')
+        if fr is not None:
+            try:
+                rates[coin].append(float(fr) * 100)  # decimal → % per 8h
+            except (ValueError, TypeError):
+                pass
+
+    result: Dict[str, Any] = {}
+    for coin, fr_list in rates.items():
+        if fr_list:
+            result[coin] = {
+                'funding_rate': sum(fr_list) / len(fr_list),
+                'open_interest_usd': None,
+            }
+
+    print(f"  CoinGecko derivatives fallback: {len(result)} symbols received")
+    return result
+
+
 def fetch_binance_futures() -> Dict[str, Any]:
     """Fetch funding rates and open interest from Binance USDT-M futures (free, no auth).
 
@@ -377,8 +451,12 @@ def fetch_binance_futures() -> Dict[str, Any]:
         items = resp.json()
     except requests.HTTPError as e:
         if e.response is not None and e.response.status_code == 451:
-            print("  Binance geo-blocked (451) — falling back to Bybit...")
-            return _fetch_bybit_futures()
+            print("  Binance geo-blocked (451) — trying Bybit...")
+            bybit_data = _fetch_bybit_futures()
+            if bybit_data:
+                return bybit_data
+            print("  Bybit also blocked — falling back to CoinGecko derivatives...")
+            return _fetch_coingecko_futures()
         print(f"  Warning: Binance premiumIndex fetch failed: {e}")
         return {}
     except Exception as e:
