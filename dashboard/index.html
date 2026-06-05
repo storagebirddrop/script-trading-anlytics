@@ -130,14 +130,6 @@
                 </div>
             </section>
 
-            <!-- Correlation Heatmap Tab -->
-            <section id="correlation-tab" class="tab-content" role="tabpanel" tabindex="-1" aria-labelledby="tab-correlation">
-                <h2>Crypto Correlation — 90-Day Rolling</h2>
-                <div id="correlation-content" class="correlation-content">
-                    <div class="loading">Loading…</div>
-                </div>
-            </section>
-
             <!-- Asset Drilldown Tab -->
             <section id="drilldown-tab" class="tab-content" role="tabpanel" tabindex="-1" aria-labelledby="tab-drilldown">
                 <h2>Asset Drilldown</h2>
@@ -178,7 +170,14 @@
             </section>
         </main>
 
-        <nav class="bottom-nav" role="tablist">
+        <nav class="bottom-nav" role="tablist" id="bottom-nav">
+            <!-- Hamburger toggle (visible only on mobile via CSS) -->
+            <button class="hamburger-toggle" id="hamburger-toggle"
+                    aria-label="Open navigation menu" aria-expanded="false"
+                    aria-controls="nav-drawer">
+                <span class="hamburger-icon" aria-hidden="true">&#9776;</span>
+                <span class="hamburger-current-tab" id="hamburger-current-tab">Portfolio</span>
+            </button>
             <button id="tab-portfolio" class="nav-btn active" data-tab="portfolio-tab" role="tab" aria-selected="true" aria-label="Portfolio overview" aria-controls="portfolio-tab">
                 <span class="nav-icon" aria-hidden="true">📊</span>
                 <span class="nav-label">Portfolio</span>
@@ -199,11 +198,33 @@
                 <span class="nav-icon" aria-hidden="true">🔍</span>
                 <span class="nav-label">Drilldown</span>
             </button>
-            <button id="tab-correlation" class="nav-btn" data-tab="correlation-tab" role="tab" aria-selected="false" aria-label="Correlation Heatmap" aria-controls="correlation-tab">
-                <span class="nav-icon" aria-hidden="true">🟦</span>
-                <span class="nav-label">Corr</span>
-            </button>
         </nav>
+
+        <!-- Navigation drawer (mobile slide-up) -->
+        <div class="nav-drawer" id="nav-drawer" role="navigation"
+             aria-label="Main navigation" aria-hidden="true">
+            <button class="drawer-item active" data-tab="portfolio-tab" aria-label="Portfolio overview">
+                <span class="drawer-item-icon" aria-hidden="true">📊</span>
+                <span class="drawer-item-label">Portfolio</span>
+            </button>
+            <button class="drawer-item" data-tab="rankings-tab" aria-label="ATR Rankings">
+                <span class="drawer-item-icon" aria-hidden="true">📈</span>
+                <span class="drawer-item-label">Rankings</span>
+            </button>
+            <button class="drawer-item" data-tab="historical-tab" aria-label="Extremes">
+                <span class="drawer-item-icon" aria-hidden="true">📉</span>
+                <span class="drawer-item-label">Extremes</span>
+            </button>
+            <button class="drawer-item" data-tab="macro-tab" aria-label="Macro Overview">
+                <span class="drawer-item-icon" aria-hidden="true">🌐</span>
+                <span class="drawer-item-label">Macro</span>
+            </button>
+            <button class="drawer-item" data-tab="drilldown-tab" aria-label="Asset Drilldown">
+                <span class="drawer-item-icon" aria-hidden="true">🔍</span>
+                <span class="drawer-item-label">Drilldown</span>
+            </button>
+        </div>
+        <div class="nav-backdrop" id="nav-backdrop" aria-hidden="true"></div>
     </div>
 
     <!-- Price Alert Modal -->

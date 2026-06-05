@@ -62,7 +62,6 @@ Manual input ─────────┘                      └──→ AT
                                           data/dashboard.json
                                           data/chart_history.json
                                           data/breadth.json
-                                          data/correlation.json
                                           data/btc_signals.json
                                                         ↓
                                           scripts/build_dashboard.py
@@ -70,7 +69,6 @@ Manual input ─────────┘                      └──→ AT
                                           dashboard/assets/data.json
                                           dashboard/assets/chart_history.json
                                           dashboard/assets/breadth.json
-                                          dashboard/assets/correlation.json
                                           dashboard/assets/btc_signals.json → Cloudflare Pages
 ```
 
@@ -98,10 +96,9 @@ Shared library used by both `crypto_tracker.py` and `backfill_historical.py`. Av
 | `data/dashboard.json` | Computed metrics consumed by the web UI |
 | `data/chart_history.json` | Last 90 bars of ATR Distance, RSI, Price, EMA21 per asset+timeframe; used by Drilldown charts |
 | `data/breadth.json` | Last 60 days of daily regime counts for portfolio assets (non-macro); used by breadth chart on Portfolio tab |
-| `data/correlation.json` | 90-day Pearson correlation matrix for 28 crypto assets; used by the Corr tab heatmap |
 | `data/btc_signals.json` | BTC cycle indicator confluence data; consumed by `dashboard/btc.html` |
 
-`history.csv` is the source of truth. `master.csv`, `dashboard.json`, `chart_history.json`, `breadth.json`, `correlation.json`, and `btc_signals.json` are all derived from it.
+`history.csv` is the source of truth. `master.csv`, `dashboard.json`, `chart_history.json`, `breadth.json`, and `btc_signals.json` are all derived from it.
 
 ### Tracked Assets
 
@@ -196,7 +193,9 @@ All fields are `null` when `High`/`Low`/`Volume` columns are absent from `histor
 
 ### Web Dashboard
 
-Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (copied from `data/dashboard.json`) and `dashboard/assets/chart_history.json` via `fetch()`. Two pages, six tabs. Uses Chart.js (CDN) for charts.
+Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (copied from `data/dashboard.json`) and `dashboard/assets/chart_history.json` via `fetch()`. Two pages, five tabs. Uses Chart.js (CDN) for charts.
+
+**Mobile navigation:** on screens ≤520px the five tab buttons are replaced by a hamburger toggle (☰) that opens a slide-up drawer listing all tabs with icon + label. The drawer closes on tap, backdrop click, or Escape. Body scroll is locked while the drawer is open. CSS classes (`nav-open`, `nav-drawer-open`) drive all state — no inline styles (CSP constraint). Implemented in `dashboard/js/dashboard.js` (`openNavDrawer`, `closeNavDrawer`, extended `setupNavigation`) and `dashboard/css/styles.css`.
 
 **Pages:**
 - `dashboard/landing.html` — static landing page (no JS, no data fetch); explains ATR Distance, regime classification, and the four-step workflow. Linked from the "About" button in the dashboard header.
@@ -207,7 +206,6 @@ Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (
 - **Rankings tab:** top 10 most oversold / most extended assets with historical percentile rank and signal-strength label (Extreme Oversold → Mild Dip / Extreme Extended → Mild Extension). Macro assets excluded.
 - **Extremes tab** (formerly "Historical"): percentile gauge showing current ATR Distance position within historical range, with coloured regime zones; contextual interpretation paragraph explaining how frequently the asset has been at this level; metrics grid including RSI Z-Score. Macro assets excluded from selector.
 - **Macro tab:** 25 macro assets grouped into 5 sections (US Indices, EU Indices, APAC Indices, Commodities, Forex). Each card shows symbol, zone badge (`macroZoneLabel()`), price, ATR Distance, and Chg%. Clicking any card navigates to the Drilldown for that asset. Zone badges use neutral labels (Neutral/Oversold/Extended) rather than the crypto-flavoured regime names.
-- **Corr tab:** 90-day Pearson correlation heatmap for all crypto assets with sufficient history (≥30 bars in window). Fetched lazily on first tab visit from `assets/correlation.json`. Pure DOM/CSS grid (no extra library) — cells coloured red (−1) → dark background (0) → green (+1) via `corrColor()`. Hover tooltip shows `ASSET_A / ASSET_B: 0.xxx`. Includes colour-scale legend.
 - **Drilldown tab:** Key Takeaways panel (up to 5 auto-generated insights: ATR percentile, RSI status, weekly regime alignment, recent ATR trend direction, and VP position), then Chart.js line charts (Price vs EMA21, ATR Distance, RSI, Weekly ATR Distance, Volume Profile horizontal bar chart) plus summary metrics grid (includes VP Zone, POC, VAH, VAL, TF Align, ATR Trend, Transition, RS/BTC, Funding Rate (crypto), Open Interest (crypto), ADX (14), BB %B (20), BB Width, Signal Score rows). Available for all 70 assets including macro.
 
 **Signal strength tiers** (used in Opportunity/Risk panels and Rankings):
@@ -275,15 +273,13 @@ The gauge x-axis represents the empirical distribution, not a linear ATR Distanc
 - `renderOpportunityPanels()` — populates top-3 oversold / extended panels (excludes macro assets)
 - `renderTransitionsSection()` — renders or hides the Recent Regime Transitions chips section; hidden when no transitions exist
 - `renderBreadthChart()` — fetches `assets/breadth.json` and renders the 60-day stacked bar chart; hides section on fetch failure
-- `ensureCorrelationData()` — lazy-fetches `assets/correlation.json` once; no-op on subsequent calls
-- `corrColor(v)` — maps a correlation coefficient [−1, 1] to a CSS `rgb()` string (red → dark → green); null → grey
-- `renderCorrelationHeatmap()` — builds the 28×28 DOM grid entirely via DOM API (CSP-safe; `element.style.backgroundColor` for cell colours); adds row/column labels and hover tooltip; hidden on data unavailability
 - `renderMacro()` — renders the Macro tab with 5 subcategory groups; builds cards via DOM API for CSP compliance
 - `buildGaugeInterpretation(current, historical)` — returns plain-language gauge interpretation text
 - `generateKeyTakeaways(symbol, tfData, allData, chartHistory)` — generates drilldown insight array (up to 5, including VP)
 - `renderVolumeProfileChart(current, tf)` — renders horizontal bar VP chart; CSP-compliant legend via DOM API
 - `makeSparklineSvg(values, currentAtrDistance)` — returns inline SVG string for a 14-bar ATR Distance sparkline; stroke colour matches ATR semantics; dashed zero line when range straddles neutral
 - `renderPortfolioSparklines()` — fills `.card-sparkline[data-asset]` placeholders using `chartHistoryData`; no-op if data not yet loaded
+- `openNavDrawer()` / `closeNavDrawer()` — toggle the mobile hamburger drawer; manage `nav-open` / `nav-drawer-open` CSS classes, `aria-expanded`, and `aria-hidden`; body scroll locked while open
 
 **Key JS constants:**
 - `ASSET_CATEGORIES` — sets for `crypto`, `nasdaq`, `lse`, `macro`; used to filter assets across all tabs
@@ -314,9 +310,6 @@ No API key required. Both fields degrade gracefully to `null` on network failure
 
 **New pipeline output** — `data/breadth.json` / `dashboard/assets/breadth.json`:
 Written by `generate_breadth_json()` in `calculate_metrics.py`. Covers the last 60 trading days of daily (1d) non-macro assets. Structure: `{ "dates": [...], "capitulation": [...], "accumulation": [...], "trend": [...], "distribution": [...], "mania": [...] }` — each array has one count per date entry. Copied by `build_dashboard.py` alongside `data.json` and `chart_history.json`.
-
-**New pipeline output** — `data/correlation.json` / `dashboard/assets/correlation.json`:
-Written by `generate_correlation_json()` in `calculate_metrics.py`. Rolling 90-day Pearson correlation matrix for the 28 crypto assets using daily close prices. Assets with fewer than 30 non-NaN rows in the window are excluded. Structure: `{ "date": "YYYY-MM-DD", "lookback_days": 90, "assets": [...], "matrix": [[float|null]...] }`. Copied by `build_dashboard.py`.
 
 **New pipeline output** — `data/btc_signals.json` / `dashboard/assets/btc_signals.json`:
 Written by `generate_btc_signals_json(history_df, dashboard)` in `calculate_metrics.py`. BTC cycle indicator confluence data for the standalone `btc.html` page. Sections: `price_indicators` (200WMA, 200DMA, Pi Cycle, RSI daily/weekly, ATR regime, VP position), `sentiment` (Fear & Greed, Funding Rate, OI, ETF Flows), `market_structure` (BTC dominance, Altseason), `mining` (Hash Ribbons — 30/60DMA of hashrate via mempool.space; `puell_multiple`, `puell_daily_revenue_usd`, `puell_ma_365d_usd`, `signal_puell` from mempool.space block rewards + history prices), `liquidity` (USDT+USDC combined supply and stablecoin dominance via CoinGecko, plus `global_m2_billion_usd`, `m2_12w_lagged_change_pct`, `m2_current_change_pct`, `signal_global_m2` from FRED `WM2NS` when `FRED_API_KEY` env var is set), `on_chain` (`realized_cap_usd`, `market_cap_usd`, `mvrv_ratio`, `mvrv_z_score`, `nupl`, `sopr`, `cdd_latest`, `cdd_90d_change_pct`, `signal_mvrv_z`, `signal_nupl`, `signal_sopr`, `signal_cvdd` — from Coinmetrics Community API, free, no auth key), `confluence` (accumulate/distribute/neutral counts, phase, strength). Path constant: `BTC_SIGNALS_JSON_PATH` in `trading_utils/config.py`. Fetch functions in `calculate_metrics.py`: `fetch_hash_ribbons()` (mempool.space), `fetch_puell_multiple(btc_prices)` (mempool.space block rewards + history.csv prices), `fetch_stablecoin_trend()` (CoinGecko), `fetch_global_m2()` (FRED — requires `FRED_API_KEY` env var), `fetch_etf_flows()` (SoSoValue — requires `SOSOVALUE_API_KEY` env var; `GET /etfs/summary-history?symbol=BTC&country_code=US`; auth `x-soso-api-key`; signal: >$500M = accumulate, <−$200M = distribute), `fetch_coinmetrics_onchain()` (Coinmetrics Community API — free, no key; fetches `CapRealUSD,CapMrktCurUSD,SOPR,CDD`; derives MVRV Z-Score, NUPL, SOPR signal, CVDD trend). Both optional keys passed to "Calculate metrics" CI step via secrets. All fetch functions return `None` gracefully when unavailable. Copied by `build_dashboard.py`. Funding rate fallback chain: Binance USDT-M (HTTP 451 geo-blocked from GitHub Actions) → `_fetch_bybit_futures()` (HTTP 403) → `_fetch_coingecko_futures()` (`/api/v3/derivatives`, no geo-block, OI always null via this path).

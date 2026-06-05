@@ -1,9 +1,7 @@
 // Dashboard JavaScript
 let dashboardData = null;
 let chartHistoryData = null;
-let correlationData = null;
 let chartHistoryPromise = null;   // single in-flight fetch; all callers await this
-let corrFilter = 'all';           // 'all' | 'starred'
 const charts = {};
 
 // Asset categorisation (mirrors trading_utils/config.py ASSETS list)
@@ -191,7 +189,8 @@ function rsBadgeHtml(rs) {
     const outperforming = rs > 1.0;
     const cls   = outperforming ? 'rs-outperforming' : 'rs-underperforming';
     const label = outperforming ? `↑ ${rs.toFixed(2)}×` : `↓ ${rs.toFixed(2)}×`;
-    return `<span class="rs-badge ${cls}">${label}</span>`;
+    const tip = `RS/BTC ${rs.toFixed(2)}×: 30-day return vs BTC (>1 outperforming, <1 underperforming)`;
+    return `<span class="rs-badge ${cls}" title="${tip}">${label}</span>`;
 }
 
 // Formats funding rate as a colour-coded badge.
@@ -219,7 +218,7 @@ function bbPctBHtml(pctB) {
     else if (pctB > 1.0) { cls = 'bb--above'; label = `${val} ↑`; }
     else if (pctB > 0.8) { cls = 'bb--high';  label = val; }
     else                  { cls = 'bb--mid';   label = val; }
-    return `<span class="bb-badge ${cls}">${label}</span>`;
+    return `<span class="bb-badge ${cls}" title="BB %B ${val}: Bollinger Band position (0=lower band, 1=upper band; outside [0,1] = beyond the bands)">${label}</span>`;
 }
 
 // ADX strength badge: > 25 Trending, < 20 Ranging, 20–25 Neutral.
@@ -230,7 +229,7 @@ function adxStrengthHtml(adx) {
     if      (adx > 25) { cls = 'adx--trending'; label = 'Trending'; }
     else if (adx < 20) { cls = 'adx--ranging';  label = 'Ranging';  }
     else               { cls = 'adx--neutral';   label = 'Neutral';  }
-    return `<span class="adx-badge ${cls}">${val} ${label}</span>`;
+    return `<span class="adx-badge ${cls}" title="ADX ${val}: trend strength (>25 trending, <20 ranging)">${val} ${label}</span>`;
 }
 
 // Computes a composite signal score in [-10, +10].
@@ -282,7 +281,7 @@ function signalScoreHtml(score) {
     else if (score <= -2) cls = 'score--neg';
     else                  cls = 'score--neutral';
     const sign = score > 0 ? '+' : '';
-    return `<span class="score-badge ${cls}">${sign}${score.toFixed(1)}</span>`;
+    return `<span class="score-badge ${cls}" title="Composite Signal Score ${sign}${score.toFixed(1)}: positive = oversold setup, negative = extended risk">${sign}${score.toFixed(1)}</span>`;
 }
 
 // Formats open interest USD as a human-readable string.
@@ -620,174 +619,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderDrilldown();
 });
 
-async function ensureCorrelationData() {
-    if (correlationData) return;
-    try {
-        const r = await fetch('assets/correlation.json');
-        if (!r.ok) throw new Error('correlation.json not found');
-        correlationData = await r.json();
-    } catch (e) {
-        console.warn('Correlation data unavailable:', e.message);
-        correlationData = null;
-    }
-}
-
-// Interpolates a correlation coefficient [-1, 1] to a CSS rgb() colour.
-// Positive: dark background → green; Negative: dark background → red; null → grey.
-function corrColor(v) {
-    if (v == null) return 'rgba(55,65,81,0.5)';
-    const t = Math.max(-1, Math.min(1, v));
-    const dark = [26, 32, 44];
-    if (t >= 0) {
-        const green = [16, 185, 129];
-        return `rgb(${Math.round(dark[0] + t*(green[0]-dark[0]))},${Math.round(dark[1] + t*(green[1]-dark[1]))},${Math.round(dark[2] + t*(green[2]-dark[2]))})`;
-    } else {
-        const red = [239, 68, 68];
-        const s = -t;
-        return `rgb(${Math.round(dark[0] + s*(red[0]-dark[0]))},${Math.round(dark[1] + s*(red[1]-dark[1]))},${Math.round(dark[2] + s*(red[2]-dark[2]))})`;
-    }
-}
-
-function renderCorrelationHeatmap() {
-    const container = document.getElementById('correlation-content');
-    if (!container) return;
-
-    if (!correlationData || !correlationData.assets || !correlationData.matrix) {
-        container.innerHTML = '<div class="loading">Correlation data unavailable.</div>';
-        return;
-    }
-
-    const allAssets = correlationData.assets;
-    const allMatrix = correlationData.matrix;
-
-    // Compute display subset
-    let displayAssets;
-    if (corrFilter === 'starred') {
-        const starred = new Set(getStarred());
-        displayAssets = allAssets.filter(a => starred.has(a));
-    } else {
-        displayAssets = allAssets;
-    }
-
-    container.innerHTML = '';
-
-    // Filter pills
-    const pills = document.createElement('div');
-    pills.className = 'corr-filter-pills';
-    [['all', 'All'], ['starred', '★ Starred']].forEach(([val, label]) => {
-        const btn = document.createElement('button');
-        btn.className = 'chip' + (corrFilter === val ? ' active' : '');
-        btn.textContent = label;
-        btn.addEventListener('click', () => {
-            corrFilter = val;
-            renderCorrelationHeatmap();
-        });
-        pills.appendChild(btn);
-    });
-    container.appendChild(pills);
-
-    // Insufficient starred assets message
-    if (corrFilter === 'starred' && displayAssets.length < 2) {
-        const msg = document.createElement('p');
-        msg.className = 'correlation-meta';
-        msg.style.marginTop = '1rem';
-        msg.textContent = displayAssets.length === 0
-            ? 'No starred crypto assets. Star assets on the Portfolio tab to use this filter.'
-            : 'Star at least 2 crypto assets on the Portfolio tab to see correlations.';
-        container.appendChild(msg);
-        return;
-    }
-
-    // Build submatrix (indices of displayAssets in allAssets)
-    const indices = displayAssets.map(a => allAssets.indexOf(a));
-    const matrix = indices.map(r => indices.map(c => allMatrix[r][c]));
-    const assets = displayAssets;
-    const n = assets.length;
-
-    // Metadata line
-    const meta = document.createElement('p');
-    meta.className = 'correlation-meta';
-    meta.textContent = `${correlationData.lookback_days}-day Pearson · ${n} asset${n !== 1 ? 's' : ''} · as of ${correlationData.date}`;
-    container.appendChild(meta);
-
-    // Shared tooltip
-    let tooltip = document.getElementById('heatmap-tooltip');
-    if (!tooltip) {
-        tooltip = document.createElement('div');
-        tooltip.id = 'heatmap-tooltip';
-        tooltip.className = 'heatmap-tooltip';
-        tooltip.hidden = true;
-        document.body.appendChild(tooltip);
-    }
-
-    const scroll = document.createElement('div');
-    scroll.className = 'heatmap-scroll';
-    container.appendChild(scroll);
-
-    const grid = document.createElement('div');
-    grid.className = 'heatmap-grid';
-    grid.style.gridTemplateColumns = `3.5rem repeat(${n}, 1.375rem)`;
-    scroll.appendChild(grid);
-
-    // Top-left corner spacer
-    const corner = document.createElement('div');
-    corner.className = 'heatmap-corner';
-    grid.appendChild(corner);
-
-    // Column headers
-    assets.forEach(asset => {
-        const wrap = document.createElement('div');
-        wrap.className = 'heatmap-col-label-wrap';
-        const lbl = document.createElement('span');
-        lbl.className = 'heatmap-col-label';
-        lbl.textContent = asset;
-        wrap.appendChild(lbl);
-        grid.appendChild(wrap);
-    });
-
-    // Data rows
-    assets.forEach((rowAsset, r) => {
-        const rowLabel = document.createElement('div');
-        rowLabel.className = 'heatmap-row-label';
-        rowLabel.textContent = rowAsset;
-        grid.appendChild(rowLabel);
-
-        matrix[r].forEach((v, c) => {
-            const cell = document.createElement('div');
-            cell.className = r === c ? 'heatmap-cell heatmap-cell--diag' : 'heatmap-cell';
-            cell.style.backgroundColor = corrColor(v);
-
-            cell.addEventListener('mouseover', () => {
-                tooltip.textContent = `${assets[r]} / ${assets[c]}: ${v != null ? v.toFixed(3) : 'N/A'}`;
-                tooltip.hidden = false;
-            });
-            cell.addEventListener('mousemove', e => {
-                tooltip.style.left = (e.clientX + 14) + 'px';
-                tooltip.style.top  = (e.clientY - 32) + 'px';
-            });
-            cell.addEventListener('mouseout', () => { tooltip.hidden = true; });
-
-            grid.appendChild(cell);
-        });
-    });
-
-    // Legend
-    const legend = document.createElement('div');
-    legend.className = 'heatmap-legend';
-    const negLabel = document.createElement('span');
-    negLabel.className = 'heatmap-legend-label heatmap-legend-neg';
-    negLabel.textContent = '−1';
-    const bar = document.createElement('div');
-    bar.className = 'heatmap-legend-bar';
-    const posLabel = document.createElement('span');
-    posLabel.className = 'heatmap-legend-label heatmap-legend-pos';
-    posLabel.textContent = '+1';
-    legend.appendChild(negLabel);
-    legend.appendChild(bar);
-    legend.appendChild(posLabel);
-    container.appendChild(legend);
-}
-
 // ─── Navigation ───────────────────────────────────────────────────────────────
 
 function navigateTo(tabId, asset) {
@@ -804,6 +635,17 @@ function navigateTo(tabId, asset) {
         tab.classList.toggle('active', tab.id === tabId);
     });
 
+    // Sync hamburger drawer active state and current-tab label
+    document.querySelectorAll('.drawer-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.tab === tabId);
+    });
+    const hamburgerLabel = document.getElementById('hamburger-current-tab');
+    const activeNavBtn   = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
+    if (hamburgerLabel && activeNavBtn) {
+        const lbl = activeNavBtn.querySelector('.nav-label');
+        if (lbl) hamburgerLabel.textContent = lbl.textContent;
+    }
+
     // Move focus to the new tab panel
     const panel = document.getElementById(tabId);
     if (panel) panel.focus({ preventScroll: false });
@@ -817,6 +659,34 @@ function navigateTo(tabId, asset) {
     }
 }
 
+function openNavDrawer() {
+    const drawer   = document.getElementById('nav-drawer');
+    const backdrop = document.getElementById('nav-backdrop');
+    const toggle   = document.getElementById('hamburger-toggle');
+    if (!drawer) return;
+    drawer.classList.add('nav-open');
+    drawer.setAttribute('aria-hidden', 'false');
+    backdrop.classList.add('nav-open');
+    document.body.classList.add('nav-drawer-open');
+    toggle.setAttribute('aria-expanded', 'true');
+    toggle.classList.add('active');
+    toggle.querySelector('.hamburger-icon').textContent = '✕'; // ✕
+}
+
+function closeNavDrawer() {
+    const drawer   = document.getElementById('nav-drawer');
+    const backdrop = document.getElementById('nav-backdrop');
+    const toggle   = document.getElementById('hamburger-toggle');
+    if (!drawer) return;
+    drawer.classList.remove('nav-open');
+    drawer.setAttribute('aria-hidden', 'true');
+    backdrop.classList.remove('nav-open');
+    document.body.classList.remove('nav-drawer-open');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.classList.remove('active');
+    toggle.querySelector('.hamburger-icon').textContent = '☰'; // ☰
+}
+
 function setupNavigation() {
     document.querySelectorAll('.nav-btn').forEach(button => {
         button.addEventListener('click', async () => {
@@ -827,11 +697,42 @@ function setupNavigation() {
                 renderDrilldown();
             } else if (targetTab === 'macro-tab') {
                 renderMacro();
-            } else if (targetTab === 'correlation-tab') {
-                await ensureCorrelationData();
-                renderCorrelationHeatmap();
             }
         });
+    });
+
+    // Hamburger toggle
+    const hamburgerToggle = document.getElementById('hamburger-toggle');
+    if (hamburgerToggle) {
+        hamburgerToggle.addEventListener('click', () => {
+            document.getElementById('nav-drawer').classList.contains('nav-open')
+                ? closeNavDrawer()
+                : openNavDrawer();
+        });
+    }
+
+    // Drawer item clicks
+    document.querySelectorAll('.drawer-item').forEach(item => {
+        item.addEventListener('click', async () => {
+            const targetTab = item.dataset.tab;
+            closeNavDrawer();
+            navigateTo(targetTab);
+            if (targetTab === 'drilldown-tab') {
+                await ensureChartHistory();
+                renderDrilldown();
+            } else if (targetTab === 'macro-tab') {
+                renderMacro();
+            }
+        });
+    });
+
+    // Close on backdrop click
+    document.getElementById('nav-backdrop')
+        ?.addEventListener('click', closeNavDrawer);
+
+    // Close on Escape
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeNavDrawer();
     });
 }
 
@@ -1373,7 +1274,7 @@ function renderPortfolio() {
             <div class="asset-card-header">
                 <span class="asset-name">${ea}</span>
                 ${primary.regime_changed ? '<span class="transition-pulse" title="Regime changed"></span>' : ''}
-                ${primary.alignment ? `<span class="align-badge ${alignBadgeClass(primary.alignment)}" title="TF Alignment">${alignBadgeLabel(primary.alignment)}</span>` : ''}
+                ${primary.alignment ? `<span class="align-badge ${alignBadgeClass(primary.alignment)}" title="Daily/Weekly alignment: ${primary.alignment.replace('aligned-','').replace('diverging','diverging')}">${alignBadgeLabel(primary.alignment)}</span>` : ''}
                 <span class="asset-regime ${regimeClass(regime)}">${er}</span>
                 <button class="star-btn${isStarred(asset) ? ' starred' : ''}" data-star="${ea}" title="${isStarred(asset) ? 'Unstar' : 'Star'} ${ea}" aria-label="${isStarred(asset) ? 'Remove from watchlist' : 'Add to watchlist'}">&#9733;</button>
                 <button class="alert-btn${hasAlertForAsset(asset) ? ' alert-active' : ''}" data-alert="${ea}" title="${hasAlertForAsset(asset) ? 'Edit alert' : 'Set alert'} for ${ea}" aria-label="${hasAlertForAsset(asset) ? 'Edit alert' : 'Set alert'} for ${ea}">&#9873;</button>

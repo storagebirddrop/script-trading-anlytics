@@ -83,9 +83,7 @@
   CoinGlass / CryptoQuant free tiers: net exchange inflows (selling pressure) vs. outflows (accumulation). Simple in / out / neutral badge on crypto cards.
   _Requires API key (CoinGlass/CryptoQuant free tier) — discuss before building._
 
-- [x] **Correlation heatmap (crypto)**
-  Rolling 90-day Pearson correlation matrix for the 28 crypto assets (`df.corr()` — computation is trivial). 28×28 colour-coded grid with hover tooltips showing the coefficient. Useful for identifying uncorrelated setups and rotation opportunities.
-  _Note: the grid rendering and tab placement are the main design decisions._
+- ~~**Correlation heatmap (crypto)**~~ _(removed — low-signal, rarely visited; cleaned up in debug/UX pass)_
 
 - [ ] **Social sentiment timeline**
   Twitter/X sentiment via free APIs (CoinyBubble, cfgi.io) correlated with price for individual tokens. Higher integration complexity (rate limits, NLP). Strong signal quality justifies v2 roadmap placement.
@@ -131,4 +129,5 @@
 - [x] **Bollinger Band position / %B**
 - [x] **Price alerts / threshold notifications**
 - [x] **Composite signal score**
-- [x] **Correlation heatmap (crypto)**
+- [x] **Debug pass + UX quick wins** _(defaultdict import fix, defensive confluence guard, docstring fix; phase badge first on BTC page; mobile nav labels hidden; badge tooltips; BTC era note; Corr tab removed; 13 new tests)_
+- [x] **Hamburger nav for mobile** _(≤520px: ☰ toggle replaces bottom tab bar; slide-up drawer with all 5 tabs; backdrop + Escape to close; body scroll lock)_

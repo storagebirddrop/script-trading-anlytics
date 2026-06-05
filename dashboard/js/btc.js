@@ -66,7 +66,16 @@ function phaseBadgeClass(phase, strength) {
 function renderConfluenceBanner(d) {
     const banner = document.getElementById('confluence-banner');
     if (!banner) return;
-    const c = d.confluence;
+    const c = d.confluence || { accumulate_count: 0, distribute_count: 0, neutral_count: 0, phase: 'N/A', strength: 'N/A' };
+
+    // Phase badge first — it's the headline; counts are supporting detail
+    const badge = document.createElement('span');
+    badge.className = 'phase-badge phase-badge--headline ' + phaseBadgeClass(c.phase, c.strength);
+    const strengthLabel = (c.strength && c.strength !== 'mixed' && c.strength !== 'insufficient data')
+        ? ' · ' + c.strength.charAt(0).toUpperCase() + c.strength.slice(1)
+        : '';
+    badge.textContent = c.phase + strengthLabel;
+    banner.appendChild(badge);
 
     const stats = document.createElement('div');
     stats.className = 'confluence-stats';
@@ -98,14 +107,6 @@ function renderConfluenceBanner(d) {
     });
 
     banner.appendChild(stats);
-
-    const badge = document.createElement('span');
-    badge.className = 'phase-badge ' + phaseBadgeClass(c.phase, c.strength);
-    const strengthLabel = (c.strength && c.strength !== 'mixed' && c.strength !== 'insufficient data')
-        ? ' · ' + c.strength.charAt(0).toUpperCase() + c.strength.slice(1)
-        : '';
-    badge.textContent = c.phase + strengthLabel;
-    banner.appendChild(badge);
 }
 
 // ── Signal card builder ───────────────────────────────────────────────────────

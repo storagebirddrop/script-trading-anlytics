@@ -8,6 +8,7 @@ import json
 import math
 import os
 import sys
+from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -21,7 +22,7 @@ import pandas as pd
 
 from trading_utils import (
     HISTORY_CSV_PATH, DASHBOARD_JSON_PATH, CHART_HISTORY_JSON_PATH, METADATA_JSON_PATH,
-    MARKET_CAPS_JSON_PATH, CORRELATION_JSON_PATH, BTC_SIGNALS_JSON_PATH,
+    MARKET_CAPS_JSON_PATH, BTC_SIGNALS_JSON_PATH,
     calculate_volume_profile, VP_LOOKBACK_BARS, VP_LOOKBACK_BARS_WEEKLY,
     MACRO_ASSETS,
 )
@@ -402,7 +403,6 @@ def _fetch_coingecko_futures() -> Dict[str, Any]:
         return {}
 
     # CoinGecko returns many exchanges/contracts per coin — average perpetuals per index_id
-    from collections import defaultdict
     rates: Dict[str, list] = defaultdict(list)
     for item in items:
         if item.get('contract_type') != 'perpetual':
@@ -729,47 +729,6 @@ def generate_breadth_json(history_df: pd.DataFrame, n_days: int = 60) -> Dict[st
         col = grouped[r] if r in grouped.columns else pd.Series([0] * len(grouped))
         result[r] = [int(v) for v in col.values]
 
-    return _sanitise(result)
-
-
-def generate_correlation_json(history_df: pd.DataFrame, lookback_days: int = 90) -> Dict[str, Any]:
-    """
-    Build correlation.json — rolling Pearson correlation matrix for 28 crypto assets.
-    Uses daily (1d) closing prices over the last lookback_days calendar days.
-    Output: {date, lookback_days, assets:[...], matrix:[[float|null]...]}
-    """
-    _CRYPTO_ASSETS_ORDERED = [
-        'BTC', 'ETH', 'SOL', 'XLM', 'REZ', 'RSR', 'NEAR', 'RENDER', 'ONDO', 'ACH',
-        'BNB', 'XRP', 'ADA', 'NIGHT', 'VTHO', 'LINK', 'NEO', 'GAS', 'DRIFT', 'SEI',
-        'PEAQ', 'AEVO', 'EIGEN', 'W', 'WOO', 'JASMY', 'D2X', 'SCP',
-    ]
-    norm_series = history_df['Timeframe'].apply(
-        lambda t: _norm_timeframe(str(t)) if pd.notna(t) else ''
-    )
-    df = history_df[
-        (norm_series == '1d') & (history_df['Asset'].isin(_CRYPTO_ASSETS_ORDERED))
-    ].copy()
-    df['Date'] = pd.to_datetime(df['Date'])
-    latest_date = df['Date'].max()
-    cutoff = latest_date - pd.Timedelta(days=lookback_days)
-    df = df[(df['Date'] >= cutoff) & (df['Date'] <= latest_date)]
-
-    pivot = df.pivot_table(index='Date', columns='Asset', values='Price', aggfunc='last')
-    # Reindex to fixed asset order; missing assets get all-NaN columns → null in output
-    pivot = pivot.reindex(columns=_CRYPTO_ASSETS_ORDERED)
-    # Only include assets that have at least 30 non-NaN rows
-    valid_assets = [a for a in _CRYPTO_ASSETS_ORDERED if pivot[a].notna().sum() >= 30]
-    pivot = pivot[valid_assets]
-
-    corr = pivot.corr(method='pearson')
-    matrix = [[None if pd.isna(v) else round(float(v), 4) for v in row] for row in corr.values]
-
-    result: Dict[str, Any] = {
-        'date': str(latest_date.date()),
-        'lookback_days': lookback_days,
-        'assets': valid_assets,
-        'matrix': matrix,
-    }
     return _sanitise(result)
 
 
@@ -1160,8 +1119,11 @@ def fetch_coinmetrics_onchain() -> Optional[Dict[str, Any]]:
 def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any]) -> Dict[str, Any]:
     """Build btc_signals.json — BTC cycle indicator confluence page data.
 
-    Computes price-based signals from history_df and reuses already-fetched data
-    from dashboard to avoid duplicate API calls.
+    Computes price-based signals from history_df (price structure, VP, RSI, ATR regime)
+    and makes additional API calls for market data: hash ribbons and Puell Multiple
+    (mempool.space), stablecoin supply (CoinGecko), global M2 when FRED_API_KEY is set
+    (FRED), ETF flows when SOSOVALUE_API_KEY is set (SoSoValue), and on-chain metrics
+    (Coinmetrics Community API — free, no key).
     """
     btc_asset = dashboard.get('assets', {}).get('BTC', {})
     d_cur: dict = btc_asset.get('1d', {}).get('current', {})
@@ -1447,13 +1409,6 @@ def main():
     with open(breadth_path, 'w') as f:
         json.dump(breadth, f, separators=(',', ':'))
     print(f"✓ Saved breadth.json to {breadth_path}")
-    print()
-
-    print("Generating correlation.json (90-day crypto correlation matrix)...")
-    corr = generate_correlation_json(history_df)
-    with open(CORRELATION_JSON_PATH, 'w') as f:
-        json.dump(corr, f, separators=(',', ':'))
-    print(f"✓ Saved correlation.json to {CORRELATION_JSON_PATH} ({len(corr['assets'])} assets)")
     print()
 
     print("Generating btc_signals.json (BTC cycle indicators)...")
