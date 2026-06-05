@@ -31,7 +31,10 @@ const LSE_ASSETS = ASSET_CATEGORIES.lse;
 const REGIME_ORDER = ['Capitulation','Accumulation','Trend','Distribution','Mania','Unknown'];
 
 // Portfolio filter state
-const portfolioFilter = { category: '', regime: null, sort: 'name', timeframe: '1d', search: '' };
+const portfolioFilter = {
+    category: '', regime: null, sort: 'name', timeframe: '1d', search: '',
+    detail: localStorage.getItem('cardDetail') || 'expert'
+};
 
 // ─── Formatting helpers ───────────────────────────────────────────────────────
 
@@ -734,6 +737,19 @@ function setupNavigation() {
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape') closeNavDrawer();
     });
+
+    // Detail (Novice/Expert) chips
+    const detailChips = document.querySelectorAll('#filter-detail .chip');
+    detailChips.forEach(chip => {
+        chip.classList.toggle('active', chip.dataset.value === portfolioFilter.detail);
+        chip.addEventListener('click', () => {
+            portfolioFilter.detail = chip.dataset.value;
+            localStorage.setItem('cardDetail', chip.dataset.value);
+            detailChips.forEach(c => c.classList.toggle('active', c === chip));
+            const cards = document.getElementById('portfolio-cards');
+            if (cards) cards.classList.toggle('cards--novice', portfolioFilter.detail === 'novice');
+        });
+    });
 }
 
 // ─── Asset selectors ──────────────────────────────────────────────────────────
@@ -1274,7 +1290,7 @@ function renderPortfolio() {
             <div class="asset-card-header">
                 <span class="asset-name">${ea}</span>
                 ${primary.regime_changed ? '<span class="transition-pulse" title="Regime changed"></span>' : ''}
-                ${primary.alignment ? `<span class="align-badge ${alignBadgeClass(primary.alignment)}" title="Daily/Weekly alignment: ${primary.alignment.replace('aligned-','').replace('diverging','diverging')}">${alignBadgeLabel(primary.alignment)}</span>` : ''}
+                ${primary.alignment ? `<span class="align-badge hdr-badge--adv ${alignBadgeClass(primary.alignment)}" title="Daily/Weekly alignment: ${primary.alignment.replace('aligned-','').replace('diverging','diverging')}">${alignBadgeLabel(primary.alignment)}</span>` : ''}
                 <span class="asset-regime ${regimeClass(regime)}">${er}</span>
                 <button class="star-btn${isStarred(asset) ? ' starred' : ''}" data-star="${ea}" title="${isStarred(asset) ? 'Unstar' : 'Star'} ${ea}" aria-label="${isStarred(asset) ? 'Remove from watchlist' : 'Add to watchlist'}">&#9733;</button>
                 <button class="alert-btn${hasAlertForAsset(asset) ? ' alert-active' : ''}" data-alert="${ea}" title="${hasAlertForAsset(asset) ? 'Edit alert' : 'Set alert'} for ${ea}" aria-label="${hasAlertForAsset(asset) ? 'Edit alert' : 'Set alert'} for ${ea}">&#9873;</button>
@@ -1286,7 +1302,7 @@ function renderPortfolio() {
                         ${atrDistP?.toFixed(2) ?? 'N/A'}${badgeHtml}
                     </span>
                 </div>
-                <div class="metric">
+                <div class="metric metric--adv">
                     <span class="metric-label">${crossLabel}-ATR Dist.</span>
                     <span class="metric-value ${signClass(atrDistX)}">
                         ${atrDistX?.toFixed(2) ?? 'N/A'}
@@ -1296,7 +1312,7 @@ function renderPortfolio() {
                     <span class="metric-label">RSI</span>
                     <span class="metric-value ${rsiClass(rsi)}">${rsi?.toFixed(1) ?? 'N/A'}</span>
                 </div>
-                <div class="metric">
+                <div class="metric metric--adv">
                     <span class="metric-label">RSI Z-Score</span>
                     <span class="metric-value ${signClass(rsiZ)}">${rsiZ?.toFixed(2) ?? 'N/A'}</span>
                 </div>
@@ -1309,47 +1325,47 @@ function renderPortfolio() {
                     <span class="metric-value ${signClass(chg)}">${chg != null ? (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%' : 'N/A'}</span>
                 </div>
                 ${primary.vp_position ? `
-                <div class="metric">
+                <div class="metric metric--adv">
                     <span class="metric-label">VP</span>
                     <span class="metric-value">${vpBadgeHtml(primary.vp_position)}</span>
                 </div>` : ''}
                 ${primary.market_cap_rank != null ? `
-                <div class="metric">
+                <div class="metric metric--adv">
                     <span class="metric-label">MCap</span>
                     <span class="metric-value"><span class="mcap-badge ${mcapRankClass(primary.market_cap_rank)}">#${primary.market_cap_rank}</span></span>
                 </div>` : ''}
                 ${primary.atr_trend ? `
-                <div class="metric">
+                <div class="metric metric--adv">
                     <span class="metric-label">ATR</span>
                     <span class="metric-value"><span class="atr-trend-icon atr-trend-${primary.atr_trend}">${atrTrendIcon(primary.atr_trend)}</span> ${primary.atr_trend}</span>
                 </div>` : ''}
                 ${primary.rs_vs_btc != null && ASSET_CATEGORIES.crypto.has(asset) ? `
-                <div class="metric">
+                <div class="metric metric--adv">
                     <span class="metric-label">RS/BTC</span>
                     <span class="metric-value">${rsBadgeHtml(primary.rs_vs_btc)}</span>
                 </div>` : ''}
                 ${primary.funding_rate != null && ASSET_CATEGORIES.crypto.has(asset) ? `
-                <div class="metric">
+                <div class="metric metric--adv">
                     <span class="metric-label">Fund.Rate</span>
                     <span class="metric-value">${frBadgeHtml(primary.funding_rate)}</span>
                 </div>` : ''}
                 ${primary.open_interest_usd != null && ASSET_CATEGORIES.crypto.has(asset) ? `
-                <div class="metric">
+                <div class="metric metric--adv">
                     <span class="metric-label">OI</span>
                     <span class="metric-value">${oiFormatted(primary.open_interest_usd)}</span>
                 </div>` : ''}
                 ${primary.adx != null ? `
-                <div class="metric">
+                <div class="metric metric--adv">
                     <span class="metric-label">ADX</span>
                     <span class="metric-value">${adxStrengthHtml(primary.adx)}</span>
                 </div>` : ''}
                 ${primary.bb_pct_b != null ? `
-                <div class="metric">
+                <div class="metric metric--adv">
                     <span class="metric-label">%B</span>
                     <span class="metric-value">${bbPctBHtml(primary.bb_pct_b)}</span>
                 </div>` : ''}
                 ${sigScore != null ? `
-                <div class="metric">
+                <div class="metric metric--adv">
                     <span class="metric-label">Score</span>
                     <span class="metric-value">${signalScoreHtml(sigScore)}</span>
                 </div>` : ''}
@@ -1365,6 +1381,7 @@ function renderPortfolio() {
     });
 
     renderPortfolioSparklines();
+    container.classList.toggle('cards--novice', portfolioFilter.detail === 'novice');
 
     // Delegated click — star/alert buttons take priority, then card → Drilldown
     container.onclick = e => {
