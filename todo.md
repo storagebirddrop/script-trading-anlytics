@@ -101,6 +101,15 @@
 - [x] **BTC Cycle Signals — Phase 2 (Global M2 + landing page)**
   `fetch_global_m2()` added to `calculate_metrics.py` using FRED `WM2NS` weekly series (free, requires `FRED_API_KEY` secret). M2 fields added to `liquidity` section of `btc_signals.json`; `sig_m2` counted in confluence when key is present (max 13 active signals). Global M2 card added as 3rd card in Mining & Liquidity. ETF Net Daily Flows added as locked card (6th in Sentiment & Positioning). `FRED_API_KEY` wired into CI. `landing.html` updated with 7th feature card and step, CTA updated to "7 views". `btc.html` footer updated.
 
+- [x] **BTC Cycle Signals — ETF Flows (SoSoValue) + funding rate fallback chain**
+  `fetch_etf_flows()` implemented using SoSoValue `GET /etfs/summary-history` (requires `SOSOVALUE_API_KEY` secret). ETF Flows card is active when key is set, locked otherwise. Funding rate fallback chain: Binance (451 geo-blocked from GitHub Actions) → Bybit (403) → `_fetch_coingecko_futures()` (`/api/v3/derivatives`, no geo-block, works from CI). `SOSOVALUE_API_KEY` wired into CI.
+
+- [x] **BTC Cycle Signals — Puell Multiple**
+  `fetch_puell_multiple(btc_prices)` added to `calculate_metrics.py`. Fetches 2 years of block reward data from mempool.space `/api/v1/mining/blocks/rewards/2y` (free, no auth), joins with BTC price history from `history.csv`, computes 365-day MA of daily miner revenue (USD), derives Puell Multiple. Signal: <0.6 = accumulate, >3.0 = distribute. Added as 4th card in Mining & Liquidity; always counted in confluence.
+
+- [x] **BTC Cycle Signals — On-chain unlock via Coinmetrics Community API**
+  `fetch_coinmetrics_onchain()` added to `calculate_metrics.py`. Single call to `community-api.coinmetrics.io` (free, no API key) fetches `CapRealUSD`, `CapMrktCurUSD`, `SOPR`, `CDD`. Derives: MVRV Z-Score (Z < 0 = accumulate, Z ≥ 6 = distribute), NUPL (<0 = accumulate, ≥0.5 = distribute), SOPR signal (<0.98 = accumulate, >1.05 = distribute), CVDD trend (90d MA change). New `on_chain` section added to `btc_signals.json`. On-Chain section on `btc.html` now shows 4 active cards (MVRV Z-Score, NUPL, SOPR, CVDD) + 3 locked (RHODL Ratio, LTH/STH MVRV Cross, Reserve Risk — require Glassnode UTXO age-band data, no free alternative). All 4 on-chain signals counted in confluence unconditionally. `landing.html` and `CLAUDE.md` updated.
+
 ---
 
 ## Previously completed
