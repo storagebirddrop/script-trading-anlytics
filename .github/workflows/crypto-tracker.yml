@@ -41,7 +41,6 @@ jobs:
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           SOSOVALUE_API_KEY: ${{ secrets.SOSOVALUE_API_KEY }}
-          COINMETRICS_API_KEY: ${{ secrets.COINMETRICS_API_KEY }}
         run: python scripts/calculate_metrics.py
       
       - name: Build dashboard
