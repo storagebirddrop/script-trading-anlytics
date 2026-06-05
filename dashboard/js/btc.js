@@ -463,16 +463,62 @@ function buildAllSections(d) {
         }),
     ];
 
-    // ── On-chain (all locked — require paid on-chain data API) ──────────────────
+    // ── On-chain (4 active: BGeometrics + Blockchair; 3 Glassnode locked) ────────
+    const onc = d.on_chain || {};
     const onChainCards = [
+        renderSignalCard({
+            name: 'MVRV Z-Score',
+            value: onc.mvrv_z_score != null ? onc.mvrv_z_score.toFixed(2) : 'N/A',
+            context: onc.mvrv_z_score != null
+                ? (onc.mvrv_z_score < 0 ? 'Below 0 — price below aggregate cost basis'
+                   : onc.mvrv_z_score >= 6 ? 'Above 6 — historically every cycle top'
+                   : 'Neutral zone')
+                : 'Data unavailable',
+            signal: onc.signal_mvrv_z || null,
+            tooltip: 'Market Cap / Realized Cap, Z-scored. < 0 = every cycle bottom historically. ≥ 6 = every cycle top. Source: BGeometrics.',
+        }),
+        renderSignalCard({
+            name: 'NUPL',
+            value: onc.nupl != null ? (onc.nupl * 100).toFixed(1) + '%' : 'N/A',
+            context: (() => {
+                if (onc.nupl == null) return 'Data unavailable';
+                const v = onc.nupl;
+                return v < 0    ? 'Capitulation — market in aggregate unrealised loss'
+                     : v < 0.25 ? 'Hope / Fear'
+                     : v < 0.5  ? 'Optimism / Belief'
+                                : 'Euphoria / Greed — distribution zone';
+            })(),
+            signal: onc.signal_nupl || null,
+            tooltip: 'Net Unrealised Profit/Loss = (Market Cap − Realized Cap) / Market Cap. Source: BGeometrics.',
+        }),
+        renderSignalCard({
+            name: 'SOPR',
+            value: onc.sopr != null ? onc.sopr.toFixed(3) : 'N/A',
+            context: onc.sopr == null ? 'Data unavailable'
+                : onc.sopr < 0.98 ? 'Below 1 — holders spending at a loss (capitulation)'
+                : onc.sopr > 1.05 ? 'Above 1 — significant profit-taking underway'
+                                  : 'Near 1 — breakeven / consolidation',
+            signal: onc.signal_sopr || null,
+            tooltip: 'Spent Output Profit Ratio. < 1 = spent at loss (capitulation); > 1 = profit-taking. Source: BGeometrics.',
+        }),
+        renderSignalCard({
+            name: 'CVDD',
+            value: (() => {
+                if (onc.cdd_90d_change_pct == null) return 'N/A';
+                const pct = onc.cdd_90d_change_pct;
+                return (pct >= 0 ? '+' : '') + pct.toFixed(1) + '% vs 90d avg';
+            })(),
+            context: onc.signal_cvdd == null ? 'Data unavailable'
+                : onc.signal_cvdd === 'accumulate' ? 'Declining — HODLers holding, old coins dormant'
+                : onc.signal_cvdd === 'distribute' ? 'Accelerating — old coins moving, potential top signal'
+                : 'Near 90-day average — normal spend pattern',
+            signal: onc.signal_cvdd || null,
+            tooltip: 'Coin Days Destroyed 90-day trend. Declining = HODLers not spending (bullish LT); accelerating = old coins moving (distribution). Source: Blockchair (free).',
+        }),
         ...[
-            { name: 'MVRV Z-Score',          description: 'Market Cap / Realized Cap, Z-scored. Below 0 = price below aggregate cost basis — historically every cycle bottom. Above 6 = historically every cycle top. Requires UTXO-indexed Realized Cap (Glassnode / Coinmetrics — no free cloud tier available).' },
-            { name: 'NUPL',                  description: 'Net Unrealised Profit/Loss = (Market Cap − Realized Cap) / Market Cap. Negative = aggregate loss (strong accumulation). Above 0.5 = euphoria / distribution. Requires Realized Cap — same data constraint as MVRV.' },
-            { name: 'SOPR',                  description: 'Spent Output Profit Ratio — ratio of realised value to creation value of coins spent each day. Requires full UTXO history (Glassnode / Coinmetrics — no free cloud tier available).' },
-            { name: 'CVDD',                  description: 'Coin Days Destroyed 90-day trend. Declining = HODLers holding; accelerating = old coins moving. Requires full UTXO history (Glassnode / Coinmetrics — no free cloud tier available).' },
-            { name: 'RHODL Ratio',           description: 'Realised HODL Ratio — ratio of short-term to long-term holder wealth. Spikes at cycle tops. Requires UTXO age-banded Realized Cap — Glassnode only.' },
-            { name: 'LTH / STH MVRV Cross',  description: 'LTH-MVRV crossing above STH-MVRV signals cycle bottom recovery. Requires 155-day age-split Realized Cap — Glassnode only.' },
-            { name: 'Reserve Risk',           description: 'Confidence of long-term holders vs current price. Low = strong HODLer conviction. Requires HODL Bank (cumulative LTH opportunity cost) — Glassnode only.' },
+            { name: 'RHODL Ratio',          description: 'Realised HODL Ratio — ratio of short-term to long-term holder wealth. Spikes at cycle tops. Requires UTXO age-banded Realized Cap — Glassnode only.' },
+            { name: 'LTH / STH MVRV Cross', description: 'LTH-MVRV crossing above STH-MVRV signals cycle bottom recovery. Requires 155-day age-split Realized Cap — Glassnode only.' },
+            { name: 'Reserve Risk',          description: 'Confidence of long-term holders vs current price. Requires HODL Bank (cumulative LTH opportunity cost) — Glassnode only.' },
         ].map(cfg => renderLockedCard(cfg)),
     ];
 

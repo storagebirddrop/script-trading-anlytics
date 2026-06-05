@@ -1010,110 +1010,159 @@ def fetch_puell_multiple(btc_prices: pd.Series) -> Optional[Dict[str, Any]]:
         return None
 
 
-def fetch_coinmetrics_onchain() -> Optional[Dict[str, Any]]:
-    """Fetch on-chain metrics from Coinmetrics Community API (free, no auth).
+def fetch_bgeometrics_onchain() -> Optional[Dict[str, Any]]:
+    """Fetch MVRV Z-Score, NUPL, SOPR from BGeometrics free API (no auth, 15 req/day)."""
+    base = 'https://api.bgeometrics.com/v1'
+    token = os.environ.get('BGEOMETRICS_API_KEY')
+    headers = {'Authorization': f'Bearer {token}'} if token else {}
 
-    Single call retrieves CapRealUSD, CapMrktCurUSD, SOPR, and CDD.
-    MVRV Z-Score and NUPL are derived here from the raw cap data.
-    Coinmetrics doesn't pre-compute Z-Score/NUPL on the free tier, but
-    the raw inputs are free — we compute everything in Python.
+    def _fetch(endpoint):
+        r = requests.get(f'{base}/{endpoint}/', params={'limit': 365},
+                         headers=headers, timeout=15)
+        r.raise_for_status()
+        return r.json()
 
-    Signals:
-      MVRV Z-Score < 0      → accumulate   (historically every major cycle bottom)
-      MVRV Z-Score ≥ 6      → distribute   (historically every cycle top)
-      NUPL < 0              → accumulate   (market in aggregate unrealised loss)
-      NUPL ≥ 0.5            → distribute   (euphoria zone)
-      SOPR < 0.98           → accumulate   (holders spending at a loss — capitulation)
-      SOPR > 1.05           → distribute   (significant profit-taking)
-      CDD 90d Δ < -10%      → accumulate   (HODLers holding, low sell pressure)
-      CDD 90d Δ > +30%      → distribute   (old coins reactivating)
-    """
     try:
-        resp = requests.get(
-            'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics',
-            params={
-                'assets': 'btc',
-                'metrics': 'CapRealUSD,CapMrktCurUSD,SOPR,CDD',
-                'frequency': '1d',
-                'limit': 730,
-            },
-            timeout=20,
-        )
-        resp.raise_for_status()
-        rows = resp.json().get('data', [])
-        if len(rows) < 60:
-            return None
-
-        mrkts, reals, soprs, cdds = [], [], [], []
-        for row in rows:
-            m = row.get('CapMrktCurUSD')
-            r = row.get('CapRealUSD')
-            s = row.get('SOPR')
-            c = row.get('CDD')
-            if m and r:
-                mrkts.append(float(m))
-                reals.append(float(r))
-                soprs.append(float(s) if s else None)
-                cdds.append(float(c) if c else None)
-
-        if len(mrkts) < 60:
-            return None
-
-        # MVRV Z-Score
-        mvrv_series = [m / r for m, r in zip(mrkts, reals)]
-        mvrv_now = mvrv_series[-1]
-        mean_mv = sum(mvrv_series) / len(mvrv_series)
-        std_mv = (sum((x - mean_mv) ** 2 for x in mvrv_series) / len(mvrv_series)) ** 0.5
-        z_score = (mvrv_now - mean_mv) / std_mv if std_mv > 0 else 0.0
-
-        # NUPL
-        nupl = (mrkts[-1] - reals[-1]) / mrkts[-1]
-
-        # SOPR — latest non-null value
-        sopr_now = next((s for s in reversed(soprs) if s is not None), None)
-
-        # CVDD trend: 90d MA rate of change of CDD
-        cdd_clean = [c for c in cdds if c is not None]
-        cdd_now = cdd_clean[-1] if cdd_clean else None
-        if len(cdd_clean) >= 180:
-            w = 90
-            ma_now = sum(cdd_clean[-w:]) / w
-            ma_prev = sum(cdd_clean[-w * 2:-w]) / w
-            cdd_change_pct: Optional[float] = (ma_now - ma_prev) / ma_prev * 100 if ma_prev > 0 else 0.0
-        else:
-            cdd_change_pct = None
-
-        sig_mvrv = 'accumulate' if z_score < 0 else ('distribute' if z_score >= 6 else 'neutral')
-        sig_nupl = 'accumulate' if nupl < 0 else ('distribute' if nupl >= 0.5 else 'neutral')
-        sig_sopr = (
-            'accumulate' if sopr_now < 0.98 else ('distribute' if sopr_now > 1.05 else 'neutral')
-        ) if sopr_now is not None else None
-        sig_cvdd = (
-            'accumulate' if cdd_change_pct < -10 else ('distribute' if cdd_change_pct > 30 else 'neutral')
-        ) if cdd_change_pct is not None else None
-
-        print(
-            f"  Coinmetrics: MVRV {mvrv_now:.3f}, Z-score {z_score:.2f}, "
-            f"NUPL {nupl * 100:.1f}%, SOPR {sopr_now}, "
-            f"signals: mvrv_z={sig_mvrv} nupl={sig_nupl} sopr={sig_sopr} cvdd={sig_cvdd}"
-        )
-        return {
-            'realized_cap_usd': round(reals[-1]),
-            'market_cap_usd': round(mrkts[-1]),
-            'mvrv_ratio': round(mvrv_now, 4),
-            'mvrv_z_score': round(z_score, 2),
-            'nupl': round(nupl, 4),
-            'sopr': round(sopr_now, 4) if sopr_now is not None else None,
-            'cdd_latest': round(cdd_now) if cdd_now is not None else None,
-            'cdd_90d_change_pct': round(cdd_change_pct, 1) if cdd_change_pct is not None else None,
-            'signal_mvrv_z': sig_mvrv,
-            'signal_nupl': sig_nupl,
-            'signal_sopr': sig_sopr,
-            'signal_cvdd': sig_cvdd,
-        }
+        mvrv_data = _fetch('mvrv')
+        nupl_data  = _fetch('nupl')
+        sopr_data  = _fetch('sopr')
     except Exception as e:
-        print(f"  Warning: Coinmetrics on-chain fetch failed: {e}")
+        print(f'  Warning: BGeometrics fetch failed: {e}')
         return None
+
+    def _latest(payload):
+        rows = payload.get('data') or payload.get('values') or []
+        if not rows:
+            return None
+        row = rows[-1]
+        val = row[1] if isinstance(row, (list, tuple)) else row.get('value') or row.get('v')
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return None
+
+    mvrv_z = _latest(mvrv_data)
+    nupl    = _latest(nupl_data)
+    sopr    = _latest(sopr_data)
+
+    if mvrv_z is None and nupl is None and sopr is None:
+        return None
+
+    sig_mvrv = 'accumulate' if (mvrv_z or 0) < 0 else ('distribute' if (mvrv_z or 0) >= 6 else 'neutral')
+    sig_nupl = ('accumulate' if (nupl or 0) < 0 else ('distribute' if (nupl or 0) >= 0.5 else 'neutral')) if nupl is not None else None
+    sig_sopr = ('accumulate' if (sopr or 0) < 0.98 else ('distribute' if (sopr or 0) > 1.05 else 'neutral')) if sopr is not None else None
+
+    print(f'  BGeometrics: MVRV Z={mvrv_z}, NUPL={nupl}, SOPR={sopr}')
+    return {
+        'mvrv_z_score':  round(mvrv_z, 2) if mvrv_z is not None else None,
+        'nupl':          round(nupl, 4)   if nupl   is not None else None,
+        'sopr':          round(sopr, 4)   if sopr   is not None else None,
+        'signal_mvrv_z': sig_mvrv,
+        'signal_nupl':   sig_nupl,
+        'signal_sopr':   sig_sopr,
+    }
+
+
+def fetch_bitbo_onchain() -> Optional[Dict[str, Any]]:
+    """Fetch MVRV Z-Score + NUPL from Bitbo.io (free API key, 150k req/month).
+
+    Used as fallback when BGeometrics is unavailable and BITBO_API_KEY is set.
+    """
+    key = os.environ.get('BITBO_API_KEY')
+    if not key:
+        return None
+    base = 'https://charts.bitbo.io/api/v1'
+    try:
+        mz = requests.get(f'{base}/mvrv-z/', params={'api_key': key, 'latest': 'true'}, timeout=15)
+        mz.raise_for_status()
+        nu = requests.get(f'{base}/nupl-ratio/', params={'api_key': key, 'latest': 'true'}, timeout=15)
+        nu.raise_for_status()
+    except Exception as e:
+        print(f'  Warning: Bitbo fallback failed: {e}')
+        return None
+
+    def _latest_bitbo(resp):
+        rows = resp.json().get('data', [])
+        if not rows:
+            return None
+        try:
+            return float(rows[-1][1])
+        except (IndexError, TypeError, ValueError):
+            return None
+
+    mvrv_z = _latest_bitbo(mz)
+    nupl   = _latest_bitbo(nu)
+    if mvrv_z is None:
+        return None
+
+    sig_mvrv = 'accumulate' if mvrv_z < 0 else ('distribute' if mvrv_z >= 6 else 'neutral')
+    sig_nupl = ('accumulate' if nupl < 0 else ('distribute' if nupl >= 0.5 else 'neutral')) if nupl is not None else None
+
+    print(f'  Bitbo fallback: MVRV Z={mvrv_z}, NUPL={nupl}')
+    return {
+        'mvrv_z_score':  round(mvrv_z, 2),
+        'nupl':          round(nupl, 4) if nupl is not None else None,
+        'sopr':          None,
+        'signal_mvrv_z': sig_mvrv,
+        'signal_nupl':   sig_nupl,
+        'signal_sopr':   None,
+    }
+
+
+def fetch_blockchair_cdd() -> Optional[Dict[str, Any]]:
+    """Fetch 90-day daily CDD from Blockchair (free, no key, 1440 req/day).
+
+    Uses the blocks aggregation endpoint to get sum(cdd_total) per day.
+    Signal: declining trend (ratio < 0.5) → accumulate (HODLers holding);
+            accelerating (ratio > 1.5) → distribute (old coins moving).
+    """
+    key = os.environ.get('BLOCKCHAIR_API_KEY')
+    params: Dict[str, Any] = {'a': 'date,sum(cdd_total)', 's': 'date(desc)', 'limit': 90}
+    if key:
+        params['key'] = key
+    try:
+        r = requests.get('https://api.blockchair.com/bitcoin/blocks',
+                         params=params, timeout=15)
+        r.raise_for_status()
+        rows = r.json().get('data', [])
+    except Exception as e:
+        print(f'  Warning: Blockchair CDD fetch failed: {e}')
+        return None
+
+    if not rows:
+        return None
+
+    values = []
+    for row in rows:
+        v = row.get('sum(cdd_total)')
+        try:
+            values.append(float(v))
+        except (TypeError, ValueError):
+            pass
+
+    if len(values) < 10:
+        return None
+
+    cdd_latest = values[0]
+    cdd_90d_avg = sum(values) / len(values)
+    trend_ratio = cdd_latest / cdd_90d_avg if cdd_90d_avg else None
+
+    if trend_ratio is None:
+        sig: Optional[str] = None
+    elif trend_ratio < 0.5:
+        sig = 'accumulate'
+    elif trend_ratio > 1.5:
+        sig = 'distribute'
+    else:
+        sig = 'neutral'
+
+    print(f'  Blockchair CDD: latest={cdd_latest:.0f}, 90d_avg={cdd_90d_avg:.0f}, ratio={trend_ratio:.2f}')
+    return {
+        'cdd_latest':         round(cdd_latest),
+        'cdd_90d_avg':        round(cdd_90d_avg),
+        'cdd_90d_change_pct': round((trend_ratio - 1) * 100, 1) if trend_ratio is not None else None,
+        'signal_cvdd':        sig,
+    }
 
 
 def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any]) -> Dict[str, Any]:
@@ -1233,8 +1282,10 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     m2_data = fetch_global_m2()
     print("  Fetching ETF net flows (SoSoValue)...")
     etf_data = fetch_etf_flows()
-    print("  Fetching on-chain metrics (Coinmetrics Community — free, no auth)...")
-    onchain_data = fetch_coinmetrics_onchain()
+    print("  Fetching on-chain metrics (BGeometrics primary, Bitbo fallback)...")
+    onchain_data = fetch_bgeometrics_onchain() or fetch_bitbo_onchain()
+    print("  Fetching CDD (Blockchair free tier)...")
+    cdd_data = fetch_blockchair_cdd()
 
     sig_200w = _sig_200w(price, ma200w)
     sig_200d = _sig_200d(price, ma200d)
@@ -1256,7 +1307,7 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     sig_mvrv_z = onchain_data['signal_mvrv_z'] if onchain_data else None
     sig_nupl   = onchain_data['signal_nupl']   if onchain_data else None
     sig_sopr   = onchain_data['signal_sopr']   if onchain_data else None
-    sig_cvdd   = onchain_data['signal_cvdd']   if onchain_data else None
+    sig_cvdd   = cdd_data['signal_cvdd']       if cdd_data    else None
 
     all_sigs = [
         sig_200w, sig_200d, sig_pi, sig_rsi_d, sig_rsi_w, sig_atr, sig_vp,
@@ -1344,12 +1395,17 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
             'm2_current_change_pct': m2_data['m2_current_change_pct'] if m2_data else None,
             'signal_global_m2': sig_m2,
         },
-        'on_chain': onchain_data or {
-            'realized_cap_usd': None, 'market_cap_usd': None,
-            'mvrv_ratio': None, 'mvrv_z_score': None, 'nupl': None,
-            'sopr': None, 'cdd_latest': None, 'cdd_90d_change_pct': None,
-            'signal_mvrv_z': None, 'signal_nupl': None,
-            'signal_sopr': None, 'signal_cvdd': None,
+        'on_chain': {
+            'mvrv_z_score':       (onchain_data or {}).get('mvrv_z_score'),
+            'nupl':               (onchain_data or {}).get('nupl'),
+            'sopr':               (onchain_data or {}).get('sopr'),
+            'signal_mvrv_z':      (onchain_data or {}).get('signal_mvrv_z'),
+            'signal_nupl':        (onchain_data or {}).get('signal_nupl'),
+            'signal_sopr':        (onchain_data or {}).get('signal_sopr'),
+            'cdd_latest':         (cdd_data or {}).get('cdd_latest'),
+            'cdd_90d_avg':        (cdd_data or {}).get('cdd_90d_avg'),
+            'cdd_90d_change_pct': (cdd_data or {}).get('cdd_90d_change_pct'),
+            'signal_cvdd':        (cdd_data or {}).get('signal_cvdd'),
         },
         'confluence': {
             'accumulate_count': acc_count,
