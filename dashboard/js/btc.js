@@ -474,16 +474,16 @@ function buildAllSections(d) {
             context: onc.mvrv_ratio != null
                 ? 'MVRV: ' + onc.mvrv_ratio.toFixed(2)
                   + ' · Realized Cap: $' + (onc.realized_cap_usd / 1e9).toFixed(0) + 'B'
-                : 'Data unavailable',
+                : 'Requires COINMETRICS_API_KEY',
             signal: onc.signal_mvrv_z || null,
-            tooltip: 'Market Cap / Realized Cap, Z-scored over 2 years. Below 0 = price below aggregate cost basis — historically every major cycle bottom. Above 6 = historically every cycle top. Source: Coinmetrics Community API (free, no auth).',
+            tooltip: 'Market Cap / Realized Cap, Z-scored over 2 years. Below 0 = price below aggregate cost basis — historically every major cycle bottom. Above 6 = historically every cycle top. Source: Coinmetrics API (free key at coinmetrics.io).',
         }),
 
         renderSignalCard({
             name: 'NUPL',
             value: onc.nupl != null ? (onc.nupl * 100).toFixed(1) + '%' : 'N/A',
             context: (() => {
-                if (onc.nupl == null) return 'Data unavailable';
+                if (onc.nupl == null) return 'Requires COINMETRICS_API_KEY';
                 const v = onc.nupl;
                 return v < 0     ? 'Capitulation — market in aggregate unrealised loss'
                      : v < 0.25 ? 'Hope / Fear'
@@ -491,18 +491,18 @@ function buildAllSections(d) {
                                  : 'Euphoria / Greed — distribution zone';
             })(),
             signal: onc.signal_nupl || null,
-            tooltip: 'Net Unrealised Profit/Loss = (Market Cap − Realized Cap) / Market Cap. Negative = aggregate loss (historically strong accumulation). Above 0.5 = euphoria / distribution. Source: Coinmetrics Community API (free, no auth).',
+            tooltip: 'Net Unrealised Profit/Loss = (Market Cap − Realized Cap) / Market Cap. Negative = aggregate loss (historically strong accumulation). Above 0.5 = euphoria / distribution. Source: Coinmetrics API (free key at coinmetrics.io).',
         }),
 
         renderSignalCard({
             name: 'SOPR',
             value: onc.sopr != null ? onc.sopr.toFixed(3) : 'N/A',
-            context: onc.sopr == null ? 'Data unavailable'
+            context: onc.sopr == null ? 'Requires COINMETRICS_API_KEY'
                 : onc.sopr < 0.98 ? 'Below 1 — holders spending at a loss (capitulation zone)'
                 : onc.sopr > 1.05 ? 'Above 1 — significant profit-taking underway'
                                   : 'Near 1 — breakeven / consolidation',
             signal: onc.signal_sopr || null,
-            tooltip: 'Spent Output Profit Ratio. < 1 = coins moved at a loss (capitulation); > 1 = moved at profit (distribution pressure). Basic SOPR (not age-adjusted). Source: Coinmetrics Community API (free, no auth).',
+            tooltip: 'Spent Output Profit Ratio. < 1 = coins moved at a loss (capitulation); > 1 = moved at profit (distribution pressure). Basic SOPR (not age-adjusted). Source: Coinmetrics API (free key at coinmetrics.io).',
         }),
 
         renderSignalCard({
@@ -510,14 +510,14 @@ function buildAllSections(d) {
             value: onc.cdd_90d_change_pct != null
                 ? (onc.cdd_90d_change_pct >= 0 ? '+' : '') + onc.cdd_90d_change_pct.toFixed(1) + '% (90d)'
                 : 'N/A',
-            context: onc.cdd_90d_change_pct == null ? 'Data unavailable'
+            context: onc.cdd_90d_change_pct == null ? 'Requires COINMETRICS_API_KEY'
                 : onc.signal_cvdd === 'accumulate'
                     ? 'CDD declining — long-term holders HODLing, low sell pressure'
                 : onc.signal_cvdd === 'distribute'
                     ? 'CDD accelerating — old coins reactivating, distribution pressure'
                     : 'CDD trend neutral — mixed HODL/spend behaviour',
             signal: onc.signal_cvdd || null,
-            tooltip: 'Coin Days Destroyed 90-day trend. Declining = HODLers holding (bullish). Accelerating = old coins moving = potential distribution. Source: Coinmetrics Community API (free, no auth).',
+            tooltip: 'Coin Days Destroyed 90-day trend. Declining = HODLers holding (bullish). Accelerating = old coins moving = potential distribution. Source: Coinmetrics API (free key at coinmetrics.io).',
         }),
 
         // Remaining locked — require UTXO age-band data (Glassnode only, no free alternative)
