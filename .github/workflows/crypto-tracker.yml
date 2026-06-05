@@ -57,5 +57,6 @@ jobs:
           git add data/btc_signals.json dashboard/assets/btc_signals.json 2>/dev/null || true
           git diff --staged --quiet || git commit -m "Update crypto tracker data"
           gh auth setup-git
+          git pull --rebase origin master
           git push
       # Cloudflare Pages deploys automatically via Git integration on every push to master.
