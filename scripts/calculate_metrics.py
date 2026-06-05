@@ -309,15 +309,62 @@ def generate_chart_history(df: pd.DataFrame, n_bars: int = 90) -> Dict[str, Any]
     return result
 
 
+def _fetch_bybit_futures() -> Dict[str, Any]:
+    """Fetch USDT perpetual funding rates and OI from Bybit (fallback for geo-blocked envs).
+
+    Called automatically when Binance returns HTTP 451. Bybit's linear tickers
+    endpoint returns all symbols in a single call — no per-symbol OI request needed.
+    """
+    _TRACKED = {
+        'BTC', 'ETH', 'SOL', 'XLM', 'NEAR', 'BNB', 'XRP', 'ADA', 'LINK', 'NEO',
+        'RENDER', 'SEI', 'DRIFT', 'EIGEN', 'W', 'WOO', 'JASMY', 'AEVO', 'GAS',
+        'PEAQ', 'RSR', 'ACH', 'ONDO', 'VTHO', 'REZ',
+    }
+    try:
+        resp = requests.get(
+            'https://api.bybit.com/v5/market/tickers',
+            params={'category': 'linear'},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        items = resp.json()['result']['list']
+    except Exception as e:
+        print(f"  Warning: Bybit futures fallback fetch failed: {e}")
+        return {}
+
+    result: Dict[str, Any] = {}
+    for item in items:
+        sym = item.get('symbol', '')
+        if not sym.endswith('USDT') or '_' in sym:
+            continue
+        coin = sym[:-4]
+        if coin not in _TRACKED:
+            continue
+        try:
+            mark_price = float(item.get('markPrice') or item.get('lastPrice', 0))
+            funding_rate = float(item['fundingRate']) * 100  # decimal → % per 8h
+            oi_value = float(item.get('openInterestValue') or 0)
+            result[coin] = {
+                'funding_rate': funding_rate,
+                'mark_price': mark_price,
+                'open_interest_usd': oi_value if oi_value > 0 else None,
+            }
+        except (KeyError, ValueError, TypeError):
+            pass
+
+    print(f"  Bybit fallback: {len(result)} symbols received")
+    return result
+
+
 def fetch_binance_futures() -> Dict[str, Any]:
     """Fetch funding rates and open interest from Binance USDT-M futures (free, no auth).
 
     Returns a dict keyed by coin symbol (e.g. 'BTC') with:
         {'funding_rate': float (% per 8h period), 'open_interest_usd': float|None}
 
-    Only covers assets with active USDT-M perpetual contracts on Binance.
-    Quarterly/delivery contracts (symbol contains '_') are excluded.
-    Returns {} on any network failure.
+    Falls back to Bybit when Binance is geo-blocked (HTTP 451 — common on
+    GitHub Actions runners). Quarterly/delivery contracts (symbol contains '_')
+    are excluded. Returns {} on complete failure.
     """
     _TRACKED = {
         'BTC', 'ETH', 'SOL', 'XLM', 'NEAR', 'BNB', 'XRP', 'ADA', 'LINK', 'NEO',
@@ -328,6 +375,12 @@ def fetch_binance_futures() -> Dict[str, Any]:
         resp = requests.get('https://fapi.binance.com/fapi/v1/premiumIndex', timeout=15)
         resp.raise_for_status()
         items = resp.json()
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 451:
+            print("  Binance geo-blocked (451) — falling back to Bybit...")
+            return _fetch_bybit_futures()
+        print(f"  Warning: Binance premiumIndex fetch failed: {e}")
+        return {}
     except Exception as e:
         print(f"  Warning: Binance premiumIndex fetch failed: {e}")
         return {}
