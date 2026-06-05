@@ -731,20 +731,7 @@ body {
     font-weight: 500;
 }
 
-/* Responsive adjustments for iPad portrait */
-@media (min-width: 768px) and (max-width: 1024px) and (orientation: portrait) {
-    .cards-container {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .nav-icon {
-        font-size: 1.25rem;
-    }
-
-    .nav-label {
-        font-size: 0.875rem;
-    }
-}
+/* (iPad portrait handled by the general 768 px rule below) */
 
 /* Loading / Error states */
 .loading {
@@ -2173,4 +2160,54 @@ body {
 @keyframes toast-slide-in {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Responsive layout — device tiers
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Phone landscape / small tablet (580 px +) ──────────────────── */
+@media (min-width: 580px) {
+    .cards-container    { grid-template-columns: repeat(2, 1fr); }
+    .rankings-container { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Tablet (768 px +) ───────────────────────────────────────────── */
+@media (min-width: 768px) {
+    .main-content { padding-left: 1.5rem; padding-right: 1.5rem; }
+    .header       { padding-left: 1.5rem; padding-right: 1.5rem; }
+
+    /* Heatmap: slightly larger cells for easier hover targets */
+    .heatmap-cell           { width: 1.6rem; height: 1.6rem; }
+    .heatmap-row-label      { height: 1.6rem; }
+    .heatmap-col-label-wrap { width: 1.6rem; }
+}
+
+/* ── Desktop (1024 px +) ─────────────────────────────────────────── */
+@media (min-width: 1024px) {
+    .main-content   { padding-left: 2rem; padding-right: 2rem; }
+    .header         { padding-left: 2rem; padding-right: 2rem; }
+    .header h1      { font-size: 1.75rem; }
+
+    /* Three-column portfolio grid on wide screens */
+    .cards-container { grid-template-columns: repeat(3, 1fr); }
+
+    /* Four-column drilldown summary grid */
+    .drilldown-summary-grid { grid-template-columns: repeat(4, 1fr); }
+
+    /* Bottom nav: don't stretch buttons too wide */
+    .bottom-nav { padding-left: 1.5rem; padding-right: 1.5rem; }
+    .nav-btn    { max-width: 160px; }
+}
+
+/* ── Very narrow screens (≤ 400 px): stack drilldown selectors ───── */
+@media (max-width: 400px) {
+    .selectors-row { grid-template-columns: 1fr; }
+}
+
+/* ── Landing page — scale hero on small phones ───────────────────── */
+@media (max-width: 500px) {
+    .landing-title   { font-size: 1.875rem; }
+    .landing-tagline { font-size: 1rem; }
+    .landing-hero    { padding: 2.5rem 1rem 2rem; }
 }
