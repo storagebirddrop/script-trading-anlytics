@@ -1028,26 +1028,17 @@ def fetch_coinmetrics_onchain() -> Optional[Dict[str, Any]]:
       CDD 90d Δ < -10%      → accumulate   (HODLers holding, low sell pressure)
       CDD 90d Δ > +30%      → distribute   (old coins reactivating)
     """
-    api_key = os.environ.get('COINMETRICS_API_KEY')
-    if api_key:
-        url = 'https://api.coinmetrics.io/v4/timeseries/asset-metrics'
-        params = {
-            'assets': 'btc',
-            'metrics': 'CapRealUSD,CapMrktCurUSD,SOPR,CDD',
-            'frequency': '1d',
-            'limit': 730,
-            'api_key': api_key,
-        }
-    else:
-        url = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics'
-        params = {
-            'assets': 'btc',
-            'metrics': 'CapRealUSD,CapMrktCurUSD,SOPR,CDD',
-            'frequency': '1d',
-            'limit': 730,
-        }
     try:
-        resp = requests.get(url, params=params, timeout=20)
+        resp = requests.get(
+            'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics',
+            params={
+                'assets': 'btc',
+                'metrics': 'CapRealUSD,CapMrktCurUSD,SOPR,CDD',
+                'frequency': '1d',
+                'limit': 730,
+            },
+            timeout=20,
+        )
         resp.raise_for_status()
         rows = resp.json().get('data', [])
         if len(rows) < 60:
