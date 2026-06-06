@@ -41,6 +41,9 @@ jobs:
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           SOSOVALUE_API_KEY: ${{ secrets.SOSOVALUE_API_KEY }}
+          BGEOMETRICS_API_KEY: ${{ secrets.BGEOMETRICS_API_KEY }}
+          BITBO_API_KEY: ${{ secrets.BITBO_API_KEY }}
+          BLOCKCHAIR_API_KEY: ${{ secrets.BLOCKCHAIR_API_KEY }}
         run: python scripts/calculate_metrics.py
       
       - name: Build dashboard

@@ -17,6 +17,9 @@ from calculate_metrics import (
     fetch_binance_futures,
     fetch_btc_dominance,
     calculate_altseason_index,
+    fetch_bgeometrics_onchain,
+    fetch_bitbo_onchain,
+    fetch_blockchair_cdd,
 )
 
 
@@ -997,71 +1000,189 @@ class TestADXInCurrentSnapshot:
         assert metrics['BTC']['1d']['current']['adx'] is None
 
 
-class TestFetchCoinmetricsOnchain:
-    """Tests for fetch_coinmetrics_onchain()."""
+class TestFetchBgeometricsOnchain:
+    """Tests for fetch_bgeometrics_onchain()."""
 
-    from calculate_metrics import fetch_coinmetrics_onchain
-
-    def _make_rows(self, n, mvrv_ratio=1.5, sopr=1.01, cdd=1e8):
-        """Build n fake Coinmetrics rows."""
-        return [
-            {
-                'CapMrktCurUSD': str(600e9 * mvrv_ratio),
-                'CapRealUSD':    str(600e9),
-                'SOPR':          str(sopr),
-                'CDD':           str(cdd),
-            }
-            for _ in range(n)
-        ]
-
-    def _mock_resp(self, rows):
+    def _mock_resp(self, value):
         mock = MagicMock()
-        mock.json.return_value = {'data': rows}
+        mock.json.return_value = {'data': [['2026-06-04', str(value)]]}
         return mock
 
     def test_success_returns_all_fields(self):
-        from calculate_metrics import fetch_coinmetrics_onchain
-        rows = self._make_rows(200, mvrv_ratio=1.5, sopr=1.01)
-        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(rows)):
-            result = fetch_coinmetrics_onchain()
+        def side_effect(url, **kwargs):
+            if 'mvrv' in url:  return self._mock_resp(2.5)
+            if 'nupl' in url:  return self._mock_resp(0.3)
+            if 'sopr' in url:  return self._mock_resp(1.01)
+            return self._mock_resp(0)
+        with patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_bgeometrics_onchain()
         assert result is not None
-        for key in ('mvrv_z_score', 'mvrv_ratio', 'nupl', 'sopr',
-                    'signal_mvrv_z', 'signal_nupl', 'signal_sopr', 'signal_cvdd'):
+        for key in ('mvrv_z_score', 'nupl', 'sopr', 'signal_mvrv_z', 'signal_nupl', 'signal_sopr'):
             assert key in result
-        assert result['signal_mvrv_z'] in ('accumulate', 'neutral', 'distribute')
-        assert result['signal_nupl'] in ('accumulate', 'neutral', 'distribute')
 
-    def test_insufficient_rows_returns_none(self):
-        from calculate_metrics import fetch_coinmetrics_onchain
-        rows = self._make_rows(30)
-        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(rows)):
-            result = fetch_coinmetrics_onchain()
-        assert result is None
+    def test_accumulate_when_mvrv_z_negative(self):
+        def side_effect(url, **kwargs):
+            if 'mvrv' in url:  return self._mock_resp(-0.5)
+            if 'nupl' in url:  return self._mock_resp(0.1)
+            if 'sopr' in url:  return self._mock_resp(1.01)
+            return self._mock_resp(0)
+        with patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_bgeometrics_onchain()
+        assert result['signal_mvrv_z'] == 'accumulate'
+
+    def test_distribute_when_nupl_high(self):
+        def side_effect(url, **kwargs):
+            if 'mvrv' in url:  return self._mock_resp(3.0)
+            if 'nupl' in url:  return self._mock_resp(0.6)
+            if 'sopr' in url:  return self._mock_resp(1.01)
+            return self._mock_resp(0)
+        with patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_bgeometrics_onchain()
+        assert result['signal_nupl'] == 'distribute'
+
+    def test_neutral_sopr(self):
+        def side_effect(url, **kwargs):
+            if 'mvrv' in url:  return self._mock_resp(2.0)
+            if 'nupl' in url:  return self._mock_resp(0.3)
+            if 'sopr' in url:  return self._mock_resp(0.99)
+            return self._mock_resp(0)
+        with patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_bgeometrics_onchain()
+        assert result['signal_sopr'] == 'neutral'
 
     def test_network_error_returns_none(self):
-        from calculate_metrics import fetch_coinmetrics_onchain
         with patch('calculate_metrics.requests.get', side_effect=Exception('timeout')):
-            result = fetch_coinmetrics_onchain()
+            result = fetch_bgeometrics_onchain()
         assert result is None
 
-    def test_mvrv_zscore_zero_std(self):
-        """Z-score is 0.0 when all MVRV values are identical (std_mv = 0)."""
-        from calculate_metrics import fetch_coinmetrics_onchain
-        rows = self._make_rows(200, mvrv_ratio=1.0)
-        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(rows)):
-            result = fetch_coinmetrics_onchain()
-        assert result is not None
-        assert result['mvrv_z_score'] == 0.0
+    def test_http_403_returns_none(self):
+        import requests as req
+        mock = MagicMock()
+        mock.raise_for_status.side_effect = req.exceptions.HTTPError('403')
+        with patch('calculate_metrics.requests.get', return_value=mock):
+            result = fetch_bgeometrics_onchain()
+        assert result is None
 
-    def test_accumulate_signal_when_zscore_negative(self):
-        """signal_mvrv_z is 'accumulate' when MVRV Z-Score < 0."""
-        from calculate_metrics import fetch_coinmetrics_onchain
-        # Make mvrv_ratio vary so std > 0; final row has low value → negative z-score
-        rows = self._make_rows(199, mvrv_ratio=3.0) + self._make_rows(1, mvrv_ratio=0.1)
-        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(rows)):
-            result = fetch_coinmetrics_onchain()
+
+class TestFetchBitboOnchain:
+    """Tests for fetch_bitbo_onchain()."""
+
+    def _mock_resp(self, value):
+        mock = MagicMock()
+        mock.json.return_value = {'data': [['2026-06-04', str(value)]]}
+        return mock
+
+    def test_returns_none_without_api_key(self):
+        with patch.dict('os.environ', {}, clear=True):
+            result = fetch_bitbo_onchain()
+        assert result is None
+
+    def test_success_returns_mvrv_nupl(self):
+        def side_effect(url, **kwargs):
+            if 'mvrv-z' in url:   return self._mock_resp(3.1)
+            if 'nupl-ratio' in url: return self._mock_resp(0.35)
+            return self._mock_resp(0)
+        with patch.dict('os.environ', {'BITBO_API_KEY': 'test-key'}), \
+             patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_bitbo_onchain()
         assert result is not None
-        assert result['signal_mvrv_z'] == 'accumulate'
+        assert result['mvrv_z_score'] == pytest.approx(3.1)
+        assert result['signal_mvrv_z'] == 'neutral'
+        assert result['sopr'] is None
+
+    def test_distribute_when_mvrv_z_high(self):
+        def side_effect(url, **kwargs):
+            if 'mvrv-z' in url:   return self._mock_resp(7.2)
+            if 'nupl-ratio' in url: return self._mock_resp(0.55)
+            return self._mock_resp(0)
+        with patch.dict('os.environ', {'BITBO_API_KEY': 'test-key'}), \
+             patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_bitbo_onchain()
+        assert result['signal_mvrv_z'] == 'distribute'
+        assert result['signal_nupl'] == 'distribute'
+
+    def test_network_error_returns_none(self):
+        with patch.dict('os.environ', {'BITBO_API_KEY': 'test-key'}), \
+             patch('calculate_metrics.requests.get', side_effect=Exception('timeout')):
+            result = fetch_bitbo_onchain()
+        assert result is None
+
+    def test_http_403_returns_none(self):
+        import requests as req
+        mock = MagicMock()
+        mock.raise_for_status.side_effect = req.exceptions.HTTPError('403')
+        with patch.dict('os.environ', {'BITBO_API_KEY': 'test-key'}), \
+             patch('calculate_metrics.requests.get', return_value=mock):
+            result = fetch_bitbo_onchain()
+        assert result is None
+
+
+class TestFetchBlockchairCdd:
+    """Tests for fetch_blockchair_cdd()."""
+
+    def _make_rows(self, values):
+        """values: list of daily CDD totals, newest first (index 0 = most recent)."""
+        from datetime import date, timedelta
+        base = date(2026, 6, 4)
+        return [
+            {'date': str(base - timedelta(days=i)), 'sum(cdd_total)': v}
+            for i, v in enumerate(values)
+        ]
+
+    def _mock_resp(self, values):
+        mock = MagicMock()
+        mock.json.return_value = {'data': self._make_rows(values)}
+        return mock
+
+    def test_success_returns_all_fields(self):
+        values = [100_000.0] * 90  # 90 rows, newest first
+        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(values)):
+            result = fetch_blockchair_cdd()
+        assert result is not None
+        for key in ('cdd_latest', 'cdd_90d_avg', 'cdd_90d_change_pct', 'signal_cvdd'):
+            assert key in result
+
+    def test_neutral_when_at_avg(self):
+        values = [100_000.0] * 90  # all equal → ratio = 1.0 → neutral
+        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(values)):
+            result = fetch_blockchair_cdd()
+        assert result['signal_cvdd'] == 'neutral'
+        assert result['cdd_90d_change_pct'] == pytest.approx(0.0)
+
+    def test_accumulate_when_ratio_below_0_5(self):
+        # Latest (newest = index 0) is 40% of average → ratio 0.4 → accumulate
+        avg = 100_000.0
+        values = [avg * 0.4] + [avg] * 89  # newest first
+        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(values)):
+            result = fetch_blockchair_cdd()
+        assert result['signal_cvdd'] == 'accumulate'
+
+    def test_distribute_when_ratio_above_1_5(self):
+        # Latest (newest = index 0) is 170% of average → ratio ~1.7 → distribute
+        avg = 100_000.0
+        values = [avg * 1.7] + [avg] * 89  # newest first
+        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(values)):
+            result = fetch_blockchair_cdd()
+        assert result['signal_cvdd'] == 'distribute'
+
+    def test_returns_none_when_fewer_than_10_rows(self):
+        values = [100_000.0] * 5
+        with patch('calculate_metrics.requests.get', return_value=self._mock_resp(values)):
+            result = fetch_blockchair_cdd()
+        assert result is None
+
+    def test_returns_none_on_network_error(self):
+        with patch('calculate_metrics.requests.get', side_effect=Exception('timeout')):
+            result = fetch_blockchair_cdd()
+        assert result is None
+
+    def test_returns_none_on_http_403(self):
+        import requests as req
+        mock = MagicMock()
+        mock.raise_for_status.side_effect = req.exceptions.HTTPError('403')
+        with patch('calculate_metrics.requests.get', return_value=mock):
+            result = fetch_blockchair_cdd()
+        assert result is None
 
 
 class TestFetchPuellMultiple:
@@ -1173,13 +1294,15 @@ class TestGenerateBtcSignalsJsonConfluence:
     def _patch_all_fetchers(self, **overrides):
         """Context manager that patches all external fetchers to return None."""
         defaults = {
-            'calculate_metrics.fetch_hash_ribbons':       None,
-            'calculate_metrics.fetch_stablecoin_trend':   None,
-            'calculate_metrics.fetch_global_m2':          None,
-            'calculate_metrics.fetch_etf_flows':          None,
-            'calculate_metrics.fetch_binance_futures':    {},
-            'calculate_metrics.fetch_coinmetrics_onchain': None,
-            'calculate_metrics.fetch_puell_multiple':     None,
+            'calculate_metrics.fetch_hash_ribbons':        None,
+            'calculate_metrics.fetch_stablecoin_trend':    None,
+            'calculate_metrics.fetch_global_m2':           None,
+            'calculate_metrics.fetch_etf_flows':           None,
+            'calculate_metrics.fetch_binance_futures':     {},
+            'calculate_metrics.fetch_bgeometrics_onchain': None,
+            'calculate_metrics.fetch_bitbo_onchain':       None,
+            'calculate_metrics.fetch_blockchair_cdd':      None,
+            'calculate_metrics.fetch_puell_multiple':      None,
         }
         defaults.update(overrides)
         patches = [patch(k, return_value=v) for k, v in defaults.items()]
@@ -1228,21 +1351,19 @@ class TestGenerateBtcSignalsJsonConfluence:
         # Use very negative ATR Distance → accumulate signals
         hdf['ATR_Distance'] = -3.5
         dash = self._dashboard(hdf)
+        bgeom = {
+            'mvrv_z_score': -1.5, 'nupl': -0.4, 'sopr': 0.96,
+            'signal_mvrv_z': 'accumulate', 'signal_nupl': 'accumulate', 'signal_sopr': 'accumulate',
+        }
+        cdd = {
+            'cdd_latest': int(1e8), 'cdd_90d_avg': int(2e8),
+            'cdd_90d_change_pct': -50.0, 'signal_cvdd': 'accumulate',
+        }
         patches = self._apply_patches(self._patch_all_fetchers(
-            **{'calculate_metrics.fetch_coinmetrics_onchain': {
-                'realized_cap_usd': int(500e9),
-                'market_cap_usd':   int(300e9),
-                'mvrv_ratio':       0.6,
-                'mvrv_z_score':     -1.5,
-                'nupl':             -0.4,
-                'sopr':             0.96,
-                'cdd_latest':       int(1e8),
-                'cdd_90d_change_pct': -15.0,
-                'signal_mvrv_z':    'accumulate',
-                'signal_nupl':      'accumulate',
-                'signal_sopr':      'accumulate',
-                'signal_cvdd':      'accumulate',
-            }}
+            **{
+                'calculate_metrics.fetch_bgeometrics_onchain': bgeom,
+                'calculate_metrics.fetch_blockchair_cdd': cdd,
+            }
         ))
         try:
             result = generate_btc_signals_json(hdf, dash)
