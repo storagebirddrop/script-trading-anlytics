@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Analytics Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js" integrity="sha384-oNtu+d18330MVFpltUTve1DatxCkkctlpA2AC3GulbVFOSqhHdDat3qHse/Lbuek" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="header-top">
+                <h1>Trading Analytics</h1>
+                <div class="header-links">
+                    <a href="btc.html" class="header-home-link" aria-label="BTC Cycle Signals">&#x20BF; BTC</a>
+                    <a href="landing.html" class="header-home-link" aria-label="About this dashboard">About</a>
+                </div>
+            </div>
+            <p class="header-subtitle">ATR Distance · Regime Classification</p>
+            <div class="last-updated" id="lastUpdated">Loading...</div>
+        </header>
+
+        <main class="main-content">
+            <!-- Portfolio Overview Tab -->
+            <section id="portfolio-tab" class="tab-content active" role="tabpanel" tabindex="-1" aria-labelledby="tab-portfolio">
+                <h2>Portfolio Overview</h2>
+                <div id="market-context-bar" class="market-context-bar" role="status" aria-label="Market context" hidden></div>
+                <div id="portfolio-health-bar" class="portfolio-health-bar" role="status" aria-label="Portfolio health summary">
+                    <div class="loading">Loading…</div>
+                </div>
+                <div id="regime-strip" class="regime-strip"></div>
+                <div class="portfolio-panels" id="portfolio-panels">
+                    <div class="panel panel--opportunity" id="opportunity-panel" role="region" aria-labelledby="opportunity-panel-title">
+                        <h3 class="panel-title" id="opportunity-panel-title">
+                            <span class="panel-title-icon" aria-hidden="true">▼</span>
+                            Opportunity — Most Oversold
+                        </h3>
+                        <div class="panel-items" id="opportunity-items"></div>
+                    </div>
+                    <div class="panel panel--risk" id="risk-panel" role="region" aria-labelledby="risk-panel-title">
+                        <h3 class="panel-title" id="risk-panel-title">
+                            <span class="panel-title-icon" aria-hidden="true">▲</span>
+                            Risk — Most Extended
+                        </h3>
+                        <div class="panel-items" id="risk-items"></div>
+                    </div>
+                </div>
+                <div id="portfolio-search-wrap" class="portfolio-search-wrap">
+                    <input type="search" id="portfolio-search" class="portfolio-search"
+                           placeholder="Search assets…" aria-label="Search assets" autocomplete="off">
+                </div>
+                <div id="transitions-section" class="transitions-section" hidden>
+                    <div class="transitions-title">&#9679; Recent Regime Transitions</div>
+                    <div id="transitions-list" class="transitions-list"></div>
+                </div>
+                <div id="breadth-section" class="breadth-section" hidden>
+                    <h3>Market Breadth — 60-Day Regime History</h3>
+                    <div class="breadth-chart-container">
+                        <canvas id="breadth-chart"></canvas>
+                    </div>
+                </div>
+                <div class="filter-bar" id="portfolio-filter-bar">
+                    <div class="filter-group">
+                        <span class="filter-label">Timeframe</span>
+                        <div class="filter-chips" id="filter-portfolio-timeframe">
+                            <button class="chip active" data-value="1d">Daily</button>
+                            <button class="chip" data-value="1w">Weekly</button>
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <span class="filter-label">Category</span>
+                        <div class="filter-chips" id="filter-category">
+                            <button class="chip active" data-value="">All</button>
+                            <button class="chip" data-value="crypto">Crypto</button>
+                            <button class="chip" data-value="nasdaq">NASDAQ</button>
+                            <button class="chip" data-value="lse">LSE</button>
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label" for="sort-select">Sort by</label>
+                        <select id="sort-select" class="filter-select">
+                            <option value="name">Name A–Z</option>
+                            <option value="atr_asc">ATR Dist. ↑ (Oversold first)</option>
+                            <option value="atr_desc">ATR Dist. ↓ (Extended first)</option>
+                            <option value="rsi_asc">RSI ↑</option>
+                            <option value="mcap_asc">Market Cap ↓</option>
+                            <option value="score_desc">Score ↓ (Best setup first)</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <span class="filter-label">Detail</span>
+                        <div class="filter-chips" id="filter-detail">
+                            <button class="chip" data-value="novice">Novice</button>
+                            <button class="chip active" data-value="expert">Expert</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="portfolio-cards" class="cards-container">
+                    <div class="loading">Loading dashboard data...</div>
+                </div>
+            </section>
+
+            <!-- ATR Rankings Tab -->
+            <section id="rankings-tab" class="tab-content" role="tabpanel" tabindex="-1" aria-labelledby="tab-rankings">
+                <h2>ATR Rankings</h2>
+                <div class="rankings-container">
+                    <div class="ranking-section">
+                        <h3>Most Oversold</h3>
+                        <div id="oversold-list" class="ranking-list"></div>
+                    </div>
+                    <div class="ranking-section">
+                        <h3>Most Extended</h3>
+                        <div id="extended-list" class="ranking-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Extremes Tab (ids use "historical-*" for stability; renaming them would require JS+CSS updates) -->
+            <section id="historical-tab" class="tab-content" role="tabpanel" tabindex="-1" aria-labelledby="tab-historical">
+                <h2>Extremes</h2>
+                <div class="asset-selector">
+                    <label for="asset-select">Select Asset:</label>
+                    <select id="asset-select"></select>
+                </div>
+                <div id="historical-content" class="historical-content">
+                    <div class="loading">Loading dashboard data...</div>
+                </div>
+            </section>
+
+            <!-- Macro Overview Tab -->
+            <section id="macro-tab" class="tab-content" role="tabpanel" tabindex="-1" aria-labelledby="tab-macro">
+                <h2>Macro Overview</h2>
+                <div id="macro-content" class="macro-content">
+                    <div class="loading">Loading dashboard data...</div>
+                </div>
+            </section>
+
+            <!-- Asset Drilldown Tab -->
+            <section id="drilldown-tab" class="tab-content" role="tabpanel" tabindex="-1" aria-labelledby="tab-drilldown">
+                <h2>Asset Drilldown</h2>
+                <div class="selectors-row">
+                    <div class="asset-selector">
+                        <label for="drilldown-asset-select">Asset:</label>
+                        <select id="drilldown-asset-select"></select>
+                    </div>
+                    <div class="timeframe-selector">
+                        <label for="timeframe-select">Timeframe:</label>
+                        <select id="timeframe-select">
+                            <option value="1d">Daily</option>
+                            <option value="1w">Weekly</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="drilldown-content" class="drilldown-content">
+                    <div class="drilldown-summary" id="drilldown-summary">
+                        <div class="loading">Loading dashboard data...</div>
+                    </div>
+                    <div class="drilldown-takeaways" id="drilldown-takeaways" aria-label="Key takeaways" aria-live="polite"></div>
+                    <div class="chart-container">
+                        <div id="price-ema-chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div id="atr-distance-chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div id="rsi-chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div id="weekly-atr-chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div id="volume-profile-chart"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <nav class="bottom-nav" role="tablist" id="bottom-nav">
+            <!-- Hamburger toggle (visible only on mobile via CSS) -->
+            <button class="hamburger-toggle" id="hamburger-toggle"
+                    aria-label="Open navigation menu" aria-expanded="false"
+                    aria-controls="nav-drawer">
+                <span class="hamburger-icon" aria-hidden="true">&#9776;</span>
+                <span class="hamburger-current-tab" id="hamburger-current-tab">Portfolio</span>
+            </button>
+            <button id="tab-portfolio" class="nav-btn active" data-tab="portfolio-tab" role="tab" aria-selected="true" aria-label="Portfolio overview" aria-controls="portfolio-tab">
+                <span class="nav-icon" aria-hidden="true">📊</span>
+                <span class="nav-label">Portfolio</span>
+            </button>
+            <button id="tab-rankings" class="nav-btn" data-tab="rankings-tab" role="tab" aria-selected="false" aria-label="ATR Rankings" aria-controls="rankings-tab">
+                <span class="nav-icon" aria-hidden="true">📈</span>
+                <span class="nav-label">Rankings</span>
+            </button>
+            <button id="tab-historical" class="nav-btn" data-tab="historical-tab" role="tab" aria-selected="false" aria-label="Extremes — historical percentile context" aria-controls="historical-tab">
+                <span class="nav-icon" aria-hidden="true">📉</span>
+                <span class="nav-label">Extremes</span>
+            </button>
+            <button id="tab-macro" class="nav-btn" data-tab="macro-tab" role="tab" aria-selected="false" aria-label="Macro Overview" aria-controls="macro-tab">
+                <span class="nav-icon" aria-hidden="true">🌐</span>
+                <span class="nav-label">Macro</span>
+            </button>
+            <button id="tab-drilldown" class="nav-btn" data-tab="drilldown-tab" role="tab" aria-selected="false" aria-label="Asset Drilldown" aria-controls="drilldown-tab">
+                <span class="nav-icon" aria-hidden="true">🔍</span>
+                <span class="nav-label">Drilldown</span>
+            </button>
+        </nav>
+
+        <!-- Navigation drawer (mobile slide-up) -->
+        <div class="nav-drawer" id="nav-drawer" role="navigation"
+             aria-label="Main navigation" aria-hidden="true">
+            <button class="drawer-item active" data-tab="portfolio-tab" aria-label="Portfolio overview">
+                <span class="drawer-item-icon" aria-hidden="true">📊</span>
+                <span class="drawer-item-label">Portfolio</span>
+            </button>
+            <button class="drawer-item" data-tab="rankings-tab" aria-label="ATR Rankings">
+                <span class="drawer-item-icon" aria-hidden="true">📈</span>
+                <span class="drawer-item-label">Rankings</span>
+            </button>
+            <button class="drawer-item" data-tab="historical-tab" aria-label="Extremes">
+                <span class="drawer-item-icon" aria-hidden="true">📉</span>
+                <span class="drawer-item-label">Extremes</span>
+            </button>
+            <button class="drawer-item" data-tab="macro-tab" aria-label="Macro Overview">
+                <span class="drawer-item-icon" aria-hidden="true">🌐</span>
+                <span class="drawer-item-label">Macro</span>
+            </button>
+            <button class="drawer-item" data-tab="drilldown-tab" aria-label="Asset Drilldown">
+                <span class="drawer-item-icon" aria-hidden="true">🔍</span>
+                <span class="drawer-item-label">Drilldown</span>
+            </button>
+        </div>
+        <div class="nav-backdrop" id="nav-backdrop" aria-hidden="true"></div>
+    </div>
+
+    <!-- Price Alert Modal -->
+    <div id="alert-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="alert-modal-title">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 class="modal-title" id="alert-modal-title">Set Alert</h3>
+                <button class="modal-close" id="alert-modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="alert-asset-context">
+                    <span class="alert-ctx-label">Asset</span>
+                    <span id="alert-modal-asset" class="alert-ctx-value"></span>
+                    <span class="alert-ctx-label">ATR Dist.</span>
+                    <span id="alert-modal-atr" class="alert-ctx-value"></span>
+                    <span class="alert-ctx-label">Regime</span>
+                    <span id="alert-modal-regime" class="alert-ctx-value"></span>
+                </div>
+                <label class="alert-row">
+                    <input type="checkbox" id="alert-atr-enabled" class="alert-checkbox">
+                    <span>ATR Distance alert</span>
+                </label>
+                <div class="alert-atr-config" id="alert-atr-config">
+                    <label class="radio-label"><input type="radio" name="alert-dir" id="alert-dir-below" value="below"> Below</label>
+                    <label class="radio-label"><input type="radio" name="alert-dir" id="alert-dir-above" value="above"> Above</label>
+                    <input type="number" id="alert-atr-value" class="alert-threshold-input" step="0.1" placeholder="e.g. −2.0">
+                </div>
+                <label class="alert-row">
+                    <input type="checkbox" id="alert-regime-enabled" class="alert-checkbox">
+                    <span>Regime change alert (any transition)</span>
+                </label>
+                <div id="alert-notif-warning" class="alert-notif-warning" hidden>
+                    &#9888; Notifications are blocked.
+                    <button class="link-btn" id="alert-request-perm">Request permission</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-ghost" id="alert-remove-btn">Remove</button>
+                <button class="btn-primary" id="alert-save-btn">Save Alert</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

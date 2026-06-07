@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Analytics — ATR Distance Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="landing-container">
+
+        <!-- Hero -->
+        <header class="landing-hero">
+            <h1 class="landing-title">Trading Analytics</h1>
+            <p class="landing-tagline">Know where every asset stands in its statistical history — at a glance.</p>
+            <a href="index.html" class="landing-cta-btn">Open Dashboard</a>
+        </header>
+
+        <!-- Value Proposition -->
+        <section class="landing-section" aria-labelledby="vp-heading">
+            <h2 id="vp-heading">What this dashboard tells you</h2>
+            <div class="landing-cards-grid">
+                <div class="landing-feature-card">
+                    <span class="landing-feature-icon" aria-hidden="true">📊</span>
+                    <h3>Portfolio State at a Glance</h3>
+                    <p>See every tracked asset's ATR Distance, RSI, regime, historical percentile, composite signal score, VP zone, ATR trend, multi-timeframe alignment, ADX strength, and Bollinger Band %B on one screen. The health bar shows the Crypto Fear &amp; Greed Index, BTC Dominance, and Altseason score. The 60-day breadth chart tracks regime distribution over time. Toggle Daily/Weekly, star up to 10 assets, set price alerts, or sort by signal score.</p>
+                </div>
+                <div class="landing-feature-card">
+                    <span class="landing-feature-icon" aria-hidden="true">🔍</span>
+                    <h3>Opportunity Discovery</h3>
+                    <p>The Opportunity and Risk panels surface the top three most oversold and most extended setups, ranked by signal strength — Extreme Oversold through Mild Dip — so you can act on what matters first.</p>
+                </div>
+                <div class="landing-feature-card">
+                    <span class="landing-feature-icon" aria-hidden="true">📈</span>
+                    <h3>Historical Validation</h3>
+                    <p>Every reading is placed on a gauge showing where it sits across the full price history. A P4% reading means the asset has only been this oversold 4% of all trading days — genuinely rare.</p>
+                </div>
+                <div class="landing-feature-card">
+                    <span class="landing-feature-icon" aria-hidden="true">📉</span>
+                    <h3>Deep Asset Analysis</h3>
+                    <p>Drill into any asset for Key Takeaways (generated from current data), 90 days of ATR Distance and RSI charts, Price vs EMA21, Weekly ATR Distance, and a Volume Profile chart showing the 90-day price-by-volume distribution with POC and Value Area.</p>
+                </div>
+                <div class="landing-feature-card">
+                    <span class="landing-feature-icon" aria-hidden="true">🌐</span>
+                    <h3>Macro Context</h3>
+                    <p>A dedicated Macro tab covers 25 global assets across US, EU, and APAC indices, commodities (gold, oil, natgas, wheat, corn), and major forex pairs — all with the same ATR Distance regime analysis as the trading portfolio.</p>
+                </div>
+                <div class="landing-feature-card">
+                    <span class="landing-feature-icon" aria-hidden="true">&#x20BF;</span>
+                    <h3>Bitcoin Cycle Signals</h3>
+                    <p>A dedicated page aggregating 20+ BTC-specific indicators into a single confluence view across four sections. Price Structure: 200WMA, 200DMA, Pi Cycle Top, RSI (daily &amp; weekly), ATR regime, VP position. Sentiment &amp; Positioning: Fear &amp; Greed, Funding Rate, OI, BTC Dominance, Altseason, ETF Net Flows. Mining &amp; Liquidity: Hash Ribbons, Puell Multiple, Stablecoin Supply, Global M2 (12-week lag). On-Chain: MVRV Z-Score, NUPL, SOPR, CVDD — now active via Coinmetrics Community API (free); RHODL, LTH/STH MVRV Cross, and Reserve Risk remain locked (require Glassnode). Each signal is labelled Accumulate / Neutral / Distribute with a live confluence banner showing overall phase and strength.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- How It Works -->
+        <section class="landing-section landing-section--alt" aria-labelledby="how-heading">
+            <h2 id="how-heading">How to use it</h2>
+            <ol class="landing-steps">
+                <li class="landing-step">
+                    <span class="landing-step-num" aria-hidden="true">1</span>
+                    <div>
+                        <strong>Portfolio Overview</strong>
+                        <p>Start here. The market context bar shows the Crypto Fear &amp; Greed Index, BTC Dominance, and Altcoin Season score. The health bar summarises regime distribution across all assets. Scan the Opportunity and Risk panels for standout setups. Look for the yellow pulse dot on cards — it flags a regime change since the last bar. Toggle Daily/Weekly, filter by category, or type in the search box. Sort by "Score ↓" to rank by composite signal strength. Switch between <strong>Novice</strong> and <strong>Expert</strong> detail levels to show only the core metrics or the full set. Star assets (★) to pin them to the top; set alerts (⚑) to be notified when an asset crosses a threshold or changes regime. Each card shows ATR Distance with percentile badge, signal score, VP zone, ATR trend (↑/↓/─), alignment badge (↑↑/↓↓/↕), ADX strength, Bollinger Band %B, and a 14-bar sparkline.</p>
+                    </div>
+                </li>
+                <li class="landing-step">
+                    <span class="landing-step-num" aria-hidden="true">2</span>
+                    <div>
+                        <strong>Rankings</strong>
+                        <p>Visit the ATR Rankings tab to see the full ranked list with signal-strength labels — Extreme Oversold, Deep Oversold, High Extended, and so on. Each item also shows its historical percentile so you can compare setups across different assets.</p>
+                    </div>
+                </li>
+                <li class="landing-step">
+                    <span class="landing-step-num" aria-hidden="true">3</span>
+                    <div>
+                        <strong>Extremes (Historical Context)</strong>
+                        <p>Select any asset to see a percentile gauge showing where its current ATR Distance sits across its full history. A contextual interpretation tells you how frequently the asset has been at this level and what it has historically implied.</p>
+                    </div>
+                </li>
+                <li class="landing-step">
+                    <span class="landing-step-num" aria-hidden="true">4</span>
+                    <div>
+                        <strong>Macro</strong>
+                        <p>Check global macro context before acting on individual setups. The Macro tab groups indices, commodities, and forex into five sections with zone badges (Neutral / Oversold / Extended). Click any card to open its full Drilldown with charts and Volume Profile.</p>
+                    </div>
+                </li>
+                <li class="landing-step">
+                    <span class="landing-step-num" aria-hidden="true">5</span>
+                    <div>
+                        <strong>Drilldown</strong>
+                        <p>Read the Key Takeaways summary first — it distils the most important signals into plain language, including Volume Profile position. Then examine the 90-day charts: ATR Distance with regime zones, RSI, Price vs EMA21, Weekly ATR Distance, and the Volume Profile bar chart. The summary grid includes ADX, Bollinger Band %B and Width, Signal Score, funding rate, and open interest for crypto assets.</p>
+                    </div>
+                </li>
+                <li class="landing-step">
+                    <span class="landing-step-num" aria-hidden="true">6</span>
+                    <div>
+                        <strong>Bitcoin Cycle Signals</strong>
+                        <p>Open the ₿ BTC page from the dashboard header. The confluence banner gives an instant read — how many signals say Accumulate vs Distribute — and a phase badge (e.g. "Accumulation · Strong"). Scroll through four sections: Price Structure (MAs, Pi Cycle, RSI, ATR, VP), Sentiment &amp; Positioning (Fear &amp; Greed, Funding Rate, BTC Dominance, Altseason, ETF Flows), Mining &amp; Liquidity (Hash Ribbons, Puell Multiple, Stablecoin Supply, Global M2), and On-Chain (MVRV Z-Score, NUPL, SOPR, CVDD — active via Coinmetrics; plus 3 locked Glassnode cards). Each card shows the current value, a one-line context sentence, and a colour-coded signal badge.</p>
+                    </div>
+                </li>
+            </ol>
+        </section>
+
+        <!-- Methodology -->
+        <section class="landing-section" aria-labelledby="method-heading">
+            <h2 id="method-heading">Methodology</h2>
+            <div class="landing-methodology-grid">
+                <div class="landing-method-item">
+                    <h3>ATR Distance</h3>
+                    <p>The core metric: <code>(Price &minus; EMA21) &divide; ATR</code>. Measures how far price has stretched from its 21-period exponential moving average, expressed in units of Average True Range. A value of &minus;3 means price is 3 ATRs below the EMA. Both EMA and ATR use Wilder&rsquo;s smoothing, seeded with a simple moving average, matching TradingView exactly.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>Regime Classification</h3>
+                    <p>ATR Distance maps directly to five market regimes:</p>
+                    <ul class="landing-regime-list">
+                        <li><span class="asset-regime regime-capitulation">Capitulation</span> ATR Distance &lt; &minus;4</li>
+                        <li><span class="asset-regime regime-accumulation">Accumulation</span> &minus;4 to &minus;2</li>
+                        <li><span class="asset-regime regime-trend">Trend</span> &minus;2 to +2</li>
+                        <li><span class="asset-regime regime-distribution">Distribution</span> +2 to +4</li>
+                        <li><span class="asset-regime regime-mania">Mania</span> &gt; +4</li>
+                    </ul>
+                </div>
+                <div class="landing-method-item">
+                    <h3>Percentile Rank</h3>
+                    <p>Each ATR Distance reading is ranked against every historical bar for that asset. A P4% reading means price has been this oversold on only 4% of all recorded trading days — a statistically rare setup. Percentile badges appear on portfolio cards and ranking items when sufficient history (&ge;30 bars) is available.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>RSI &amp; RSI Z-Score</h3>
+                    <p>14-period RSI with Wilder smoothing. The RSI Z-Score normalises RSI over a 20-period rolling window — useful for identifying when RSI is unusually high or low relative to its own recent behaviour, which differs across assets and market conditions.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>Volume Profile</h3>
+                    <p>Fixed-lookback price-by-volume distribution (90 daily bars / 52 weekly bars) divided into 24 price buckets. Identifies the Point of Control (POC — highest-volume price), Value Area High (VAH), and Value Area Low (VAL). Price position relative to these levels is surfaced as a badge on cards and as a Key Takeaway in Drilldown.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>ADX — Trend Strength</h3>
+                    <p>14-period Average Directional Index (Wilder's smoothing). Measures how strongly price is trending, independently of direction. Above 25 = trending; below 20 = ranging/sideways. Pairs with ATR Distance: a low ATR Distance combined with high ADX suggests a strong oversold trend rather than sideways drift.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>Bollinger Band %B</h3>
+                    <p>20-period Bollinger Bands with 2σ. <code>%B = (Price &minus; Lower Band) &divide; (Upper &minus; Lower)</code>. A value below 0 means price has broken below the lower band (oversold breakout); above 1 means it has broken above the upper band. Bandwidth (band width as % of midline) highlights squeeze conditions that often precede large moves.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>Composite Signal Score</h3>
+                    <p>A single &minus;10 to +10 score per asset aggregating four signals: ATR Distance percentile (weight 4), RSI Z-Score (weight 3), VP position (weight 2), and multi-timeframe alignment (weight 1). Positive = oversold/opportunity; negative = extended/risk. Sortable as "Score ↓" to surface the strongest setups at a glance.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Card Icon Legend -->
+        <section class="landing-section landing-section--alt" aria-labelledby="legend-heading">
+            <h2 id="legend-heading">Card Icon Legend</h2>
+            <p class="landing-legend-intro">Every portfolio card carries several inline indicators. Here's what each one means.</p>
+
+            <div class="landing-legend-group">
+                <h3 class="landing-legend-grouphead">Regime</h3>
+                <dl class="landing-legend-list">
+                    <div class="legend-item">
+                        <dt>
+                            <span class="asset-regime regime-capitulation">Capitulation</span>
+                            <span class="asset-regime regime-accumulation">Accumulation</span>
+                            <span class="asset-regime regime-trend">Trend</span>
+                            <span class="asset-regime regime-distribution">Distribution</span>
+                            <span class="asset-regime regime-mania">Mania</span>
+                        </dt>
+                        <dd><strong>Regime badge</strong> — Where the asset sits in its ATR Distance cycle. Capitulation (&lt;−4) and Accumulation (−4 to −2) are oversold; Trend (−2 to +2) is balanced; Distribution (+2 to +4) and Mania (&gt;+4) are extended. The regime drives the card's left border color.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="legend-atr-sample atr-oversold">−2.4</span>
+                            <span class="legend-atr-sample legend-atr-neutral">+0.3</span>
+                            <span class="legend-atr-sample atr-extended">+2.8</span>
+                            <span class="legend-atr-sample atr-extreme">+5.1</span>
+                        </dt>
+                        <dd><strong>ATR Distance color</strong> — The main metric number changes color with severity: green = oversold (below EMA), orange = extended, red = extreme extension or capitulation. Neutral values stay grey.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="metric-percentile-badge">P4%</span>
+                            <span class="metric-percentile-badge">P22%</span>
+                            <span class="metric-percentile-badge">P81%</span>
+                        </dt>
+                        <dd><strong>Historical percentile</strong> — How rare the current ATR Distance reading is for this specific asset. P4% means price has only been this oversold on 4% of all recorded trading days — a statistically significant extreme. Requires ≥30 bars of history.</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="landing-legend-group">
+                <h3 class="landing-legend-grouphead">Controls</h3>
+                <dl class="landing-legend-list">
+                    <div class="legend-item">
+                        <dt><button class="star-btn starred" aria-label="Starred" tabindex="-1">★</button></dt>
+                        <dd><strong>Watchlist star</strong> — Pin up to 10 assets; starred assets float to the top of the Portfolio tab.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt><button class="alert-btn alert-active" aria-label="Alert active" tabindex="-1">⚑</button></dt>
+                        <dd><strong>Price alert</strong> — Orange when an alert is configured. Fires a browser notification when the asset crosses your chosen ATR Distance threshold or changes regime.</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="landing-legend-group">
+                <h3 class="landing-legend-grouphead">Regime &amp; Trend</h3>
+                <dl class="landing-legend-list">
+                    <div class="legend-item">
+                        <dt><span class="transition-pulse" aria-hidden="true"></span></dt>
+                        <dd><strong>Regime transition</strong> — Animated yellow dot. The asset's market regime changed on the last bar (e.g. Accumulation → Trend). The strip above the cards lists all current transitions.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="align-badge align-bullish">↑↑</span>
+                            <span class="align-badge align-bearish">↓↓</span>
+                            <span class="align-badge align-diverging">↕</span>
+                        </dt>
+                        <dd><strong>TF alignment</strong> — Daily and weekly regimes agree bullish (↑↑, green), agree bearish (↓↓, orange), or disagree (↕, grey). Agreement strengthens the signal; divergence urges caution.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="atr-trend-icon atr-trend-expanding">↑</span>
+                            <span class="atr-trend-icon atr-trend-flat">─</span>
+                            <span class="atr-trend-icon atr-trend-compressing">↓</span>
+                        </dt>
+                        <dd><strong>ATR trend</strong> — Whether the Average True Range is expanding (↑ orange), flat (─ grey), or compressing (↓ green) over the last 10 bars. Compression often precedes a breakout; expansion signals an already-moving market.</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="landing-legend-group">
+                <h3 class="landing-legend-grouphead">Price Position</h3>
+                <dl class="landing-legend-list">
+                    <div class="legend-item">
+                        <dt>
+                            <span class="vp-badge vp-below-val">Below VAL</span>
+                            <span class="vp-badge vp-at-poc">At POC</span>
+                            <span class="vp-badge vp-in-va">In VA</span>
+                            <span class="vp-badge vp-above-vah">Above VAH</span>
+                        </dt>
+                        <dd><strong>VP zone</strong> — Price relative to the 90-day Volume Profile. Below VAL = under support (green); At POC = at the highest-volume level; In VA = fair-value zone; Above VAH = above resistance (orange). Feeds into the Signal Score.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="bb-badge bb--below">%B −0.05</span>
+                            <span class="bb-badge bb--mid">%B 0.45</span>
+                            <span class="bb-badge bb--above">%B 1.05</span>
+                        </dt>
+                        <dd><strong>BB %B</strong> — Bollinger Band position (20-period, 2σ). Below 0 (green) = price broke below the lower band; above 1 (red) = broke above the upper band. Bandwidth squeeze (not shown on cards) often precedes large moves.</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="landing-legend-group">
+                <h3 class="landing-legend-grouphead">Momentum &amp; Score</h3>
+                <dl class="landing-legend-list">
+                    <div class="legend-item">
+                        <dt>
+                            <span class="adx-badge adx--trending">Trending 32</span>
+                            <span class="adx-badge adx--neutral">Neutral 22</span>
+                            <span class="adx-badge adx--ranging">Ranging 14</span>
+                        </dt>
+                        <dd><strong>ADX</strong> — Average Directional Index trend strength. Trending &gt;25 (green); Neutral 20–25 (amber); Ranging &lt;20 (grey). A low ATR Distance combined with Trending ADX is a strong directional oversold — not just a sideways drift.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="score-badge score--strong-pos">+7.0</span>
+                            <span class="score-badge score--pos">+3.5</span>
+                            <span class="score-badge score--neutral">0.0</span>
+                            <span class="score-badge score--neg">−3.5</span>
+                            <span class="score-badge score--strong-neg">−7.0</span>
+                        </dt>
+                        <dd><strong>Signal score</strong> — Composite −10 to +10 score aggregating ATR percentile (×4), RSI Z-Score (×3), VP zone (×2), and TF alignment (×1). Positive = oversold/opportunity; negative = extended/risk. Sort "Score ↓" to rank all assets by setup strength.</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="landing-legend-group">
+                <h3 class="landing-legend-grouphead">Crypto only</h3>
+                <dl class="landing-legend-list">
+                    <div class="legend-item">
+                        <dt>
+                            <span class="rs-badge rs-outperforming">×1.8 ↑</span>
+                            <span class="rs-badge rs-underperforming">×0.6 ↓</span>
+                        </dt>
+                        <dd><strong>RS / BTC</strong> — 30-day return ratio vs Bitcoin. ×1.8 ↑ = asset returned 1.8× BTC's gain (outperforming); ×0.6 ↓ = 60% of BTC's move (underperforming). Useful for capital-rotation decisions.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="fr-badge fr--positive-strong">+0.05%</span>
+                            <span class="fr-badge fr--neutral">0.00%</span>
+                            <span class="fr-badge fr--negative-strong">−0.03%</span>
+                        </dt>
+                        <dd><strong>Funding rate</strong> — Binance USDT-M perpetual funding rate per 8-hour period. High positive (red) = crowded longs, elevated squeeze risk. Negative (green) = shorts paying longs — potential relief-rally setup.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="mcap-badge mcap-top10">Top 10</span>
+                            <span class="mcap-badge mcap-top50">Top 50</span>
+                            <span class="mcap-badge mcap-top200">Top 200</span>
+                            <span class="mcap-badge mcap-small">Small</span>
+                        </dt>
+                        <dd><strong>Market cap rank</strong> — CoinGecko rank tier for crypto assets. Context for liquidity and risk — a Top 10 oversold reading carries different weight than a Small-cap one.</dd>
+                    </div>
+                </dl>
+            </div>
+        </section>
+
+        <!-- Coverage -->
+        <section class="landing-section" aria-labelledby="coverage-heading">
+            <h2 id="coverage-heading">Coverage</h2>
+            <div class="landing-methodology-grid">
+                <div class="landing-method-item">
+                    <h3>Crypto (28 assets)</h3>
+                    <p>BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP, ADA, NIGHT, VTHO, LINK, NEO, GAS, DRIFT, SEI, PEAQ, AEVO, EIGEN, W, WOO, JASMY — fetched from Yahoo Finance — plus D2X (Solana DEX via GeckoTerminal) and SCP (CoinEx via CCXT).</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>NASDAQ Stocks (11 assets)</h3>
+                    <p>Bitcoin-adjacent equities: MSTR, XXI, RIOT, MARA, IREN, BMNR, HUT, WULF, HIVE, CLSK, SLNH.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>LSE ETFs (6 assets)</h3>
+                    <p>Income-focused ETFs: MSTY, YMST, MARY, RIOY, IREY, BMNY — quoted in GBp (pence). Prices use unadjusted historical data to prevent dividend-adjustment distortion.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>Macro (25 assets)</h3>
+                    <p>Global context: US indices (SPX, NDX, RTY, DJI), EU indices (DAX, CAC, FTSE), APAC indices (NIK, HSI, ASX), commodities (GOLD, SILVER, OIL, NATGAS, COPPER, WHEAT, CORN), and forex (DXY, EURUSD, GBPUSD, AUDUSD, NZDUSD, USDCAD, USDCHF, USDJPY).</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>Timeframes</h3>
+                    <p>All 70 assets tracked on both <strong>Daily (1d)</strong> and <strong>Weekly (1w)</strong> timeframes. History goes back to January 2024 (or listing date if later). Data refreshes daily at ~09:00 UTC.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <section class="landing-cta-section" aria-labelledby="cta-heading">
+            <h2 id="cta-heading">Ready to explore?</h2>
+            <p>70 assets. Daily and weekly timeframes. 6 views. Full historical context since 2024.</p>
+            <a href="index.html" class="landing-cta-btn">Open Dashboard</a>
+        </section>
+
+        <footer class="landing-footer">
+            <p>Data updates daily at ~09:00 UTC. Not financial advice.</p>
+        </footer>
+
+    </div>
+</body>
+</html>

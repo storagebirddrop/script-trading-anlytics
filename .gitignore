@@ -1,0 +1,47 @@
+# Generated files (committed via CI workflow)
+dashboard/assets/data.json
+
+# Data files
+ATR_Tracker_Dashboard.xlsx
+data/master.csv
+data/history.csv
+data/dashboard.json
+data/metadata.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
