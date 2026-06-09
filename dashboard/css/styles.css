@@ -1905,6 +1905,38 @@ body {
 .adx--ranging  { background: rgba(107, 114, 128, 0.15); color: var(--text-secondary); }
 .adx--neutral  { background: rgba(251, 191, 36, 0.18);  color: var(--accent-orange); }
 
+/* ── EMA50 Distance badge ────────────────────────────────────────────────────── */
+.e50-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: var(--radius-sm);
+    vertical-align: middle;
+    font-variant-numeric: tabular-nums;
+}
+.e50--cap   { background: rgba(139, 92, 246, 0.18); color: #a78bfa; }
+.e50--acc   { background: rgba(16, 185, 129, 0.18); color: var(--accent-green); }
+.e50--trend { background: rgba(160, 174, 192, 0.10); color: var(--text-secondary); }
+.e50--dist  { background: rgba(249, 115, 22, 0.15); color: var(--accent-orange); }
+.e50--mania { background: rgba(239, 68, 68, 0.15);  color: var(--accent-red); }
+
+/* ── 200DMA Proximity badge ──────────────────────────────────────────────────── */
+.ma200-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: var(--radius-sm);
+    vertical-align: middle;
+    font-variant-numeric: tabular-nums;
+}
+.ma200--deep-below { background: rgba(16, 185, 129, 0.22); color: var(--accent-green); }
+.ma200--below      { background: rgba(110, 231, 183, 0.14); color: #6ee7b7; }
+.ma200--near       { background: rgba(160, 174, 192, 0.10); color: var(--text-secondary); }
+.ma200--extended   { background: rgba(249, 115, 22, 0.15);  color: var(--accent-orange); }
+.ma200--extreme    { background: rgba(239, 68, 68, 0.15);   color: var(--accent-red); }
+
 /* ── Composite signal score badge ───────────────────────────────────────────── */
 .score-badge {
     display: inline-block;
