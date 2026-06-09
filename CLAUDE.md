@@ -94,7 +94,7 @@ Shared library used by both `crypto_tracker.py` and `backfill_historical.py`. Av
 | `data/master.csv` | Latest snapshot per Asset+Timeframe — derived from history |
 | `data/history.csv` | Full historical accumulation (authoritative record) |
 | `data/dashboard.json` | Computed metrics consumed by the web UI |
-| `data/chart_history.json` | Last 90 bars of ATR Distance, RSI, Price, EMA21 per asset+timeframe; used by Drilldown charts |
+| `data/chart_history.json` | Last 90 bars of ATR Distance, RSI, Price, EMA21, EMA50, 200DMA per asset+timeframe; used by Drilldown charts |
 | `data/breadth.json` | Last 60 days of daily regime counts for portfolio assets (non-macro); used by breadth chart on Portfolio tab |
 | `data/btc_signals.json` | BTC cycle indicator confluence data; consumed by `dashboard/btc.html` |
 
@@ -131,6 +131,8 @@ All calculations live in `trading_utils/indicators.py`.
 - **ADX:** 14-period Average Directional Index (Wilder's RMA, SMA-seeded). Measures trend strength independently of direction (0–100; >25 = trending, <20 = ranging). Computed from +DM/−DM → +DI/−DI → DX → ADX. First valid at bar `2*(period−1)` = 26. Added to `history.csv` as `ADX` column; written as `adx` in `dashboard.json` `current` objects; shown as a colour-coded badge on portfolio cards and in the Drilldown summary.
 - **BB_Pct_B / BB_Bandwidth:** 20-period Bollinger Bands with 2σ. `%B = (close − lower) / (upper − lower)` — 0 = at lower band, 1 = at upper band; outside [0,1] = price beyond the bands. Bandwidth = `(upper − lower) / mid × 100` — percentage width relative to midband; useful for detecting BB squeezes (multi-period lows precede large moves). Uses rolling sample-std (ddof=1). First valid at bar `period − 1` = 19. Written as `bb_pct_b` and `bb_bandwidth` in `dashboard.json`; shown as coloured badge on cards and two rows in the Drilldown summary.
 - **price_change_pct** *(derived in `calculate_metrics.py`)*: `(current_price - prev_price) / prev_price × 100` — momentum indicator added to `dashboard.json` `current` objects; displayed as "Chg%" on portfolio cards and in the drilldown summary
+- **EMA50 Distance** *(derived in `calculate_metrics.py` via `_ema_series()`)*: `(Price − EMA50) / ATR` — same ATR-normalised scale as ATR_Distance but vs the 50-period EMA. Requires ≥ 50 bars; `null` otherwise. Written as `ema50_distance` (and raw `ema50`) in `dashboard.json`; displayed as an "E50" badge on Expert cards and in the Drilldown summary. Badge colour uses the same 5-tier scale as ATR Distance (cap/acc/trend/dist/mania).
+- **200DMA Proximity** *(derived in `calculate_metrics.py`)*: `((Price − SMA200) / SMA200) × 100` — conventional percentage deviation from the 200-day simple moving average (SMA, same as TradingView's `ta.sma(close, 200)`). Requires ≥ 200 bars; `null` otherwise. Written as `pct_above_200d` (and raw `ma200d`) in `dashboard.json`; displayed as a "200D" badge on Expert cards and in the Drilldown summary. Badge colour: deep-below < −20% (green) → below < 0% (light green) → near < +20% (grey) → extended < +50% (amber) → extreme ≥ +50% (red). EMA50 and 200DMA lines are also added to the Price chart in Drilldown as blue and purple dashed series respectively. Both metrics are added to `chart_history.json` as abbreviated keys `e5` (EMA50) and `m2` (200DMA SMA).
 
 All indicators use SMA of the first `period` bars as the seed value, then apply exponential smoothing. This matches TradingView exactly. Do not replace with pandas `ewm(adjust=False)` — that initialisation diverges significantly for short-history assets.
 
@@ -260,6 +262,8 @@ The gauge x-axis represents the empirical distribution, not a linear ATR Distanc
 - `renderMarketContextBar()` — renders `#market-context-bar` with BTC.D and Altseason index; hidden when both are null
 - `adxStrengthHtml(adx)` — returns ADX badge HTML with strength label (Trending >25 / Neutral 20–25 / Ranging <20) and colour class
 - `bbPctBHtml(pctB)` — returns BB %B badge HTML; colours: below 0 = green (oversold breakout), 0–0.2 = light green, 0.2–0.8 = neutral, 0.8–1.0 = amber, above 1 = red (overbought breakout)
+- `ema50DistHtml(dist)` — returns EMA50 Distance badge HTML; same 5-tier colour scale as ATR Distance (cap purple / acc green / trend grey / dist orange / mania red); hidden when null
+- `ma200ProximityHtml(pct)` — returns 200DMA Proximity badge HTML; 5 tiers: deep-below <−20% (green) / below <0% (light green) / near <+20% (grey) / extended <+50% (amber) / extreme ≥+50% (red); hidden when null
 - `computeSignalScore(current, historical)` — computes composite signal score in [−10, +10]; weights: ATR percentile ×4 (or raw ATR Distance fallback), RSI Z-Score ×3, VP position ×2, alignment ×1; positive = oversold/opportunity, negative = extended/risk; returns `null` when ATR data is absent
 - `signalScoreHtml(score)` — returns badge HTML for composite score; colour tiers: strong positive (≥+6 green), positive (≥+2 light green), neutral (−2 to +2 grey), negative (≤−2 amber), strong negative (≤−6 red)
 - `getStarred()` / `isStarred(asset)` / `toggleStar(asset)` — localStorage watchlist (key `starred_assets`, max 10)
@@ -296,6 +300,10 @@ The gauge x-axis represents the empirical distribution, not a linear ATR Distanc
 - `adx` — `float|null` — 14-period Average Directional Index value; null when fewer than 27 bars of OHLCV exist or when the market shows no directional movement (DX undefined). Displayed as a colour-coded badge: Trending (>25, green), Neutral (20–25, amber), Ranging (<20, grey).
 - `bb_pct_b` — `float|null` — Bollinger Band %B (20-period, 2σ). 0 = lower band, 1 = upper band; values outside [0,1] indicate price beyond the bands. Null when fewer than 20 bars or when bandwidth = 0 (flat price).
 - `bb_bandwidth` — `float|null` — Bollinger Bandwidth as `(upper − lower) / mid × 100`. Null under the same conditions as `bb_pct_b`.
+- `ema50` — `float|null` — Raw EMA50 price level. Null when fewer than 50 bars.
+- `ema50_distance` — `float|null` — `(Price − EMA50) / ATR`. Null when fewer than 50 bars or ATR = 0.
+- `ma200d` — `float|null` — Raw 200-day SMA price level. Null when fewer than 200 bars.
+- `pct_above_200d` — `float|null` — `(Price − SMA200) / SMA200 × 100`. Null when fewer than 200 bars.
 
 **Top-level fields in `dashboard.json`** (added by `calculate_metrics.py`):
 - `fear_greed` — `{value: int, label: str, timestamp: str}|null` — Crypto Fear & Greed Index fetched from `https://api.alternative.me/fng/?limit=1` (free, no auth). Written by `fetch_fear_greed()`. `null` when the fetch fails. Labels: `Extreme Fear` | `Fear` | `Neutral` | `Greed` | `Extreme Greed`.

@@ -1000,6 +1000,53 @@ class TestADXInCurrentSnapshot:
         assert metrics['BTC']['1d']['current']['adx'] is None
 
 
+class TestEMA50And200DMAInCurrentSnapshot:
+    """ema50_distance and pct_above_200d are written into dashboard.json current snapshot."""
+
+    def _make_df(self, n_bars: int, price: float = 100.0) -> 'pd.DataFrame':
+        """Build a minimal history DataFrame with n_bars of constant price data."""
+        import pandas as pd
+        from datetime import date, timedelta
+        base = date(2024, 1, 1)
+        dates = [str(base + timedelta(days=i)) for i in range(n_bars)]
+        return pd.DataFrame({
+            'Date': dates,
+            'Asset': ['BTC'] * n_bars,
+            'Price': [price] * n_bars,
+            'EMA21': [price] * n_bars,
+            'ATR': [1000.0] * n_bars,
+            'RSI': [50.0] * n_bars,
+            'RSI_Z_Score': [0.0] * n_bars,
+            'ATR_Distance': [0.0] * n_bars,
+            'Pct_Above_EMA': [0.0] * n_bars,
+            'Timeframe': ['1d'] * n_bars,
+        })
+
+    def test_ema50_distance_present_when_enough_history(self):
+        """ema50_distance is non-null when asset has >= 50 bars."""
+        df = self._make_df(60)
+        metrics = calculate_current_metrics(df)
+        assert metrics['BTC']['1d']['current']['ema50_distance'] is not None
+
+    def test_ema50_distance_null_when_fewer_than_50_bars(self):
+        """ema50_distance is None when asset has < 50 bars."""
+        df = self._make_df(40)
+        metrics = calculate_current_metrics(df)
+        assert metrics['BTC']['1d']['current']['ema50_distance'] is None
+
+    def test_pct_above_200d_present_when_enough_history(self):
+        """pct_above_200d is non-null when asset has >= 200 bars."""
+        df = self._make_df(210)
+        metrics = calculate_current_metrics(df)
+        assert metrics['BTC']['1d']['current']['pct_above_200d'] is not None
+
+    def test_pct_above_200d_null_when_fewer_than_200_bars(self):
+        """pct_above_200d is None when asset has < 200 bars."""
+        df = self._make_df(150)
+        metrics = calculate_current_metrics(df)
+        assert metrics['BTC']['1d']['current']['pct_above_200d'] is None
+
+
 class TestFetchBgeometricsOnchain:
     """Tests for fetch_bgeometrics_onchain()."""
 

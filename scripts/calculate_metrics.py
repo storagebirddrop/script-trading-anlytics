@@ -28,6 +28,18 @@ from trading_utils import (
 )
 
 
+def _ema_series(prices: 'pd.Series', period: int) -> 'pd.Series':
+    """SMA-seeded EMA on a price Series — matches TradingView ta.ema()."""
+    alpha = 2.0 / (period + 1)
+    out = prices.copy().astype(float)
+    out.iloc[:period] = np.nan
+    if len(prices) >= period:
+        out.iloc[period - 1] = float(prices.iloc[:period].mean())
+        for i in range(period, len(prices)):
+            out.iloc[i] = alpha * float(prices.iloc[i]) + (1 - alpha) * out.iloc[i - 1]
+    return out
+
+
 def _norm_timeframe(tf: str) -> str:
     """Normalise timeframe string to canonical form ('1d' / '1w')."""
     t = tf.lower()
@@ -221,6 +233,26 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
                 else:
                     atr_trend = 'flat'
 
+        # EMA50 Distance — (Price − EMA50) / ATR, ATR-normalised like atr_distance
+        price_series = asset_data.sort_values('Date')['Price'].dropna().reset_index(drop=True)
+        ema50_val = None
+        ema50_distance = None
+        if len(price_series) >= 50:
+            _e50 = _ema_series(price_series, 50)
+            ema50_val = float(_e50.iloc[-1])
+            _atr_val = float(row['ATR']) if pd.notna(row.get('ATR')) else None
+            if _atr_val and _atr_val > 0 and pd.notna(row.get('Price')):
+                ema50_distance = round((float(row['Price']) - ema50_val) / _atr_val, 2)
+            ema50_val = round(ema50_val, 4)
+
+        # 200DMA Proximity — % above/below the 200-day simple moving average (conventional form)
+        ma200d_val = None
+        pct_above_200d = None
+        if len(price_series) >= 200:
+            ma200d_val = round(float(price_series.iloc[-200:].mean()), 4)
+            if pd.notna(row.get('Price')) and ma200d_val:
+                pct_above_200d = round((float(row['Price']) - ma200d_val) / ma200d_val * 100, 2)
+
         metrics[asset][tf_norm]['current'] = {
             'date': str(row['Date']),
             'price': float(row['Price']) if pd.notna(row['Price']) else None,
@@ -247,6 +279,10 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
             'regime_changed':   regime_changed,
             'prev_regime':      prev_regime,
             'atr_trend':        atr_trend,
+            'ema50':            ema50_val,
+            'ema50_distance':   ema50_distance,
+            'ma200d':           ma200d_val,
+            'pct_above_200d':   pct_above_200d,
         }
 
     return metrics
@@ -282,18 +318,28 @@ def generate_chart_history(df: pd.DataFrame, n_bars: int = 90) -> Dict[str, Any]
         valid = group.dropna(subset=['ATR_Distance'])
         tail = valid.tail(n_bars)
 
+        # Precompute EMA50 and 200DMA rolling series aligned to sorted group index
+        _prices_sorted = group['Price'].dropna()
+        _e50_full = _ema_series(_prices_sorted.reset_index(drop=True), 50)
+        _e50_full.index = _prices_sorted.index
+        _ma200_full = group['Price'].rolling(200, min_periods=200).mean()
+
         bars = []
-        for _, row in tail.iterrows():
+        for idx, row in tail.iterrows():
             atr_d = row.get('ATR_Distance')
             rsi   = row.get('RSI')
             price = row.get('Price')
             ema   = row.get('EMA21')
+            e50   = _e50_full.get(idx)
+            m200  = _ma200_full.get(idx)
             bars.append({
                 'd': str(row['Date'])[:10],
                 'a': round(float(atr_d), 4) if pd.notna(atr_d) else None,
                 'r': round(float(rsi), 2)   if pd.notna(rsi)   else None,
                 'p': round(float(price), 4) if pd.notna(price) else None,
                 'e': round(float(ema), 4)   if pd.notna(ema)   else None,
+                'e5': round(float(e50), 4)  if e50 is not None and pd.notna(e50) else None,
+                'm2': round(float(m200), 4) if m200 is not None and pd.notna(m200) else None,
             })
 
         bucket = result.setdefault(asset, {}).setdefault(tf_norm, [])
