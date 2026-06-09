@@ -23,7 +23,7 @@
                 <div class="landing-feature-card">
                     <span class="landing-feature-icon" aria-hidden="true">📊</span>
                     <h3>Portfolio State at a Glance</h3>
-                    <p>See every tracked asset's ATR Distance, RSI, regime, historical percentile, composite signal score, VP zone, ATR trend, multi-timeframe alignment, ADX strength, and Bollinger Band %B on one screen. The health bar shows the Crypto Fear &amp; Greed Index, BTC Dominance, and Altseason score. The 60-day breadth chart tracks regime distribution over time. Toggle Daily/Weekly, star up to 10 assets, set price alerts, or sort by signal score.</p>
+                    <p>See every tracked asset's ATR Distance, RSI, regime, historical percentile, composite signal score, VP zone, ATR trend, multi-timeframe alignment, ADX strength, Bollinger Band %B, EMA50 Distance, and 200DMA Proximity on one screen. The health bar shows the Crypto Fear &amp; Greed Index, BTC Dominance, and Altseason score. The 60-day breadth chart tracks regime distribution over time. Toggle Daily/Weekly, star up to 10 assets, set price alerts, or sort by signal score.</p>
                 </div>
                 <div class="landing-feature-card">
                     <span class="landing-feature-icon" aria-hidden="true">🔍</span>
@@ -38,7 +38,7 @@
                 <div class="landing-feature-card">
                     <span class="landing-feature-icon" aria-hidden="true">📉</span>
                     <h3>Deep Asset Analysis</h3>
-                    <p>Drill into any asset for Key Takeaways (generated from current data), 90 days of ATR Distance and RSI charts, Price vs EMA21, Weekly ATR Distance, and a Volume Profile chart showing the 90-day price-by-volume distribution with POC and Value Area.</p>
+                    <p>Drill into any asset for Key Takeaways (generated from current data), 90 days of ATR Distance and RSI charts, Price vs EMA21 / EMA50 / 200DMA, Weekly ATR Distance, and a Volume Profile chart showing the 90-day price-by-volume distribution with POC and Value Area.</p>
                 </div>
                 <div class="landing-feature-card">
                     <span class="landing-feature-icon" aria-hidden="true">🌐</span>
@@ -48,7 +48,7 @@
                 <div class="landing-feature-card">
                     <span class="landing-feature-icon" aria-hidden="true">&#x20BF;</span>
                     <h3>Bitcoin Cycle Signals</h3>
-                    <p>A dedicated page aggregating 20+ BTC-specific indicators into a single confluence view across four sections. Price Structure: 200WMA, 200DMA, Pi Cycle Top, RSI (daily &amp; weekly), ATR regime, VP position. Sentiment &amp; Positioning: Fear &amp; Greed, Funding Rate, OI, BTC Dominance, Altseason, ETF Net Flows. Mining &amp; Liquidity: Hash Ribbons, Puell Multiple, Stablecoin Supply, Global M2 (12-week lag). On-Chain: MVRV Z-Score, NUPL, SOPR, CVDD — now active via Coinmetrics Community API (free); RHODL, LTH/STH MVRV Cross, and Reserve Risk remain locked (require Glassnode). Each signal is labelled Accumulate / Neutral / Distribute with a live confluence banner showing overall phase and strength.</p>
+                    <p>A dedicated page aggregating 20+ BTC-specific indicators into a single confluence view across four sections. Price Structure: 200WMA, 200DMA, Pi Cycle Top, RSI (daily &amp; weekly), ATR regime, VP position. Sentiment &amp; Positioning: Fear &amp; Greed, Funding Rate, OI, BTC Dominance, Altseason, ETF Net Flows. Mining &amp; Liquidity: Hash Ribbons, Puell Multiple, Stablecoin Supply, Global M2 (12-week lag). On-Chain: MVRV Z-Score, NUPL, SOPR (via BGeometrics — free, no auth) and CVDD (via Blockchair daily CDD trend — free, no auth); RHODL, LTH/STH MVRV Cross, and Reserve Risk remain locked (require Glassnode). Each signal is labelled Accumulate / Neutral / Distribute with a live confluence banner showing overall phase and strength.</p>
                 </div>
             </div>
         </section>
@@ -89,14 +89,14 @@
                     <span class="landing-step-num" aria-hidden="true">5</span>
                     <div>
                         <strong>Drilldown</strong>
-                        <p>Read the Key Takeaways summary first — it distils the most important signals into plain language, including Volume Profile position. Then examine the 90-day charts: ATR Distance with regime zones, RSI, Price vs EMA21, Weekly ATR Distance, and the Volume Profile bar chart. The summary grid includes ADX, Bollinger Band %B and Width, Signal Score, funding rate, and open interest for crypto assets.</p>
+                        <p>Read the Key Takeaways summary first — it distils the most important signals into plain language, including Volume Profile position and 200DMA context. Then examine the 90-day charts: ATR Distance with regime zones, RSI, Price vs EMA21 / EMA50 / 200DMA (three moving averages on one chart), Weekly ATR Distance, and the Volume Profile bar chart. The summary grid includes ADX, Bollinger Band %B and Width, EMA50 Distance, 200DMA Proximity, Signal Score, funding rate, and open interest for crypto assets.</p>
                     </div>
                 </li>
                 <li class="landing-step">
                     <span class="landing-step-num" aria-hidden="true">6</span>
                     <div>
                         <strong>Bitcoin Cycle Signals</strong>
-                        <p>Open the ₿ BTC page from the dashboard header. The confluence banner gives an instant read — how many signals say Accumulate vs Distribute — and a phase badge (e.g. "Accumulation · Strong"). Scroll through four sections: Price Structure (MAs, Pi Cycle, RSI, ATR, VP), Sentiment &amp; Positioning (Fear &amp; Greed, Funding Rate, BTC Dominance, Altseason, ETF Flows), Mining &amp; Liquidity (Hash Ribbons, Puell Multiple, Stablecoin Supply, Global M2), and On-Chain (MVRV Z-Score, NUPL, SOPR, CVDD — active via Coinmetrics; plus 3 locked Glassnode cards). Each card shows the current value, a one-line context sentence, and a colour-coded signal badge.</p>
+                        <p>Open the ₿ BTC page from the dashboard header. The confluence banner gives an instant read — how many signals say Accumulate vs Distribute — and a phase badge (e.g. "Accumulation · Strong"). Scroll through four sections: Price Structure (MAs, Pi Cycle, RSI, ATR, VP), Sentiment &amp; Positioning (Fear &amp; Greed, Funding Rate, BTC Dominance, Altseason, ETF Flows), Mining &amp; Liquidity (Hash Ribbons, Puell Multiple, Stablecoin Supply, Global M2), and On-Chain (MVRV Z-Score, NUPL, SOPR via BGeometrics; CVDD via Blockchair; plus 3 locked Glassnode cards). Each card shows the current value, a one-line context sentence, and a colour-coded signal badge.</p>
                     </div>
                 </li>
             </ol>
@@ -140,6 +140,14 @@
                 <div class="landing-method-item">
                     <h3>Bollinger Band %B</h3>
                     <p>20-period Bollinger Bands with 2σ. <code>%B = (Price &minus; Lower Band) &divide; (Upper &minus; Lower)</code>. A value below 0 means price has broken below the lower band (oversold breakout); above 1 means it has broken above the upper band. Bandwidth (band width as % of midline) highlights squeeze conditions that often precede large moves.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>EMA50 Distance</h3>
+                    <p><code>(Price &minus; EMA50) &divide; ATR</code> — the same ATR-normalised metric as ATR Distance, but measured from the 50-period exponential moving average. Provides medium-term trend context: a negative EMA50 Distance while ATR Distance is near zero often signals that price has recovered short-term but is still below a key medium-term level. Uses the same five-colour regime scale. Null when the asset has fewer than 50 bars of history.</p>
+                </div>
+                <div class="landing-method-item">
+                    <h3>200DMA Proximity</h3>
+                    <p><code>(Price &minus; 200-day SMA) &divide; 200-day SMA &times; 100</code> — percentage above or below the 200-day simple moving average, the most widely-watched long-term bull/bear dividing line. Negative = price below the 200DMA (historically a long-term value zone); above +40% = historically extended. Visible as a "200D" badge on Expert cards and as a separate line on the Drilldown price chart. Null when fewer than 200 bars are available.</p>
                 </div>
                 <div class="landing-method-item">
                     <h3>Composite Signal Score</h3>
@@ -259,6 +267,23 @@
                             <span class="adx-badge adx--ranging">Ranging 14</span>
                         </dt>
                         <dd><strong>ADX</strong> — Average Directional Index trend strength. Trending &gt;25 (green); Neutral 20–25 (amber); Ranging &lt;20 (grey). A low ATR Distance combined with Trending ADX is a strong directional oversold — not just a sideways drift.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="e50-badge e50--acc">−2.4</span>
+                            <span class="e50-badge e50--trend">+0.8</span>
+                            <span class="e50-badge e50--dist">+2.9</span>
+                        </dt>
+                        <dd><strong>EMA50 Distance (E50)</strong> — <code>(Price &minus; EMA50) &divide; ATR</code>. Same ATR-normalised scale as ATR Distance but measured from the 50-period EMA. Useful for medium-term context: a negative reading while ATR Distance is near zero often means a short-term bounce hasn't yet reclaimed the medium-term trend. Expert mode only.</dd>
+                    </div>
+                    <div class="legend-item">
+                        <dt>
+                            <span class="ma200-badge ma200--deep-below">−25%</span>
+                            <span class="ma200-badge ma200--near">+5%</span>
+                            <span class="ma200-badge ma200--extended">+35%</span>
+                            <span class="ma200-badge ma200--extreme">+55%</span>
+                        </dt>
+                        <dd><strong>200DMA Proximity (200D)</strong> — Percentage above or below the 200-day simple moving average. The 200DMA is the most-watched long-term bull/bear dividing line. Deep below (green) = long-term value zone; above +50% (red) = historically extended. Expert mode only.</dd>
                     </div>
                     <div class="legend-item">
                         <dt>
