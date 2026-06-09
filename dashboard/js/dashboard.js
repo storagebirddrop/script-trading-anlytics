@@ -224,6 +224,32 @@ function bbPctBHtml(pctB) {
     return `<span class="bb-badge ${cls}" title="BB %B ${val}: Bollinger Band position (0=lower band, 1=upper band; outside [0,1] = beyond the bands)">${label}</span>`;
 }
 
+// EMA50 Distance badge — same ATR-normalised scale as ATR Distance.
+function ema50DistHtml(dist) {
+    if (dist == null) return '';
+    const val = (dist >= 0 ? '+' : '') + dist.toFixed(2);
+    let cls;
+    if      (dist < -4) cls = 'e50--cap';
+    else if (dist < -2) cls = 'e50--acc';
+    else if (dist <=  2) cls = 'e50--trend';
+    else if (dist <=  4) cls = 'e50--dist';
+    else                 cls = 'e50--mania';
+    return `<span class="e50-badge ${cls}" title="EMA50 Distance: (Price − EMA50) / ATR — same scale as ATR Distance">${val}</span>`;
+}
+
+// 200DMA Proximity badge — % above/below the 200-day simple moving average.
+function ma200ProximityHtml(pct) {
+    if (pct == null) return '';
+    const val = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+    let cls;
+    if      (pct < -20) cls = 'ma200--deep-below';
+    else if (pct <   0) cls = 'ma200--below';
+    else if (pct <  20) cls = 'ma200--near';
+    else if (pct <  50) cls = 'ma200--extended';
+    else                cls = 'ma200--extreme';
+    return `<span class="ma200-badge ${cls}" title="200DMA Proximity: % above/below 200-day SMA">${val}</span>`;
+}
+
 // ADX strength badge: > 25 Trending, < 20 Ranging, 20–25 Neutral.
 function adxStrengthHtml(adx) {
     if (adx == null) return '';
@@ -1364,6 +1390,16 @@ function renderPortfolio() {
                     <span class="metric-label">%B</span>
                     <span class="metric-value">${bbPctBHtml(primary.bb_pct_b)}</span>
                 </div>` : ''}
+                ${primary.ema50_distance != null ? `
+                <div class="metric metric--adv">
+                    <span class="metric-label">E50</span>
+                    <span class="metric-value">${ema50DistHtml(primary.ema50_distance)}</span>
+                </div>` : ''}
+                ${primary.pct_above_200d != null ? `
+                <div class="metric metric--adv">
+                    <span class="metric-label">200D</span>
+                    <span class="metric-value">${ma200ProximityHtml(primary.pct_above_200d)}</span>
+                </div>` : ''}
                 ${sigScore != null ? `
                 <div class="metric metric--adv">
                     <span class="metric-label">Score</span>
@@ -1834,6 +1870,17 @@ function generateKeyTakeaways(symbol, timeframeData, assetAllData, chartHistory)
             takeaways.push({ text: `Price in the ${tfLabel}-bar Value Area (${valFmt}–${vahFmt}) — consolidating within the main volume cluster.`, type: 'neutral' });
     }
 
+    // Insight 6: 200DMA proximity context
+    const pct200 = current.pct_above_200d;
+    if (pct200 != null && takeaways.length < 5) {
+        const sign = pct200 >= 0 ? '+' : '';
+        if (pct200 < -20) {
+            takeaways.push({ text: `Price is ${sign}${pct200.toFixed(1)}% vs the 200DMA — historically a long-term value zone.`, type: 'positive' });
+        } else if (pct200 > 40) {
+            takeaways.push({ text: `Price is ${sign}${pct200.toFixed(1)}% above the 200DMA — historically extended vs long-term mean.`, type: 'negative' });
+        }
+    }
+
     return takeaways.slice(0, 5);
 }
 
@@ -1963,6 +2010,16 @@ function renderDrilldown() {
                 <span class="summary-label">BB Width</span>
                 <span class="summary-value">${current.bb_bandwidth.toFixed(2)}%</span>
             </div>` : ''}
+            ${current?.ema50_distance != null ? `
+            <div class="summary-item">
+                <span class="summary-label">EMA50 Dist</span>
+                <span class="summary-value">${ema50DistHtml(current.ema50_distance)}</span>
+            </div>` : ''}
+            ${current?.pct_above_200d != null ? `
+            <div class="summary-item">
+                <span class="summary-label">200DMA %</span>
+                <span class="summary-value">${ma200ProximityHtml(current.pct_above_200d)}</span>
+            </div>` : ''}
             ${(() => { const s = computeSignalScore(current, timeframeData?.historical); return s != null ? `
             <div class="summary-item">
                 <span class="summary-label">Signal Score</span>
@@ -2010,7 +2067,7 @@ function renderDrilldown() {
     } else {
         renderPlaceholderChart('atr-distance-chart',  'ATR Distance History');
         renderPlaceholderChart('rsi-chart',            'RSI History');
-        renderPlaceholderChart('price-ema-chart',      'Price vs EMA21');
+        renderPlaceholderChart('price-ema-chart',      'Price vs Moving Averages');
         renderPlaceholderChart('weekly-atr-chart',     'Weekly ATR Distance');
     }
     renderVolumeProfileChart(current, selectedTimeframe);
@@ -2153,41 +2210,68 @@ function renderPriceEmaChart(history, tf) {
     destroyChart(id);
 
     if (!history || history.length === 0) {
-        renderPlaceholderChart(id, 'Price vs EMA21');
+        renderPlaceholderChart(id, 'Price vs Moving Averages');
         return;
     }
 
     const container = document.getElementById(id);
-    container.innerHTML = '<h4>Price vs EMA21</h4>';
+    container.innerHTML = '<h4>Price vs Moving Averages</h4>';
     const canvas = document.createElement('canvas');
     container.appendChild(canvas);
+
+    const hasE50 = history.some(r => r.e5 != null);
+    const hasM2  = history.some(r => r.m2 != null);
+
+    const datasets = [
+        {
+            label: 'Price',
+            data: history.map(r => r.p),
+            borderColor: '#e0e6ed',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.1,
+            fill: false
+        },
+        {
+            label: 'EMA21',
+            data: history.map(r => r.e),
+            borderColor: '#3b82f6',
+            borderDash: [4, 3],
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.1,
+            fill: false,
+            spanGaps: false
+        },
+    ];
+    if (hasE50) datasets.push({
+        label: 'EMA50',
+        data: history.map(r => r.e5 ?? null),
+        borderColor: '#f59e0b',
+        borderDash: [6, 3],
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.1,
+        fill: false,
+        spanGaps: false,
+    });
+    if (hasM2) datasets.push({
+        label: '200DMA',
+        data: history.map(r => r.m2 ?? null),
+        borderColor: '#a855f7',
+        borderDash: [8, 4],
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.1,
+        fill: false,
+        spanGaps: false,
+    });
 
     charts[id] = new Chart(canvas, {
         type: 'line',
         data: {
             labels: history.map(r => r.d),
-            datasets: [
-                {
-                    label: 'Price',
-                    data: history.map(r => r.p),
-                    borderColor: '#e0e6ed',
-                    borderWidth: 1.5,
-                    pointRadius: 0,
-                    tension: 0.1,
-                    fill: false
-                },
-                {
-                    label: 'EMA21',
-                    data: history.map(r => r.e),
-                    borderColor: '#3b82f6',
-                    borderDash: [4, 3],
-                    borderWidth: 1.5,
-                    pointRadius: 0,
-                    tension: 0.1,
-                    fill: false,
-                    spanGaps: false
-                }
-            ]
+            datasets,
         },
         options: {
             responsive: true,
