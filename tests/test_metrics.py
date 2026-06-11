@@ -1055,6 +1055,17 @@ class TestFetchBgeometricsOnchain:
         mock.json.return_value = {'data': [['2026-06-04', str(value)]]}
         return mock
 
+    def _mock_resp_multi(self, latest_value, old_value, n_rows=35):
+        """Return n_rows of data; rows[-1]=latest_value, rows[-31]=old_value."""
+        from datetime import date, timedelta
+        base = date(2026, 6, 4)
+        rows = [['2025-01-01', str(old_value)]] * n_rows
+        rows[-1] = [str(base), str(latest_value)]
+        rows[-(31)] = [str(base - timedelta(days=30)), str(old_value)]
+        mock = MagicMock()
+        mock.json.return_value = {'data': rows}
+        return mock
+
     def test_success_returns_all_fields(self):
         def side_effect(url, **kwargs):
             if 'mvrv' in url:  return self._mock_resp(2.5)
@@ -1064,8 +1075,19 @@ class TestFetchBgeometricsOnchain:
         with patch('calculate_metrics.requests.get', side_effect=side_effect):
             result = fetch_bgeometrics_onchain()
         assert result is not None
-        for key in ('mvrv_z_score', 'nupl', 'sopr', 'signal_mvrv_z', 'signal_nupl', 'signal_sopr'):
+        for key in ('mvrv_z_score', 'nupl', 'sopr', 'nupl_30d_change',
+                    'signal_mvrv_z', 'signal_nupl', 'signal_sopr'):
             assert key in result
+
+    def test_nupl_30d_change_computed_when_history_available(self):
+        def side_effect(url, **kwargs):
+            if 'mvrv' in url:  return self._mock_resp(2.0)
+            if 'nupl' in url:  return self._mock_resp_multi(0.3, 0.1)
+            if 'sopr' in url:  return self._mock_resp(1.01)
+            return self._mock_resp(0)
+        with patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_bgeometrics_onchain()
+        assert result['nupl_30d_change'] == pytest.approx(0.2, abs=0.01)
 
     def test_accumulate_when_mvrv_z_negative(self):
         def side_effect(url, **kwargs):
@@ -1109,6 +1131,84 @@ class TestFetchBgeometricsOnchain:
         with patch('calculate_metrics.requests.get', return_value=mock):
             result = fetch_bgeometrics_onchain()
         assert result is None
+
+
+class TestSupplyCrossSignal:
+    """signal_supply_cross and supply_cross_occurred derived from NUPL in generate_btc_signals_json()."""
+
+    def _history_df(self):
+        import pandas as pd
+        n = 30
+        dates = pd.date_range(end='2026-06-05', periods=n, freq='D').strftime('%Y-%m-%d').tolist()
+        return pd.DataFrame({
+            'Date':         dates * 2,
+            'Asset':        ['BTC'] * n * 2,
+            'Timeframe':    ['1d'] * n + ['1w'] * n,
+            'Price':        [60000.0] * n * 2,
+            'EMA21':        [58000.0] * n * 2,
+            'ATR':          [1500.0]  * n * 2,
+            'RSI':          [50.0]    * n * 2,
+            'RSI_Z_Score':  [0.0]     * n * 2,
+            'ATR_Distance': [1.33]    * n * 2,
+            'Pct_Above_EMA':[3.44]    * n * 2,
+        })
+
+    def _patch_all_fetchers(self, **overrides):
+        defaults = {
+            'calculate_metrics.fetch_hash_ribbons':        None,
+            'calculate_metrics.fetch_stablecoin_trend':    None,
+            'calculate_metrics.fetch_global_m2':           None,
+            'calculate_metrics.fetch_etf_flows':           None,
+            'calculate_metrics.fetch_binance_futures':     {},
+            'calculate_metrics.fetch_bgeometrics_onchain': None,
+            'calculate_metrics.fetch_bitbo_onchain':       None,
+            'calculate_metrics.fetch_blockchair_cdd':      None,
+            'calculate_metrics.fetch_puell_multiple':      None,
+        }
+        defaults.update(overrides)
+        return [patch(k, return_value=v) for k, v in defaults.items()]
+
+    def _run(self, onchain_ret):
+        from calculate_metrics import generate_btc_signals_json, generate_dashboard_json
+        hdf = self._history_df()
+        dash = generate_dashboard_json(hdf)
+        patches = self._patch_all_fetchers(**{
+            'calculate_metrics.fetch_bgeometrics_onchain': onchain_ret,
+        })
+        for p in patches: p.start()
+        try:
+            result = generate_btc_signals_json(hdf, dash)
+        finally:
+            for p in patches: p.stop()
+        return result['on_chain']
+
+    def _onchain(self, nupl, nupl_30d_change=None):
+        return {'mvrv_z_score': 2.0, 'nupl': nupl, 'nupl_30d_change': nupl_30d_change,
+                'sopr': 1.01, 'signal_mvrv_z': 'neutral',
+                'signal_nupl': 'neutral', 'signal_sopr': 'neutral'}
+
+    def test_cross_occurred_when_nupl_negative(self):
+        onc = self._run(self._onchain(-0.05))
+        assert onc['supply_cross_occurred'] is True
+        assert onc['signal_supply_cross'] == 'accumulate'
+
+    def test_cross_not_occurred_when_nupl_positive(self):
+        onc = self._run(self._onchain(0.15))
+        assert onc['supply_cross_occurred'] is False
+        assert onc['signal_supply_cross'] == 'neutral'
+
+    def test_distribute_signal_when_nupl_high(self):
+        onc = self._run(self._onchain(0.6))
+        assert onc['signal_supply_cross'] == 'distribute'
+
+    def test_nupl_30d_change_propagated(self):
+        onc = self._run(self._onchain(0.3, nupl_30d_change=0.2))
+        assert onc['nupl_30d_change'] == pytest.approx(0.2)
+
+    def test_supply_cross_none_when_no_onchain_data(self):
+        onc = self._run(None)  # BGeometrics returns None
+        assert onc['supply_cross_occurred'] is None
+        assert onc['signal_supply_cross'] is None
 
 
 class TestFetchBitboOnchain:
