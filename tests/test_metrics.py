@@ -7,6 +7,9 @@ import pytest
 import pandas as pd
 import numpy as np
 from unittest.mock import patch, MagicMock
+import json
+import os
+import calculate_metrics as _cm
 from calculate_metrics import (
     classify_regime,
     calculate_historical_metrics,
@@ -20,6 +23,8 @@ from calculate_metrics import (
     fetch_bgeometrics_onchain,
     fetch_bitbo_onchain,
     fetch_blockchair_cdd,
+    _load_onchain_cache,
+    _save_onchain_cache,
 )
 
 
@@ -1164,6 +1169,7 @@ class TestSupplyCrossSignal:
             'calculate_metrics.fetch_bitbo_onchain':       None,
             'calculate_metrics.fetch_blockchair_cdd':      None,
             'calculate_metrics.fetch_puell_multiple':      None,
+            'calculate_metrics._load_onchain_cache':       (None, None),
         }
         defaults.update(overrides)
         return [patch(k, return_value=v) for k, v in defaults.items()]
@@ -1450,6 +1456,7 @@ class TestGenerateBtcSignalsJsonConfluence:
             'calculate_metrics.fetch_bitbo_onchain':       None,
             'calculate_metrics.fetch_blockchair_cdd':      None,
             'calculate_metrics.fetch_puell_multiple':      None,
+            'calculate_metrics._load_onchain_cache':       (None, None),
         }
         defaults.update(overrides)
         patches = [patch(k, return_value=v) for k, v in defaults.items()]
@@ -1517,6 +1524,96 @@ class TestGenerateBtcSignalsJsonConfluence:
         finally:
             self._stop_patches(patches)
         assert result['confluence']['phase'] == 'Accumulation'
+
+
+class TestOnchainCache:
+    """Tests for _load_onchain_cache / _save_onchain_cache and their integration."""
+
+    def test_save_and_load_roundtrip(self, tmp_path):
+        bg = {'mvrv_z_score': 1.5, 'nupl': 0.3, 'sopr': 1.01, 'signal_mvrv_z': 'neutral'}
+        cdd = {'cdd_latest': 1000, 'cdd_90d_avg': 2000, 'cdd_90d_change_pct': -50.0, 'signal_cvdd': 'accumulate'}
+        cache_file = str(tmp_path / 'onchain_cache.json')
+        with patch.object(_cm, '_ONCHAIN_CACHE_PATH', cache_file):
+            _save_onchain_cache(bg, cdd)
+            loaded_bg, loaded_cdd = _load_onchain_cache()
+        assert loaded_bg == bg
+        assert loaded_cdd == cdd
+
+    def test_stale_cache_not_used(self, tmp_path):
+        cache_file = str(tmp_path / 'onchain_cache.json')
+        stale_cache = {
+            'fetched_at': '2020-01-01',
+            'bgeometrics': {'mvrv_z_score': 9.9},
+            'cdd': {'signal_cvdd': 'distribute'},
+        }
+        with open(cache_file, 'w') as f:
+            json.dump(stale_cache, f)
+        with patch.object(_cm, '_ONCHAIN_CACHE_PATH', cache_file):
+            loaded_bg, loaded_cdd = _load_onchain_cache()
+        assert loaded_bg is None
+        assert loaded_cdd is None
+
+    def test_missing_cache_returns_none(self, tmp_path):
+        cache_file = str(tmp_path / 'nonexistent_cache.json')
+        with patch.object(_cm, '_ONCHAIN_CACHE_PATH', cache_file):
+            loaded_bg, loaded_cdd = _load_onchain_cache()
+        assert loaded_bg is None
+        assert loaded_cdd is None
+
+    def test_cache_used_when_all_apis_fail(self, tmp_path):
+        """When BGeometrics, Bitbo, and Blockchair all return None, cached data fills the gap."""
+        from calculate_metrics import generate_btc_signals_json
+        cache_file = str(tmp_path / 'onchain_cache.json')
+        cached_bg = {'mvrv_z_score': 2.1, 'nupl': 0.42, 'nupl_30d_change': 0.05,
+                     'sopr': 1.02, 'signal_mvrv_z': 'neutral', 'signal_nupl': 'neutral',
+                     'signal_sopr': 'neutral'}
+        cached_cdd = {'cdd_latest': 500, 'cdd_90d_avg': 1000,
+                      'cdd_90d_change_pct': -50.0, 'signal_cvdd': 'accumulate'}
+        with open(cache_file, 'w') as f:
+            import datetime
+            json.dump({'fetched_at': datetime.date.today().isoformat(),
+                       'bgeometrics': cached_bg, 'cdd': cached_cdd}, f)
+
+        # Build a minimal BTC history DF with enough rows for generate_btc_signals_json
+        dates = pd.date_range('2022-01-01', periods=250, freq='D')
+        hdf = pd.DataFrame({
+            'Date': list(dates) * 2,
+            'Asset': ['BTC'] * 250 + ['BTC'] * 250,
+            'Timeframe': ['1d'] * 250 + ['1w'] * 250,
+            'Price': [30000.0 + i * 10 for i in range(250)] * 2,
+            'EMA21': [29500.0 + i * 10 for i in range(250)] * 2,
+            'ATR': [500.0] * 500,
+            'RSI': [50.0] * 500,
+        })
+        dash = {'assets': {}, 'fear_greed': None, 'btc_dominance': None, 'altseason': None}
+
+        none_resp = MagicMock()
+        none_resp.return_value = None
+
+        patches = [
+            patch('calculate_metrics.fetch_bgeometrics_onchain', return_value=None),
+            patch('calculate_metrics.fetch_bitbo_onchain', return_value=None),
+            patch('calculate_metrics.fetch_blockchair_cdd', return_value=None),
+            patch('calculate_metrics.fetch_hash_ribbons', return_value=None),
+            patch('calculate_metrics.fetch_puell_multiple', return_value=None),
+            patch('calculate_metrics.fetch_stablecoin_trend', return_value=None),
+            patch('calculate_metrics.fetch_global_m2', return_value=None),
+            patch('calculate_metrics.fetch_etf_flows', return_value=None),
+            patch('calculate_metrics.fetch_fear_greed', return_value=None),
+            patch('calculate_metrics.fetch_binance_futures', return_value={}),
+            patch('calculate_metrics.fetch_btc_dominance', return_value=None),
+            patch.object(_cm, '_ONCHAIN_CACHE_PATH', cache_file),
+        ]
+        started = [p.start() for p in patches]
+        try:
+            result = generate_btc_signals_json(hdf, dash)
+        finally:
+            for p in patches:
+                p.stop()
+
+        assert result['on_chain']['mvrv_z_score'] == 2.1
+        assert result['on_chain']['nupl'] == 0.42
+        assert result['on_chain']['signal_cvdd'] == 'accumulate'
 
 
 if __name__ == '__main__':
