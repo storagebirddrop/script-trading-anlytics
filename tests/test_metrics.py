@@ -22,6 +22,7 @@ from calculate_metrics import (
     calculate_altseason_index,
     fetch_bgeometrics_onchain,
     fetch_bitbo_onchain,
+    fetch_coinmetrics_v4_onchain,
     fetch_blockchair_cdd,
     _load_onchain_cache,
     _save_onchain_cache,
@@ -1165,11 +1166,12 @@ class TestSupplyCrossSignal:
             'calculate_metrics.fetch_global_m2':           None,
             'calculate_metrics.fetch_etf_flows':           None,
             'calculate_metrics.fetch_binance_futures':     {},
-            'calculate_metrics.fetch_bgeometrics_onchain': None,
-            'calculate_metrics.fetch_bitbo_onchain':       None,
-            'calculate_metrics.fetch_blockchair_cdd':      None,
-            'calculate_metrics.fetch_puell_multiple':      None,
-            'calculate_metrics._load_onchain_cache':       (None, None),
+            'calculate_metrics.fetch_bgeometrics_onchain':    None,
+            'calculate_metrics.fetch_bitbo_onchain':           None,
+            'calculate_metrics.fetch_coinmetrics_v4_onchain': None,
+            'calculate_metrics.fetch_blockchair_cdd':          None,
+            'calculate_metrics.fetch_puell_multiple':          None,
+            'calculate_metrics._load_onchain_cache':           (None, None),
         }
         defaults.update(overrides)
         return [patch(k, return_value=v) for k, v in defaults.items()]
@@ -1267,6 +1269,66 @@ class TestFetchBitboOnchain:
         with patch.dict('os.environ', {'BITBO_API_KEY': 'test-key'}), \
              patch('calculate_metrics.requests.get', return_value=mock):
             result = fetch_bitbo_onchain()
+        assert result is None
+
+
+class TestFetchCoinmetricsV4Onchain:
+    """Tests for fetch_coinmetrics_v4_onchain()."""
+
+    def _mock_resp(self, mkt, real, sopr):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {
+            'data': [
+                {'CapMrktCurUSD': str(mkt), 'CapRealUSD': str(real), 'SoprEntEth': str(sopr)}
+            ]
+        }
+        return resp
+
+    def test_success_returns_mvrv_and_sopr(self):
+        resp = self._mock_resp(mkt=2e12, real=1e12, sopr=1.02)
+        with patch('calculate_metrics.requests.get', return_value=resp):
+            result = fetch_coinmetrics_v4_onchain()
+        assert result is not None
+        assert result['mvrv_z_score'] == pytest.approx(2.0, abs=0.01)
+        assert result['sopr'] == pytest.approx(1.02, abs=0.001)
+        assert result['nupl'] is None
+        assert result['signal_nupl'] is None
+
+    def test_accumulate_signal_when_mvrv_below_1(self):
+        resp = self._mock_resp(mkt=0.8e12, real=1e12, sopr=0.97)
+        with patch('calculate_metrics.requests.get', return_value=resp):
+            result = fetch_coinmetrics_v4_onchain()
+        assert result['signal_mvrv_z'] == 'accumulate'
+        assert result['signal_sopr'] == 'accumulate'
+
+    def test_distribute_signal_when_mvrv_above_3(self):
+        resp = self._mock_resp(mkt=4e12, real=1e12, sopr=1.10)
+        with patch('calculate_metrics.requests.get', return_value=resp):
+            result = fetch_coinmetrics_v4_onchain()
+        assert result['signal_mvrv_z'] == 'distribute'
+        assert result['signal_sopr'] == 'distribute'
+
+    def test_returns_none_when_realised_cap_zero(self):
+        resp = self._mock_resp(mkt=2e12, real=0, sopr=1.0)
+        with patch('calculate_metrics.requests.get', return_value=resp):
+            result = fetch_coinmetrics_v4_onchain()
+        assert result is None
+
+    def test_returns_none_on_empty_data(self):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {'data': []}
+        with patch('calculate_metrics.requests.get', return_value=resp):
+            result = fetch_coinmetrics_v4_onchain()
+        assert result is None
+
+    def test_returns_none_on_http_403(self):
+        resp = MagicMock()
+        resp.status_code = 403
+        resp.raise_for_status.side_effect = Exception('403 Forbidden')
+        with patch('calculate_metrics.requests.get', return_value=resp):
+            result = fetch_coinmetrics_v4_onchain()
         assert result is None
 
 
@@ -1593,6 +1655,7 @@ class TestOnchainCache:
         patches = [
             patch('calculate_metrics.fetch_bgeometrics_onchain', return_value=None),
             patch('calculate_metrics.fetch_bitbo_onchain', return_value=None),
+            patch('calculate_metrics.fetch_coinmetrics_v4_onchain', return_value=None),
             patch('calculate_metrics.fetch_blockchair_cdd', return_value=None),
             patch('calculate_metrics.fetch_hash_ribbons', return_value=None),
             patch('calculate_metrics.fetch_puell_multiple', return_value=None),
