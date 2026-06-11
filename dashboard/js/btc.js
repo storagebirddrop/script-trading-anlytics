@@ -473,7 +473,7 @@ function buildAllSections(d) {
                 ? (onc.mvrv_z_score < 0 ? 'Below 0 — price below aggregate cost basis'
                    : onc.mvrv_z_score >= 6 ? 'Above 6 — historically every cycle top'
                    : 'Neutral zone')
-                : 'Data unavailable',
+                : 'API unavailable — set BGEOMETRICS_API_KEY in CI secrets',
             signal: onc.signal_mvrv_z || null,
             tooltip: 'Market Cap / Realized Cap, Z-scored. < 0 = every cycle bottom historically. ≥ 6 = every cycle top. Source: BGeometrics.',
         }),
@@ -481,7 +481,7 @@ function buildAllSections(d) {
             name: 'NUPL',
             value: onc.nupl != null ? (onc.nupl * 100).toFixed(1) + '%' : 'N/A',
             context: (() => {
-                if (onc.nupl == null) return 'Data unavailable';
+                if (onc.nupl == null) return 'API unavailable — set BGEOMETRICS_API_KEY in CI secrets';
                 const v = onc.nupl;
                 return v < 0    ? 'Capitulation — market in aggregate unrealised loss'
                      : v < 0.25 ? 'Hope / Fear'
@@ -494,7 +494,7 @@ function buildAllSections(d) {
         renderSignalCard({
             name: 'SOPR',
             value: onc.sopr != null ? onc.sopr.toFixed(3) : 'N/A',
-            context: onc.sopr == null ? 'Data unavailable'
+            context: onc.sopr == null ? 'API unavailable — set BGEOMETRICS_API_KEY in CI secrets'
                 : onc.sopr < 0.98 ? 'Below 1 — holders spending at a loss (capitulation)'
                 : onc.sopr > 1.05 ? 'Above 1 — significant profit-taking underway'
                                   : 'Near 1 — breakeven / consolidation',
@@ -508,7 +508,7 @@ function buildAllSections(d) {
                 const pct = onc.cdd_90d_change_pct;
                 return (pct >= 0 ? '+' : '') + pct.toFixed(1) + '% vs 90d avg';
             })(),
-            context: onc.signal_cvdd == null ? 'Data unavailable'
+            context: onc.signal_cvdd == null ? 'Blockchair API unavailable'
                 : onc.signal_cvdd === 'accumulate' ? 'Declining — HODLers holding, old coins dormant'
                 : onc.signal_cvdd === 'distribute' ? 'Accelerating — old coins moving, potential top signal'
                 : 'Near 90-day average — normal spend pattern',
@@ -525,7 +525,7 @@ function buildAllSections(d) {
                 return `NUPL +${dist}% from 0`;
             })(),
             context: (() => {
-                if (onc.supply_cross_occurred == null) return 'Data unavailable';
+                if (onc.supply_cross_occurred == null) return 'Requires NUPL data (set BGEOMETRICS_API_KEY in CI secrets)';
                 const chg = onc.nupl_30d_change;
                 const chgStr = chg != null ? ` (NUPL ${chg >= 0 ? '+' : ''}${(chg * 100).toFixed(1)}pts 30d)` : '';
                 if (onc.supply_cross_occurred) {
