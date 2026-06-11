@@ -1,17 +1,5 @@
 {
-  "fetched_at": "2026-06-11",
-  "bgeometrics": {
-    "mvrv_z_score": -1.5,
-    "nupl": -0.4,
-    "sopr": 0.96,
-    "signal_mvrv_z": "accumulate",
-    "signal_nupl": "accumulate",
-    "signal_sopr": "accumulate"
-  },
-  "cdd": {
-    "cdd_latest": 100000000,
-    "cdd_90d_avg": 200000000,
-    "cdd_90d_change_pct": -50.0,
-    "signal_cvdd": "accumulate"
-  }
+  "fetched_at": "1970-01-01",
+  "bgeometrics": null,
+  "cdd": null
 }
