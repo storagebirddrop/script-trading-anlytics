@@ -8,6 +8,7 @@ import json
 import math
 import os
 import sys
+import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -59,6 +60,40 @@ def _sanitise(obj):
     if isinstance(obj, (float, np.floating)) and (math.isnan(obj) or math.isinf(obj)):
         return None
     return obj
+
+
+_ONCHAIN_CACHE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'onchain_cache.json')
+_ONCHAIN_CACHE_MAX_DAYS = 7
+
+
+def _load_onchain_cache():
+    """Return (bgeometrics_dict, cdd_dict) from cache if ≤7 days old, else (None, None)."""
+    try:
+        with open(_ONCHAIN_CACHE_PATH) as f:
+            c = json.load(f)
+        from datetime import date as _date
+        age = (_date.today() - datetime.fromisoformat(c['fetched_at']).date()).days
+        if age > _ONCHAIN_CACHE_MAX_DAYS:
+            print(f'  On-chain cache is {age}d old (max {_ONCHAIN_CACHE_MAX_DAYS}d), skipping')
+            return None, None
+        print(f'  Using cached on-chain data ({age}d old)')
+        return c.get('bgeometrics'), c.get('cdd')
+    except Exception:
+        return None, None
+
+
+def _save_onchain_cache(bgeometrics_data, cdd_data):
+    """Persist fresh on-chain data so future failed runs can fall back to it."""
+    try:
+        os.makedirs(os.path.dirname(_ONCHAIN_CACHE_PATH), exist_ok=True)
+        with open(_ONCHAIN_CACHE_PATH, 'w') as f:
+            json.dump({
+                'fetched_at': datetime.now().strftime('%Y-%m-%d'),
+                'bgeometrics': bgeometrics_data,
+                'cdd': cdd_data,
+            }, f, indent=2)
+    except Exception as e:
+        print(f'  Warning: Could not save on-chain cache: {e}')
 
 
 def classify_regime(atr_distance: float) -> str:
@@ -1063,20 +1098,27 @@ def fetch_bgeometrics_onchain() -> Optional[Dict[str, Any]]:
     headers = {'Authorization': f'Bearer {token}'} if token else {}
 
     def _fetch(endpoint):
-        r = requests.get(f'{base}/{endpoint}/', params={'limit': 365},
-                         headers=headers, timeout=15)
-        r.raise_for_status()
-        return r.json()
-
-    try:
-        mvrv_data = _fetch('mvrv')
-        nupl_data  = _fetch('nupl')
-        sopr_data  = _fetch('sopr')
-    except Exception as e:
-        print(f'  Warning: BGeometrics fetch failed: {e}')
+        for attempt in range(3):
+            try:
+                r = requests.get(f'{base}/{endpoint}/', params={'limit': 365},
+                                 headers=headers, timeout=15)
+                r.raise_for_status()
+                return r.json()
+            except Exception as e:
+                if attempt < 2:
+                    time.sleep(2 ** attempt)
+                else:
+                    print(f'  Warning: BGeometrics {endpoint} failed after 3 attempts: {e}')
+                    return None
         return None
 
+    mvrv_data = _fetch('mvrv')
+    nupl_data  = _fetch('nupl')
+    sopr_data  = _fetch('sopr')
+
     def _latest(payload):
+        if payload is None:
+            return None
         rows = payload.get('data') or payload.get('values') or []
         if not rows:
             return None
@@ -1089,6 +1131,8 @@ def fetch_bgeometrics_onchain() -> Optional[Dict[str, Any]]:
 
     def _at_offset(payload, offset):
         """Return value offset bars from the end (offset=30 → 30 bars ago)."""
+        if payload is None:
+            return None
         rows = payload.get('data') or payload.get('values') or []
         idx = -(offset + 1)
         if len(rows) < offset + 1:
@@ -1183,14 +1227,20 @@ def fetch_blockchair_cdd() -> Optional[Dict[str, Any]]:
     params: Dict[str, Any] = {'a': 'date,sum(cdd_total)', 's': 'date(desc)', 'limit': 90}
     if key:
         params['key'] = key
-    try:
-        r = requests.get('https://api.blockchair.com/bitcoin/blocks',
-                         params=params, timeout=15)
-        r.raise_for_status()
-        rows = r.json().get('data', [])
-    except Exception as e:
-        print(f'  Warning: Blockchair CDD fetch failed: {e}')
-        return None
+    rows = None
+    for attempt in range(3):
+        try:
+            r = requests.get('https://api.blockchair.com/bitcoin/blocks',
+                             params=params, timeout=15)
+            r.raise_for_status()
+            rows = r.json().get('data', [])
+            break
+        except Exception as e:
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+            else:
+                print(f'  Warning: Blockchair CDD fetch failed after 3 attempts: {e}')
+                return None
 
     if not rows:
         return None
@@ -1349,6 +1399,15 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     onchain_data = fetch_bgeometrics_onchain() or fetch_bitbo_onchain()
     print("  Fetching CDD (Blockchair free tier)...")
     cdd_data = fetch_blockchair_cdd()
+
+    if onchain_data is not None or cdd_data is not None:
+        _save_onchain_cache(onchain_data, cdd_data)
+    else:
+        cached_bg, cached_cdd = _load_onchain_cache()
+        if cached_bg is not None or cached_cdd is not None:
+            print("  Live APIs failed — using cached on-chain data.")
+            onchain_data = onchain_data or cached_bg
+            cdd_data = cdd_data or cached_cdd
 
     sig_200w = _sig_200w(price, ma200w)
     sig_200d = _sig_200d(price, ma200d)
