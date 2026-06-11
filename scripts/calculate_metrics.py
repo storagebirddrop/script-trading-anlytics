@@ -1216,6 +1216,57 @@ def fetch_bitbo_onchain() -> Optional[Dict[str, Any]]:
     }
 
 
+def fetch_coinmetrics_v4_onchain() -> Optional[Dict[str, Any]]:
+    """Fetch MVRV ratio + SOPR from CoinMetrics Community v4 API (free, no key required).
+
+    Used as third fallback after BGeometrics and Bitbo. Provides MVRV and SOPR only
+    (NUPL is not available via the community tier). The v4 endpoint uses a different
+    URL structure from the deprecated v2 that was previously IP-blocked.
+    """
+    base = 'https://community-api.coinmetrics.io/v4/timeseries/asset-metrics'
+    key = os.environ.get('COINMETRICS_API_KEY', '')
+    params: Dict[str, Any] = {
+        'assets': 'btc',
+        'metrics': 'CapMrktCurUSD,CapRealUSD,SoprEntEth',
+        'limit': 30,
+    }
+    if key:
+        params['api_key'] = key
+    for attempt in range(3):
+        try:
+            r = requests.get(base, params=params, timeout=15)
+            r.raise_for_status()
+            data = r.json().get('data', [])
+            if not data:
+                return None
+            latest = data[-1]
+            mkt  = float(latest.get('CapMrktCurUSD') or 0)
+            real = float(latest.get('CapRealUSD') or 0)
+            sopr = float(latest.get('SoprEntEth') or 0) or None
+            if not real:
+                return None
+            mvrv = round(mkt / real, 2)
+            sig_mvrv = 'accumulate' if mvrv < 1 else ('distribute' if mvrv > 3 else 'neutral')
+            sig_sopr = ('accumulate' if (sopr or 0) < 0.98 else ('distribute' if (sopr or 0) > 1.05 else 'neutral')) if sopr else None
+            print(f'  CoinMetrics v4 fallback: MVRV={mvrv}, SOPR={sopr}')
+            return {
+                'mvrv_z_score':  mvrv,
+                'nupl':          None,
+                'nupl_30d_change': None,
+                'sopr':          round(sopr, 4) if sopr else None,
+                'signal_mvrv_z': sig_mvrv,
+                'signal_nupl':   None,
+                'signal_sopr':   sig_sopr,
+            }
+        except Exception as e:
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+            else:
+                print(f'  Warning: CoinMetrics v4 fallback failed after 3 attempts: {e}')
+                return None
+    return None
+
+
 def fetch_blockchair_cdd() -> Optional[Dict[str, Any]]:
     """Fetch 90-day daily CDD from Blockchair (free, no key, 1440 req/day).
 
@@ -1395,8 +1446,8 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     m2_data = fetch_global_m2()
     print("  Fetching ETF net flows (SoSoValue)...")
     etf_data = fetch_etf_flows()
-    print("  Fetching on-chain metrics (BGeometrics primary, Bitbo fallback)...")
-    onchain_data = fetch_bgeometrics_onchain() or fetch_bitbo_onchain()
+    print("  Fetching on-chain metrics (BGeometrics → Bitbo → CoinMetrics v4)...")
+    onchain_data = fetch_bgeometrics_onchain() or fetch_bitbo_onchain() or fetch_coinmetrics_v4_onchain()
     print("  Fetching CDD (Blockchair free tier)...")
     cdd_data = fetch_blockchair_cdd()
 
@@ -1570,6 +1621,7 @@ def main():
 
     print(f"Loading {HISTORY_CSV_PATH}...")
     history_df = pd.read_csv(HISTORY_CSV_PATH)
+    history_df = history_df.loc[:, ~history_df.columns.str.startswith('Unnamed:')]
     print(f"Loaded {len(history_df)} records")
     print(f"Assets: {history_df['Asset'].nunique()}")
     print(f"Date range: {history_df['Date'].min()} to {history_df['Date'].max()}")
