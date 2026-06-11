@@ -515,6 +515,33 @@ function buildAllSections(d) {
             signal: onc.signal_cvdd || null,
             tooltip: 'Coin Days Destroyed 90-day trend. Declining = HODLers not spending (bullish LT); accelerating = old coins moving (distribution). Source: Blockchair (free).',
         }),
+        renderSignalCard({
+            name: 'Supply Cross',
+            value: (() => {
+                if (onc.supply_cross_occurred == null) return 'N/A';
+                if (onc.supply_cross_occurred) return 'Crossed ↓';
+                if (onc.nupl == null) return 'N/A';
+                const dist = (onc.nupl * 100).toFixed(1);
+                return `NUPL +${dist}% from 0`;
+            })(),
+            context: (() => {
+                if (onc.supply_cross_occurred == null) return 'Data unavailable';
+                const chg = onc.nupl_30d_change;
+                const chgStr = chg != null ? ` (NUPL ${chg >= 0 ? '+' : ''}${(chg * 100).toFixed(1)}pts 30d)` : '';
+                if (onc.supply_cross_occurred) {
+                    const recovering = chg != null && chg > 0;
+                    return recovering
+                        ? `Cross active — majority at a loss, NUPL recovering${chgStr}`
+                        : `Cross active — majority of supply at a loss — historically bottom within ~3 months${chgStr}`;
+                }
+                if (chg != null && chg < -0.05) {
+                    return `Approaching cross — NUPL declining${chgStr}`;
+                }
+                return `No cross — ${((onc.nupl || 0) * 100).toFixed(1)}% net unrealised profit${chgStr}`;
+            })(),
+            signal: onc.signal_supply_cross || null,
+            tooltip: 'When % supply in loss > % supply in profit (NUPL < 0), every major BTC cycle bottom has followed within ~3 months (Benjamin Cowen). Derived from NUPL via BGeometrics. Does not count toward confluence (same underlying data as NUPL card).',
+        }),
         ...[
             { name: 'RHODL Ratio',          description: 'Realised HODL Ratio — ratio of short-term to long-term holder wealth. Spikes at cycle tops. Requires UTXO age-banded Realized Cap — Glassnode only.' },
             { name: 'LTH / STH MVRV Cross', description: 'LTH-MVRV crossing above STH-MVRV signals cycle bottom recovery. Requires 155-day age-split Realized Cap — Glassnode only.' },
