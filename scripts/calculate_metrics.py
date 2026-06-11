@@ -1087,9 +1087,23 @@ def fetch_bgeometrics_onchain() -> Optional[Dict[str, Any]]:
         except (TypeError, ValueError):
             return None
 
-    mvrv_z = _latest(mvrv_data)
-    nupl    = _latest(nupl_data)
-    sopr    = _latest(sopr_data)
+    def _at_offset(payload, offset):
+        """Return value offset bars from the end (offset=30 → 30 bars ago)."""
+        rows = payload.get('data') or payload.get('values') or []
+        idx = -(offset + 1)
+        if len(rows) < offset + 1:
+            return None
+        row = rows[idx]
+        val = row[1] if isinstance(row, (list, tuple)) else row.get('value') or row.get('v')
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return None
+
+    mvrv_z   = _latest(mvrv_data)
+    nupl     = _latest(nupl_data)
+    nupl_30d = _at_offset(nupl_data, 30)
+    sopr     = _latest(sopr_data)
 
     if mvrv_z is None and nupl is None and sopr is None:
         return None
@@ -1098,14 +1112,17 @@ def fetch_bgeometrics_onchain() -> Optional[Dict[str, Any]]:
     sig_nupl = ('accumulate' if (nupl or 0) < 0 else ('distribute' if (nupl or 0) >= 0.5 else 'neutral')) if nupl is not None else None
     sig_sopr = ('accumulate' if (sopr or 0) < 0.98 else ('distribute' if (sopr or 0) > 1.05 else 'neutral')) if sopr is not None else None
 
+    nupl_30d_change = round(nupl - nupl_30d, 4) if (nupl is not None and nupl_30d is not None) else None
+
     print(f'  BGeometrics: MVRV Z={mvrv_z}, NUPL={nupl}, SOPR={sopr}')
     return {
-        'mvrv_z_score':  round(mvrv_z, 2) if mvrv_z is not None else None,
-        'nupl':          round(nupl, 4)   if nupl   is not None else None,
-        'sopr':          round(sopr, 4)   if sopr   is not None else None,
-        'signal_mvrv_z': sig_mvrv,
-        'signal_nupl':   sig_nupl,
-        'signal_sopr':   sig_sopr,
+        'mvrv_z_score':   round(mvrv_z, 2) if mvrv_z is not None else None,
+        'nupl':           round(nupl, 4)   if nupl   is not None else None,
+        'nupl_30d_change': nupl_30d_change,
+        'sopr':           round(sopr, 4)   if sopr   is not None else None,
+        'signal_mvrv_z':  sig_mvrv,
+        'signal_nupl':    sig_nupl,
+        'signal_sopr':    sig_sopr,
     }
 
 
@@ -1355,6 +1372,19 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     sig_sopr   = onchain_data['signal_sopr']   if onchain_data else None
     sig_cvdd   = cdd_data['signal_cvdd']       if cdd_data    else None
 
+    # Supply Cross — derived from NUPL (NUPL < 0 ↔ majority of supply at a loss)
+    _nupl = (onchain_data or {}).get('nupl')
+    _nupl_chg = (onchain_data or {}).get('nupl_30d_change')
+    supply_cross_occurred = bool(_nupl < 0) if _nupl is not None else None
+    if _nupl is None:
+        sig_supply_cross = None
+    elif _nupl < 0:
+        sig_supply_cross = 'accumulate'
+    elif _nupl < 0.25:
+        sig_supply_cross = 'neutral'
+    else:
+        sig_supply_cross = 'distribute'
+
     all_sigs = [
         sig_200w, sig_200d, sig_pi, sig_rsi_d, sig_rsi_w, sig_atr, sig_vp,
         sig_fg, sig_fr, sig_alts, sig_hash, sig_stable,
@@ -1442,16 +1472,19 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
             'signal_global_m2': sig_m2,
         },
         'on_chain': {
-            'mvrv_z_score':       (onchain_data or {}).get('mvrv_z_score'),
-            'nupl':               (onchain_data or {}).get('nupl'),
-            'sopr':               (onchain_data or {}).get('sopr'),
-            'signal_mvrv_z':      (onchain_data or {}).get('signal_mvrv_z'),
-            'signal_nupl':        (onchain_data or {}).get('signal_nupl'),
-            'signal_sopr':        (onchain_data or {}).get('signal_sopr'),
-            'cdd_latest':         (cdd_data or {}).get('cdd_latest'),
-            'cdd_90d_avg':        (cdd_data or {}).get('cdd_90d_avg'),
-            'cdd_90d_change_pct': (cdd_data or {}).get('cdd_90d_change_pct'),
-            'signal_cvdd':        (cdd_data or {}).get('signal_cvdd'),
+            'mvrv_z_score':          (onchain_data or {}).get('mvrv_z_score'),
+            'nupl':                  (onchain_data or {}).get('nupl'),
+            'nupl_30d_change':       _nupl_chg,
+            'sopr':                  (onchain_data or {}).get('sopr'),
+            'signal_mvrv_z':         (onchain_data or {}).get('signal_mvrv_z'),
+            'signal_nupl':           (onchain_data or {}).get('signal_nupl'),
+            'signal_sopr':           (onchain_data or {}).get('signal_sopr'),
+            'cdd_latest':            (cdd_data or {}).get('cdd_latest'),
+            'cdd_90d_avg':           (cdd_data or {}).get('cdd_90d_avg'),
+            'cdd_90d_change_pct':    (cdd_data or {}).get('cdd_90d_change_pct'),
+            'signal_cvdd':           (cdd_data or {}).get('signal_cvdd'),
+            'supply_cross_occurred': supply_cross_occurred,
+            'signal_supply_cross':   sig_supply_cross,
         },
         'confluence': {
             'accumulate_count': acc_count,
