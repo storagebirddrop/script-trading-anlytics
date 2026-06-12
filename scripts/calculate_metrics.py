@@ -1102,6 +1102,10 @@ def fetch_bgeometrics_onchain() -> Optional[Dict[str, Any]]:
             try:
                 r = requests.get(f'{base}/{endpoint}/', params={'limit': 365},
                                  headers=headers, timeout=15)
+                if r.status_code == 429:
+                    # Rate limited — retrying immediately just wastes more daily quota
+                    print(f'  Warning: BGeometrics {endpoint} rate limited (429), skipping retries')
+                    return None
                 r.raise_for_status()
                 return r.json()
             except Exception as e:
@@ -1227,7 +1231,7 @@ def fetch_coinmetrics_v4_onchain() -> Optional[Dict[str, Any]]:
     key = os.environ.get('COINMETRICS_API_KEY', '')
     params: Dict[str, Any] = {
         'assets': 'btc',
-        'metrics': 'CapMrktCurUSD,CapRealUSD,SoprEntEth',
+        'metrics': 'CapMrktCurUSD,CapRealUSD,SoprEnt',
         'limit': 30,
     }
     if key:
@@ -1242,7 +1246,7 @@ def fetch_coinmetrics_v4_onchain() -> Optional[Dict[str, Any]]:
             latest = data[-1]
             mkt  = float(latest.get('CapMrktCurUSD') or 0)
             real = float(latest.get('CapRealUSD') or 0)
-            sopr = float(latest.get('SoprEntEth') or 0) or None
+            sopr = float(latest.get('SoprEnt') or 0) or None
             if not real:
                 return None
             mvrv = round(mkt / real, 2)
