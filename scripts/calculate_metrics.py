@@ -1092,15 +1092,24 @@ def fetch_puell_multiple(btc_prices: pd.Series) -> Optional[Dict[str, Any]]:
 
 
 def fetch_bgeometrics_onchain() -> Optional[Dict[str, Any]]:
-    """Fetch MVRV Z-Score, NUPL, SOPR from BGeometrics free API (no auth, 15 req/day)."""
-    base = 'https://api.bgeometrics.com/v1'
+    """Fetch MVRV Z-Score, NUPL, SOPR from bitcoin-data.com API (BGeometrics backend).
+
+    The canonical API endpoint is api.bitcoin-data.com/v1 — api.bgeometrics.com is the
+    web portal only. Using the wrong domain causes the API key to be unrecognised,
+    resulting in anonymous free-tier rate limiting (HTTP 429).
+    """
+    from datetime import date as _date, timedelta as _td
+    base = 'https://api.bitcoin-data.com/v1'
     token = os.environ.get('BGEOMETRICS_API_KEY')
     headers = {'Authorization': f'Bearer {token}'} if token else {}
+    today = _date.today().isoformat()
+    start = (_date.today() - _td(days=400)).isoformat()
+    params = {'startday': start, 'endday': today}
 
     def _fetch(endpoint):
         for attempt in range(3):
             try:
-                r = requests.get(f'{base}/{endpoint}/', params={'limit': 365},
+                r = requests.get(f'{base}/{endpoint}', params=params,
                                  headers=headers, timeout=15)
                 if r.status_code == 429:
                     # Rate limited — retrying immediately just wastes more daily quota
@@ -1120,10 +1129,17 @@ def fetch_bgeometrics_onchain() -> Optional[Dict[str, Any]]:
     nupl_data  = _fetch('nupl')
     sopr_data  = _fetch('sopr')
 
+    def _sorted_rows(payload):
+        """Return rows sorted ascending by date (index 0 for list rows)."""
+        rows = payload.get('data') or payload.get('values') or []
+        if rows and isinstance(rows[0], (list, tuple)):
+            rows = sorted(rows, key=lambda r: r[0])
+        return rows
+
     def _latest(payload):
         if payload is None:
             return None
-        rows = payload.get('data') or payload.get('values') or []
+        rows = _sorted_rows(payload)
         if not rows:
             return None
         row = rows[-1]
@@ -1137,11 +1153,10 @@ def fetch_bgeometrics_onchain() -> Optional[Dict[str, Any]]:
         """Return value offset bars from the end (offset=30 → 30 bars ago)."""
         if payload is None:
             return None
-        rows = payload.get('data') or payload.get('values') or []
-        idx = -(offset + 1)
+        rows = _sorted_rows(payload)
         if len(rows) < offset + 1:
             return None
-        row = rows[idx]
+        row = rows[-(offset + 1)]
         val = row[1] if isinstance(row, (list, tuple)) else row.get('value') or row.get('v')
         try:
             return float(val)
