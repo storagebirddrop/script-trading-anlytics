@@ -1129,12 +1129,43 @@ def fetch_bgeometrics_onchain() -> Optional[Dict[str, Any]]:
     nupl_data  = _fetch('nupl')
     sopr_data  = _fetch('sopr')
 
+    _DATE_KEYS = ('d', 'date', 'day', 'unixTs', 'unix_ts', 't')
+
     def _sorted_rows(payload):
-        """Return rows sorted ascending by date (index 0 for list rows)."""
-        rows = payload.get('data') or payload.get('values') or []
-        if rows and isinstance(rows[0], (list, tuple)):
+        """Return rows sorted ascending by date.
+
+        api.bitcoin-data.com responses vary by endpoint: some wrap rows in
+        {'data': [...]} or {'values': [...]}, others return a bare top-level
+        list. Handle both so an unexpected shape never raises.
+        """
+        if isinstance(payload, list):
+            rows = payload
+        elif isinstance(payload, dict):
+            rows = payload.get('data') or payload.get('values') or []
+        else:
+            rows = []
+        if not rows:
+            return rows
+        if isinstance(rows[0], (list, tuple)):
             rows = sorted(rows, key=lambda r: r[0])
+        elif isinstance(rows[0], dict):
+            date_key = next((k for k in _DATE_KEYS if k in rows[0]), None)
+            if date_key:
+                rows = sorted(rows, key=lambda r: r[date_key])
         return rows
+
+    def _row_value(row):
+        """Extract the metric value from a row regardless of key naming."""
+        if isinstance(row, (list, tuple)):
+            return row[1] if len(row) > 1 else None
+        if isinstance(row, dict):
+            for k in ('value', 'v'):
+                if k in row:
+                    return row[k]
+            candidates = [v for k, v in row.items() if k not in _DATE_KEYS]
+            if len(candidates) == 1:
+                return candidates[0]
+        return None
 
     def _latest(payload):
         if payload is None:
@@ -1142,10 +1173,8 @@ def fetch_bgeometrics_onchain() -> Optional[Dict[str, Any]]:
         rows = _sorted_rows(payload)
         if not rows:
             return None
-        row = rows[-1]
-        val = row[1] if isinstance(row, (list, tuple)) else row.get('value') or row.get('v')
         try:
-            return float(val)
+            return float(_row_value(rows[-1]))
         except (TypeError, ValueError):
             return None
 
@@ -1156,17 +1185,19 @@ def fetch_bgeometrics_onchain() -> Optional[Dict[str, Any]]:
         rows = _sorted_rows(payload)
         if len(rows) < offset + 1:
             return None
-        row = rows[-(offset + 1)]
-        val = row[1] if isinstance(row, (list, tuple)) else row.get('value') or row.get('v')
         try:
-            return float(val)
+            return float(_row_value(rows[-(offset + 1)]))
         except (TypeError, ValueError):
             return None
 
-    mvrv_z   = _latest(mvrv_data)
-    nupl     = _latest(nupl_data)
-    nupl_30d = _at_offset(nupl_data, 30)
-    sopr     = _latest(sopr_data)
+    try:
+        mvrv_z   = _latest(mvrv_data)
+        nupl     = _latest(nupl_data)
+        nupl_30d = _at_offset(nupl_data, 30)
+        sopr     = _latest(sopr_data)
+    except Exception as e:
+        print(f'  Warning: BGeometrics response parsing failed: {e}')
+        return None
 
     if mvrv_z is None and nupl is None and sopr is None:
         return None
@@ -1466,7 +1497,11 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     print("  Fetching ETF net flows (SoSoValue)...")
     etf_data = fetch_etf_flows()
     print("  Fetching on-chain metrics (BGeometrics → Bitbo → CoinMetrics v4)...")
-    onchain_data = fetch_bgeometrics_onchain() or fetch_bitbo_onchain() or fetch_coinmetrics_v4_onchain()
+    try:
+        onchain_data = fetch_bgeometrics_onchain() or fetch_bitbo_onchain() or fetch_coinmetrics_v4_onchain()
+    except Exception as e:
+        print(f'  Warning: on-chain fetch chain raised an unexpected error: {e}')
+        onchain_data = None
     print("  Fetching CDD (Blockchair free tier)...")
     cdd_data = fetch_blockchair_cdd()
 
