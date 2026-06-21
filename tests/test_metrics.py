@@ -1138,6 +1138,52 @@ class TestFetchBgeometricsOnchain:
             result = fetch_bgeometrics_onchain()
         assert result is None
 
+    def _mock_resp_bare_list(self, value):
+        """api.bitcoin-data.com returns a bare top-level list for some endpoints,
+        not {'data': [...]}. Regression coverage for the AttributeError this caused."""
+        mock = MagicMock()
+        mock.json.return_value = [['2026-06-04', str(value)]]
+        return mock
+
+    def test_bare_list_response_does_not_crash(self):
+        def side_effect(url, **kwargs):
+            if 'mvrv' in url:  return self._mock_resp_bare_list(2.5)
+            if 'nupl' in url:  return self._mock_resp_bare_list(0.3)
+            if 'sopr' in url:  return self._mock_resp_bare_list(1.01)
+            return self._mock_resp_bare_list(0)
+        with patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_bgeometrics_onchain()
+        assert result is not None
+        assert result['mvrv_z_score'] == pytest.approx(2.5)
+        assert result['nupl'] == pytest.approx(0.3)
+        assert result['sopr'] == pytest.approx(1.01)
+
+    def test_bare_list_of_dict_rows_does_not_crash(self):
+        """Some endpoints may return [{'d': ..., 'mvrvZscore': ...}, ...] shaped rows."""
+        def _resp(date, key, value):
+            mock = MagicMock()
+            mock.json.return_value = [{'d': date, key: str(value)}]
+            return mock
+        def side_effect(url, **kwargs):
+            if 'mvrv' in url:  return _resp('2026-06-04', 'mvrvZscore', 2.5)
+            if 'nupl' in url:  return _resp('2026-06-04', 'nupl', 0.3)
+            if 'sopr' in url:  return _resp('2026-06-04', 'sopr', 1.01)
+            return _resp('2026-06-04', 'value', 0)
+        with patch('calculate_metrics.requests.get', side_effect=side_effect):
+            result = fetch_bgeometrics_onchain()
+        assert result is not None
+        assert result['mvrv_z_score'] == pytest.approx(2.5)
+        assert result['nupl'] == pytest.approx(0.3)
+        assert result['sopr'] == pytest.approx(1.01)
+
+    def test_unexpected_shape_returns_none_not_raise(self):
+        """A response that doesn't match any known shape must degrade to None, not crash."""
+        mock = MagicMock()
+        mock.json.return_value = {'unexpected': 'shape'}
+        with patch('calculate_metrics.requests.get', return_value=mock):
+            result = fetch_bgeometrics_onchain()
+        assert result is None
+
 
 class TestSupplyCrossSignal:
     """signal_supply_cross and supply_cross_occurred derived from NUPL in generate_btc_signals_json()."""
