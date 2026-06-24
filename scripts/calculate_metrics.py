@@ -658,6 +658,17 @@ def calculate_altseason_index(history_df: pd.DataFrame, lookback_days: int = 90)
     return {'score': score, 'label': label, 'alts_outperforming': outperforming, 'total': total}
 
 
+def fetch_eur_usd_rate() -> Optional[float]:
+    """Fetch current USD→EUR conversion rate from Frankfurter (ECB data, free, no auth)."""
+    try:
+        resp = requests.get('https://api.frankfurter.app/latest?from=USD&to=EUR', timeout=10)
+        resp.raise_for_status()
+        return float(resp.json()['rates']['EUR'])
+    except Exception as e:
+        print(f"  Warning: EUR/USD rate fetch failed: {e}")
+        return None
+
+
 def fetch_fear_greed() -> Optional[Dict[str, Any]]:
     """Fetch latest Crypto Fear & Greed Index from alternative.me (free, no auth)."""
     try:
@@ -1485,6 +1496,9 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
         return data['signal']
 
     # Fetch new Tier-3 data
+    print("  Fetching EUR/USD rate (Frankfurter/ECB)...")
+    eur_usd_rate = fetch_eur_usd_rate()
+    price_eur = round(price * eur_usd_rate, 0) if (price and eur_usd_rate) else None
     print("  Fetching hash ribbons (mempool.space)...")
     hash_data = fetch_hash_ribbons()
     print("  Fetching Puell Multiple (mempool.space rewards + history prices)...")
@@ -1580,6 +1594,7 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
     result: Dict[str, Any] = {
         'date': str(datetime.now(timezone.utc).date()),
         'price': price,
+        'price_eur': price_eur,
         'price_indicators': {
             'ma200w': round(ma200w, 2) if ma200w else None,
             'pct_above_200w': pct_above_200w,

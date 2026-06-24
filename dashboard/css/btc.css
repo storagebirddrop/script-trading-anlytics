@@ -73,6 +73,14 @@
     line-height: 1.1;
 }
 
+.btc-price-eur {
+    font-size: 1.2rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+    line-height: 1.1;
+}
+
 /* ─── Confluence banner ─── */
 .confluence-banner {
     background: var(--bg-card);

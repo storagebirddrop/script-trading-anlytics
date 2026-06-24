@@ -579,6 +579,11 @@ async function loadAndRender() {
             priceEl.textContent = fmtPrice(btcData.price);
         }
 
+        const priceEurEl = document.getElementById('btc-current-price-eur');
+        if (priceEurEl && btcData.price_eur != null) {
+            priceEurEl.textContent = '€' + Math.round(btcData.price_eur).toLocaleString('en-US');
+        }
+
         renderConfluenceBanner(btcData);
         buildAllSections(btcData);
 
