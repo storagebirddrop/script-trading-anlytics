@@ -112,13 +112,15 @@
                 </div>
                 <div class="landing-method-item">
                     <h3>Regime Classification</h3>
-                    <p>ATR Distance maps directly to five market regimes:</p>
+                    <p>ATR Distance maps directly to seven market regimes:</p>
                     <ul class="landing-regime-list">
-                        <li><span class="asset-regime regime-capitulation">Capitulation</span> ATR Distance &lt; &minus;4</li>
+                        <li><span class="asset-regime regime-ragequit">Ragequit</span> ATR Distance &lt; &minus;7</li>
+                        <li><span class="asset-regime regime-capitulation">Capitulation</span> &minus;7 to &minus;4</li>
                         <li><span class="asset-regime regime-accumulation">Accumulation</span> &minus;4 to &minus;2</li>
                         <li><span class="asset-regime regime-trend">Trend</span> &minus;2 to +2</li>
                         <li><span class="asset-regime regime-distribution">Distribution</span> +2 to +4</li>
-                        <li><span class="asset-regime regime-mania">Mania</span> &gt; +4</li>
+                        <li><span class="asset-regime regime-mania">Mania</span> +4 to +7</li>
+                        <li><span class="asset-regime regime-blow-off">Blow-off</span> &gt; +7</li>
                     </ul>
                 </div>
                 <div class="landing-method-item">
@@ -170,22 +172,26 @@
                 <dl class="landing-legend-list">
                     <div class="legend-item">
                         <dt>
+                            <span class="asset-regime regime-ragequit">Ragequit</span>
                             <span class="asset-regime regime-capitulation">Capitulation</span>
                             <span class="asset-regime regime-accumulation">Accumulation</span>
                             <span class="asset-regime regime-trend">Trend</span>
                             <span class="asset-regime regime-distribution">Distribution</span>
                             <span class="asset-regime regime-mania">Mania</span>
+                            <span class="asset-regime regime-blow-off">Blow-off</span>
                         </dt>
-                        <dd><strong>Regime badge</strong> — Where the asset sits in its ATR Distance cycle. Capitulation (&lt;−4) and Accumulation (−4 to −2) are oversold; Trend (−2 to +2) is balanced; Distribution (+2 to +4) and Mania (&gt;+4) are extended. The regime drives the card's left border color.</dd>
+                        <dd><strong>Regime badge</strong> — Where the asset sits in its ATR Distance cycle. Ragequit (&lt;−7) and Capitulation (−7 to −4) and Accumulation (−4 to −2) are oversold; Trend (−2 to +2) is balanced; Distribution (+2 to +4) and Mania (+4 to +7) and Blow-off (&gt;+7) are extended. The regime drives the card's left border color.</dd>
                     </div>
                     <div class="legend-item">
                         <dt>
+                            <span class="legend-atr-sample metric-value atr-blowoff">−8.0</span>
                             <span class="legend-atr-sample atr-oversold">−2.4</span>
                             <span class="legend-atr-sample legend-atr-neutral">+0.3</span>
                             <span class="legend-atr-sample atr-extended">+2.8</span>
                             <span class="legend-atr-sample atr-extreme">+5.1</span>
+                            <span class="legend-atr-sample metric-value atr-blowoff">+8.0</span>
                         </dt>
-                        <dd><strong>ATR Distance color</strong> — The main metric number changes color with severity: green = oversold (below EMA), orange = extended, red = extreme extension or capitulation. Neutral values stay grey.</dd>
+                        <dd><strong>ATR Distance color</strong> — The main metric number changes color with severity: green = oversold (below EMA), orange = extended, red = extreme extension or capitulation, pink/magenta = blow-off extreme (above ±7). Neutral values stay grey.</dd>
                     </div>
                     <div class="legend-item">
                         <dt>

@@ -99,14 +99,18 @@ def _save_onchain_cache(bgeometrics_data, cdd_data):
 def classify_regime(atr_distance: float) -> str:
     """
     Classify market regime from ATR Distance:
-      < -4   → Capitulation   (Panic / Capitulation)
+      < -7   → Ragequit       (Extreme Panic / Liquidation)
+      -7..-4 → Capitulation   (Panic / Capitulation)
       -4..-2 → Accumulation   (Oversold)
       -2..2  → Trend          (Balanced / Fair Value)
       2..4   → Distribution   (Extended)
-      > 4    → Mania          (Euphoric / Blow-off)
+      4..7   → Mania          (Euphoric / Blow-off)
+      > 7    → Blow-off       (Parabolic Extreme)
     """
     if pd.isna(atr_distance):
         return 'Unknown'
+    if atr_distance < -7:
+        return 'Ragequit'
     if atr_distance < -4:
         return 'Capitulation'
     if atr_distance < -2:
@@ -115,7 +119,9 @@ def classify_regime(atr_distance: float) -> str:
         return 'Trend'
     if atr_distance <= 4:
         return 'Distribution'
-    return 'Mania'
+    if atr_distance <= 7:
+        return 'Mania'
+    return 'Blow-off'
 
 
 def calculate_historical_metrics(df: pd.DataFrame) -> Dict[str, Any]:
@@ -710,8 +716,8 @@ def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
                 assets_data[asset][tf]['current'] = current_metrics[asset][tf]['current']
 
     # ── Multi-timeframe alignment badge ─────────────────────────────────────────
-    _oversold_regimes  = {'Capitulation', 'Accumulation'}
-    _extended_regimes  = {'Distribution', 'Mania'}
+    _oversold_regimes  = {'Ragequit', 'Capitulation', 'Accumulation'}
+    _extended_regimes  = {'Blow-off', 'Distribution', 'Mania'}
     for asset, tfs in assets_data.items():
         c1d = tfs.get('1d', {}).get('current')
         c1w = tfs.get('1w', {}).get('current')
@@ -813,7 +819,7 @@ def generate_breadth_json(history_df: pd.DataFrame, n_days: int = 60) -> Dict[st
     grouped = df.groupby('Date')['regime_norm'].value_counts().unstack(fill_value=0)
     grouped = grouped.sort_index().tail(n_days)
 
-    regimes = ['capitulation', 'accumulation', 'trend', 'distribution', 'mania']
+    regimes = ['ragequit', 'capitulation', 'accumulation', 'trend', 'distribution', 'mania', 'blow-off']
     result: Dict[str, Any] = {
         'dates': [str(d)[:10] for d in grouped.index.tolist()],
     }
@@ -1460,8 +1466,8 @@ def generate_btc_signals_json(history_df: pd.DataFrame, dashboard: Dict[str, Any
         return 'accumulate' if rsi < 40 else ('distribute' if rsi > 70 else 'neutral')
 
     def _sig_regime(r):
-        if r in ('Capitulation', 'Accumulation'): return 'accumulate'
-        if r in ('Distribution', 'Mania'): return 'distribute'
+        if r in ('Ragequit', 'Capitulation', 'Accumulation'): return 'accumulate'
+        if r in ('Blow-off', 'Distribution', 'Mania'):        return 'distribute'
         return 'neutral'
 
     def _sig_vp(pos):
