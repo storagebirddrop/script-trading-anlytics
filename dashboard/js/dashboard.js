@@ -1636,7 +1636,7 @@ function renderHistoricalContext() {
             return 50;
         };
 
-        // Regime zone positions (thresholds: -4, -2, 2, 4)
+        // Regime zone positions (thresholds: -7, -4, -2, 2, 4, 7)
         const zones = [
             { name: 'ragequit',     from: -Infinity, to: -7 },
             { name: 'capitulation', from: -7,         to: -4 },
@@ -2007,12 +2007,12 @@ function renderDrilldown() {
                 <span class="summary-label">RS/BTC (30d)</span>
                 <span class="summary-value">${rsBadgeHtml(current.rs_vs_btc)}</span>
             </div>` : ''}
-            ${current?.funding_rate != null && ASSET_CATEGORIES.crypto.has(asset) ? `
+            ${current?.funding_rate != null && ASSET_CATEGORIES.crypto.has(selectedAsset) ? `
             <div class="summary-item">
                 <span class="summary-label">Funding Rate</span>
                 <span class="summary-value">${frBadgeHtml(current.funding_rate)}</span>
             </div>` : ''}
-            ${current?.open_interest_usd != null && ASSET_CATEGORIES.crypto.has(asset) ? `
+            ${current?.open_interest_usd != null && ASSET_CATEGORIES.crypto.has(selectedAsset) ? `
             <div class="summary-item">
                 <span class="summary-label">Open Interest</span>
                 <span class="summary-value">${oiFormatted(current.open_interest_usd)}</span>

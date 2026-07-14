@@ -104,7 +104,7 @@ def classify_regime(atr_distance: float) -> str:
       -4..-2 → Accumulation   (Oversold)
       -2..2  → Trend          (Balanced / Fair Value)
       2..4   → Distribution   (Extended)
-      4..7   → Mania          (Euphoric / Blow-off)
+      4..7   → Mania          (Euphoric / Extended)
       > 7    → Blow-off       (Parabolic Extreme)
     """
     if pd.isna(atr_distance):
