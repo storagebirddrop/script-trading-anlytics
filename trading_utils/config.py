@@ -13,6 +13,7 @@ ASSETS = [
     'VTHO', 'LINK', 'NEO', 'GAS', 'DRIFT', 'SEI', 'PEAQ', 'AEVO', 'EIGEN', 'W', 'WOO', 'JASMY',
     # NASDAQ stocks (Yahoo Finance)
     'MSTR', 'XXI', 'RIOT', 'MARA', 'IREN', 'BMNR', 'HUT', 'WULF', 'HIVE', 'CLSK', 'SLNH',
+    'KEEL', 'BTDR', 'BTBT', 'FUFU',
     # LSE ETFs (Yahoo Finance with .L suffix)
     'MSTY', 'YMST', 'MARY', 'RIOY', 'IREY', 'BMNY',
     # Solana DEX assets (GeckoTerminal)
@@ -71,6 +72,10 @@ ASSET_CONFIG = {
     'HIVE': {'source': 'yahoo', 'symbol': 'HIVE'},
     'CLSK': {'source': 'yahoo', 'symbol': 'CLSK'},
     'SLNH': {'source': 'yahoo', 'symbol': 'SLNH'},
+    'KEEL': {'source': 'yahoo', 'symbol': 'KEEL'},
+    'BTDR': {'source': 'yahoo', 'symbol': 'BTDR'},
+    'BTBT': {'source': 'yahoo', 'symbol': 'BTBT'},
+    'FUFU': {'source': 'yahoo', 'symbol': 'FUFU'},
     # LSE ETFs (Yahoo Finance with .L suffix)
     'MSTY': {'source': 'yahoo', 'symbol': 'MSTY.L'},
     'YMST': {'source': 'yahoo', 'symbol': 'YMST.L'},
