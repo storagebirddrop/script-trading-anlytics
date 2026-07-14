@@ -28,7 +28,7 @@ const MACRO_FOREX_SYMBOLS = new Set(['EURUSD','GBPUSD','AUDUSD','NZDUSD','USDCAD
 const LSE_ASSETS = ASSET_CATEGORIES.lse;
 
 // Regime display order for the summary strip
-const REGIME_ORDER = ['Capitulation','Accumulation','Trend','Distribution','Mania','Unknown'];
+const REGIME_ORDER = ['Ragequit','Capitulation','Accumulation','Trend','Distribution','Mania','Blow-off','Unknown'];
 
 // Portfolio filter state
 const portfolioFilter = {
@@ -59,7 +59,7 @@ function signClass(value) {
 }
 
 function regimeClass(regime) {
-    const VALID = new Set(['capitulation','accumulation','trend','distribution','mania','unknown']);
+    const VALID = new Set(['ragequit','capitulation','accumulation','trend','distribution','mania','blow-off','unknown']);
     const norm = (regime || 'unknown').toLowerCase();
     return `regime-${VALID.has(norm) ? norm : 'unknown'}`;
 }
@@ -100,13 +100,15 @@ function getSignalStrength(atrPercentile, direction, sampleSize, atrDistance) {
     let atrTier = 0;
     if (atrDistance != null) {
         if (direction === 'oversold') {
-            if (atrDistance < -4)      atrTier = 3;
+            if (atrDistance < -7)      atrTier = 4;
+            else if (atrDistance < -4) atrTier = 3;
             else if (atrDistance < -3) atrTier = 2;
             else if (atrDistance < -2) atrTier = 1;
         } else {
-            if (atrDistance > 4)      atrTier = 3;
-            else if (atrDistance > 3) atrTier = 2;
-            else if (atrDistance > 2) atrTier = 1;
+            if (atrDistance > 7)       atrTier = 4;
+            else if (atrDistance > 4)  atrTier = 3;
+            else if (atrDistance > 3)  atrTier = 2;
+            else if (atrDistance > 2)  atrTier = 1;
         }
     }
 
@@ -114,11 +116,13 @@ function getSignalStrength(atrPercentile, direction, sampleSize, atrDistance) {
     const tier = Math.max(pctTier, atrTier);
 
     if (direction === 'oversold') {
+        if (tier === 4) return { label: 'Ragequit',         cssClass: 'signal-ragequit' };
         if (tier === 3) return { label: 'Extreme Oversold', cssClass: 'signal-extreme-oversold' };
         if (tier === 2) return { label: 'Deep Oversold',    cssClass: 'signal-deep-oversold' };
         if (tier === 1) return { label: 'Oversold',         cssClass: 'signal-oversold' };
         return { label: 'Mild Dip', cssClass: 'signal-oversold' };
     } else {
+        if (tier === 4) return { label: 'Blow-off',         cssClass: 'signal-blowoff' };
         if (tier === 3) return { label: 'Extreme Extended', cssClass: 'signal-extreme-extended' };
         if (tier === 2) return { label: 'High Extended',    cssClass: 'signal-high-extended' };
         if (tier === 1) return { label: 'Extended',         cssClass: 'signal-extended' };
@@ -129,6 +133,7 @@ function getSignalStrength(atrPercentile, direction, sampleSize, atrDistance) {
 // Returns CSS class for ATR Distance semantic color on cards/summaries.
 function getAtrColorClass(atrDistance) {
     if (atrDistance == null) return '';
+    if (atrDistance < -7 || atrDistance > 7) return 'atr-blowoff';
     if (atrDistance < -4 || atrDistance > 4) return 'atr-extreme';
     if (atrDistance < -2) return 'atr-oversold';
     if (atrDistance > 2)  return 'atr-extended';
@@ -229,7 +234,9 @@ function ema50DistHtml(dist) {
     if (dist == null) return '';
     const val = (dist >= 0 ? '+' : '') + dist.toFixed(2);
     let cls;
-    if      (dist < -4) cls = 'e50--cap';
+    if      (dist < -7) cls = 'e50--ragequit';
+    else if (dist > 7)  cls = 'e50--blowoff';
+    else if (dist < -4) cls = 'e50--cap';
     else if (dist < -2) cls = 'e50--acc';
     else if (dist <=  2) cls = 'e50--trend';
     else if (dist <=  4) cls = 'e50--dist';
@@ -325,11 +332,13 @@ function oiFormatted(usd) {
 // Same thresholds as regime classification but neutral display names.
 function macroZoneLabel(atrDistance) {
     if (atrDistance == null) return { label: 'Unknown',          cssClass: 'zone-unknown' };
+    if (atrDistance < -7)   return { label: 'Extreme Crash',    cssClass: 'zone-ragequit' };
     if (atrDistance < -4)   return { label: 'Extreme Oversold', cssClass: 'zone-extreme-oversold' };
     if (atrDistance < -2)   return { label: 'Oversold',         cssClass: 'zone-oversold' };
     if (atrDistance <= 2)   return { label: 'Neutral',          cssClass: 'zone-neutral' };
     if (atrDistance <= 4)   return { label: 'Extended',         cssClass: 'zone-extended' };
-    return                         { label: 'Extreme Extended', cssClass: 'zone-extreme-extended' };
+    if (atrDistance <= 7)   return { label: 'Extreme Extended', cssClass: 'zone-extreme-extended' };
+    return                         { label: 'Blow-off',         cssClass: 'zone-blowoff' };
 }
 
 // Builds an inline SVG sparkline for the last 14 bars of ATR Distance values.
@@ -351,9 +360,10 @@ function makeSparklineSvg(values, currentAtrDistance) {
     }
     let stroke = '#64748b';
     if (currentAtrDistance != null) {
-        if (Math.abs(currentAtrDistance) > 4) stroke = '#ef4444';
-        else if (currentAtrDistance < -2)     stroke = '#10b981';
-        else if (currentAtrDistance > 2)      stroke = '#f97316';
+        if (currentAtrDistance < -7 || currentAtrDistance > 7) stroke = '#be185d';
+        else if (Math.abs(currentAtrDistance) > 4)             stroke = '#ef4444';
+        else if (currentAtrDistance < -2)                      stroke = '#10b981';
+        else if (currentAtrDistance > 2)                       stroke = '#f97316';
     }
     return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${zeroLine}<polyline points="${pts}" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
 }
@@ -951,12 +961,14 @@ function renderPortfolioHealthBar() {
     const extendedPct = Math.round(100 * extendedCount / total);
     const neutralPct  = Math.round(100 * neutralCount  / total);
 
-    const notablePriority = ['Capitulation', 'Mania', 'Accumulation', 'Distribution', 'Trend', 'Unknown'];
+    const notablePriority = ['Ragequit', 'Blow-off', 'Capitulation', 'Mania', 'Accumulation', 'Distribution', 'Trend', 'Unknown'];
     const notableRegime   = notablePriority.find(r => regimeCounts[r] > 0) || 'Trend';
     const notableCount    = regimeCounts[notableRegime] || 0;
 
     let sentiment;
-    if (regimeCounts['Capitulation'] > 0)                                                     sentiment = 'Extreme Fear';
+    if (regimeCounts['Ragequit'] > 0)                                                         sentiment = 'Total Capitulation';
+    else if (regimeCounts['Blow-off'] > 0)                                                    sentiment = 'Blow-off Top';
+    else if (regimeCounts['Capitulation'] > 0)                                                sentiment = 'Extreme Fear';
     else if (regimeCounts['Mania'] > 0)                                                       sentiment = 'Extreme Greed';
     else if ((regimeCounts['Accumulation'] || 0) > (regimeCounts['Distribution'] || 0) * 1.5) sentiment = 'Fear Dominates';
     else if ((regimeCounts['Distribution'] || 0) > (regimeCounts['Accumulation'] || 0) * 1.5) sentiment = 'Greed Dominates';
@@ -1124,15 +1136,17 @@ function renderBreadthChart() {
             if (charts[id]) { charts[id].destroy(); delete charts[id]; }
             const canvas = document.getElementById(id);
             if (!canvas) return;
-            const regimes = ['capitulation','accumulation','trend','distribution','mania'];
+            const regimes = ['ragequit','capitulation','accumulation','trend','distribution','mania','blow-off'];
             const colors  = [
+                'rgba(107,33,168,0.75)',
                 'rgba(153,27,27,0.75)',
                 'rgba(16,185,129,0.65)',
                 'rgba(59,130,246,0.50)',
                 'rgba(249,115,22,0.65)',
                 'rgba(239,68,68,0.75)',
+                'rgba(190,24,93,0.80)',
             ];
-            const labels = ['Capitulation','Accumulation','Trend','Distribution','Mania'];
+            const labels = ['Ragequit','Capitulation','Accumulation','Trend','Distribution','Mania','Blow-off'];
             charts[id] = new Chart(canvas, {
                 type: 'bar',
                 data: {
@@ -1624,11 +1638,13 @@ function renderHistoricalContext() {
 
         // Regime zone positions (thresholds: -4, -2, 2, 4)
         const zones = [
-            { name: 'capitulation', from: -Infinity, to: -4 },
-            { name: 'accumulation', from: -4,        to: -2 },
-            { name: 'trend',        from: -2,         to:  2 },
-            { name: 'distribution', from:  2,         to:  4 },
-            { name: 'mania',        from:  4,         to:  Infinity }
+            { name: 'ragequit',     from: -Infinity, to: -7 },
+            { name: 'capitulation', from: -7,         to: -4 },
+            { name: 'accumulation', from: -4,         to: -2 },
+            { name: 'trend',        from: -2,          to:  2 },
+            { name: 'distribution', from:  2,          to:  4 },
+            { name: 'mania',        from:  4,          to:  7 },
+            { name: 'blow-off',     from:  7,          to:  Infinity },
         ];
 
         // Gauge track children are appended via DOM API after innerHTML is set,
@@ -1785,9 +1801,11 @@ function generateKeyTakeaways(symbol, timeframeData, assetAllData, chartHistory)
             takeaways.push({ text: `ATR Distance at the ${pct.toFixed(0)}th percentile — within its normal historical range.`, type: 'neutral' });
         }
     } else if (dist != null) {
-        if (dist < -4)      takeaways.push({ text: `ATR Distance of ${dist.toFixed(2)} is in Capitulation zone (< −4) — extreme panic level.`, type: 'positive' });
+        if (dist < -7)      takeaways.push({ text: `ATR Distance of ${dist.toFixed(2)} is in Ragequit zone (< −7) — historically extreme panic, rare capitulation event.`, type: 'positive' });
+        else if (dist < -4) takeaways.push({ text: `ATR Distance of ${dist.toFixed(2)} is in Capitulation zone (−7 to −4) — extreme panic level.`, type: 'positive' });
         else if (dist < -2) takeaways.push({ text: `ATR Distance of ${dist.toFixed(2)} is in Accumulation zone (−4 to −2) — oversold.`, type: 'positive' });
-        else if (dist > 4)  takeaways.push({ text: `ATR Distance of ${dist.toFixed(2)} is in Mania zone (> +4) — extreme euphoria.`, type: 'negative' });
+        else if (dist > 7)  takeaways.push({ text: `ATR Distance of ${dist.toFixed(2)} is in Blow-off zone (> +7) — historically extreme euphoria, rare blow-off top.`, type: 'negative' });
+        else if (dist > 4)  takeaways.push({ text: `ATR Distance of ${dist.toFixed(2)} is in Mania zone (+4 to +7) — extreme euphoria.`, type: 'negative' });
         else if (dist > 2)  takeaways.push({ text: `ATR Distance of ${dist.toFixed(2)} is in Distribution zone (+2 to +4) — extended.`, type: 'negative' });
         else                takeaways.push({ text: `ATR Distance of ${dist.toFixed(2)} — in Trend zone (fair value range).`, type: 'neutral' });
     }
@@ -1818,13 +1836,17 @@ function generateKeyTakeaways(symbol, timeframeData, assetAllData, chartHistory)
     if (weekly?.regime) {
         const wRegime = weekly.regime;
         const wDist   = weekly.atr_distance;
-        if (wRegime === 'Capitulation') {
+        if (wRegime === 'Ragequit') {
+            takeaways.push({ text: `Weekly regime: Ragequit — higher-timeframe shows historically extreme panic. Rare capitulation signal.`, type: 'positive' });
+        } else if (wRegime === 'Blow-off') {
+            takeaways.push({ text: `Weekly regime: Blow-off — higher-timeframe shows historically extreme euphoria. Rare blow-off top signal.`, type: 'negative' });
+        } else if (wRegime === 'Capitulation') {
             takeaways.push({ text: `Weekly regime: Capitulation — higher-timeframe confirms extreme oversold.`, type: 'positive' });
         } else if (wRegime === 'Mania') {
             takeaways.push({ text: `Weekly regime: Mania — higher-timeframe confirms extreme extension.`, type: 'negative' });
-        } else if (wRegime === 'Accumulation' && (regime === 'Accumulation' || regime === 'Capitulation')) {
+        } else if (wRegime === 'Accumulation' && (regime === 'Accumulation' || regime === 'Capitulation' || regime === 'Ragequit')) {
             takeaways.push({ text: `Multi-timeframe alignment: Weekly and Daily both in oversold regimes.`, type: 'positive' });
-        } else if (wRegime === 'Distribution' && (regime === 'Distribution' || regime === 'Mania')) {
+        } else if (wRegime === 'Distribution' && (regime === 'Distribution' || regime === 'Mania' || regime === 'Blow-off')) {
             takeaways.push({ text: `Multi-timeframe alignment: Weekly and Daily both in extended regimes.`, type: 'negative' });
         } else {
             takeaways.push({ text: `Weekly regime: ${wRegime}${wDist != null ? ` (ATR Distance: ${wDist.toFixed(2)})` : ''}.`, type: 'neutral' });
@@ -2084,8 +2106,12 @@ function destroyChart(id) {
 
 
 const REGIME_ANNOTATIONS = {
+    ragequitZone: {
+        type: 'box', yMax: -7,
+        backgroundColor: 'rgba(107,33,168,0.12)', borderWidth: 0
+    },
     capitulationZone: {
-        type: 'box', yMax: -4,
+        type: 'box', yMin: -7, yMax: -4,
         backgroundColor: 'rgba(153,27,27,0.12)', borderWidth: 0
     },
     accumulationZone: {
@@ -2097,8 +2123,12 @@ const REGIME_ANNOTATIONS = {
         backgroundColor: 'rgba(249,115,22,0.12)', borderWidth: 0
     },
     maniaZone: {
-        type: 'box', yMin: 4,
+        type: 'box', yMin: 4, yMax: 7,
         backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 0
+    },
+    blowoffZone: {
+        type: 'box', yMin: 7,
+        backgroundColor: 'rgba(190,24,93,0.12)', borderWidth: 0
     }
 };
 

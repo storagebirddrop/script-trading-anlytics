@@ -8,6 +8,8 @@
     --text-secondary: #a0aec0;
     --accent-blue: #3b82f6;
     --accent-green: #10b981;
+    --accent-ragequit: #6b21a8;
+    --accent-blowoff:  #be185d;
     --accent-capitulation: #991b1b;
     --accent-orange: #f97316;
     --accent-red: #ef4444;
@@ -267,6 +269,16 @@ body {
     color: white;
 }
 
+.regime-ragequit {
+    background-color: var(--accent-ragequit);
+    color: white;
+}
+
+.regime-blow-off {
+    background-color: var(--accent-blowoff);
+    color: white;
+}
+
 .regime-mania {
     background-color: var(--accent-red);
     color: white;
@@ -500,6 +512,8 @@ body {
 .gauge-zone-trend         { background-color: rgba(59, 130, 246, 0.45); }
 .gauge-zone-distribution  { background-color: rgba(249, 115, 22, 0.70); }
 .gauge-zone-mania         { background-color: rgba(239, 68, 68, 0.75); }
+.gauge-zone-ragequit      { background-color: rgba(107, 33, 168, 0.75); }
+.gauge-zone-blow-off      { background-color: rgba(190, 24,  93, 0.75); }
 
 .gauge-marker {
     position: absolute;
@@ -968,6 +982,8 @@ body {
 
 /* ── Signal strength badges ────────────────────────────────────── */
 
+.signal-ragequit         { color: var(--accent-ragequit); font-weight: 700; }
+.signal-blowoff          { color: var(--accent-blowoff);  font-weight: 700; }
 .signal-extreme-oversold { background-color: rgba(239, 68, 68, 0.18);  color: var(--accent-red); }
 .signal-deep-oversold    { background-color: rgba(249, 115, 22, 0.18); color: var(--accent-orange); }
 .signal-oversold         { background-color: rgba(16, 185, 129, 0.18); color: var(--signal-oversold); }
@@ -977,6 +993,7 @@ body {
 
 /* ── ATR Distance semantic color on cards ──────────────────────── */
 
+.metric-value.atr-blowoff  { color: var(--accent-blowoff); }
 .metric-value.atr-extreme  { color: var(--accent-red); }
 .metric-value.atr-oversold { color: var(--signal-oversold); }
 .metric-value.atr-extended { color: var(--signal-extended); }
@@ -1687,6 +1704,8 @@ body {
 .zone-neutral          { background-color: rgba(59,130,246,0.15); color: var(--accent-blue); }
 .zone-extended         { background-color: rgba(249,115,22,0.18); color: var(--accent-orange); }
 .zone-extreme-extended { background-color: rgba(239,68,68,0.18);  color: var(--accent-red); }
+.zone-ragequit         { color: var(--accent-ragequit); }
+.zone-blowoff          { color: var(--accent-blowoff); }
 .zone-unknown          { background-color: rgba(160,174,192,0.10); color: var(--text-secondary); }
 
 /* ── Portfolio card sparklines ───────────────────────────────────────────────── */
@@ -1915,6 +1934,8 @@ body {
     vertical-align: middle;
     font-variant-numeric: tabular-nums;
 }
+.e50--ragequit { background: rgba(107, 33, 168, 0.15); color: var(--accent-ragequit); }
+.e50--blowoff  { background: rgba(190, 24,  93, 0.15); color: var(--accent-blowoff);  }
 .e50--cap   { background: rgba(139, 92, 246, 0.18); color: #a78bfa; }
 .e50--acc   { background: rgba(16, 185, 129, 0.18); color: var(--accent-green); }
 .e50--trend { background: rgba(160, 174, 192, 0.10); color: var(--text-secondary); }

@@ -277,7 +277,7 @@ function buildAllSections(d) {
                   + (pi.atr_distance < 0 ? 'below' : 'above') + ' EMA21'
                 : 'No data',
             signal: pi.signal_atr,
-            tooltip: '(Price − EMA21) ÷ ATR. < −2 = Accumulation; < −4 = Capitulation; > +2 = Distribution; > +4 = Mania.',
+            tooltip: '(Price − EMA21) ÷ ATR. < −7 = Ragequit; < −4 = Capitulation; < −2 = Accumulation; +2 to +4 = Distribution; +4 to +7 = Mania; > +7 = Blow-off.',
         }),
     ];
 
