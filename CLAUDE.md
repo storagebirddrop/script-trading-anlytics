@@ -178,11 +178,13 @@ All fields are `null` when `High`/`Low`/`Volume` columns are absent from `histor
 
 | Regime | Condition | Sentiment |
 |--------|-----------|-----------|
-| Capitulation | ATR_Distance < -4 | Panic / Capitulation |
+| Ragequit | ATR_Distance < -7 | Historically Extreme Panic |
+| Capitulation | -7 ≤ ATR_Distance < -4 | Panic / Capitulation |
 | Accumulation | -4 ≤ ATR_Distance < -2 | Oversold |
 | Trend | -2 ≤ ATR_Distance ≤ 2 | Balanced / Fair Value |
 | Distribution | 2 < ATR_Distance ≤ 4 | Extended |
-| Mania | ATR_Distance > 4 | Euphoric / Blow-off |
+| Mania | 4 < ATR_Distance ≤ 7 | Euphoric / Extended |
+| Blow-off | ATR_Distance > 7 | Historically Extreme Euphoria |
 
 ### Resilience Behaviour
 

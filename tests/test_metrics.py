@@ -59,11 +59,17 @@ def sample_history_df():
 class TestClassifyRegime:
     """Test regime classification."""
     
+    def test_ragequit_regime(self):
+        """Test ATR Distance < -7 classifies as Ragequit."""
+        assert classify_regime(-7.1) == 'Ragequit'
+        assert classify_regime(-8.0) == 'Ragequit'
+        assert classify_regime(-15.0) == 'Ragequit'
+
     def test_capitulation_regime(self):
-        """Test ATR Distance < -4 classifies as Capitulation."""
+        """Test -7 <= ATR Distance < -4 classifies as Capitulation."""
         assert classify_regime(-4.1) == 'Capitulation'
         assert classify_regime(-5.0) == 'Capitulation'
-        assert classify_regime(-10.0) == 'Capitulation'
+        assert classify_regime(-7.0) == 'Capitulation'
 
     def test_accumulation_regime(self):
         """Test -4 <= ATR Distance < -2 classifies as Accumulation."""
@@ -92,10 +98,16 @@ class TestClassifyRegime:
         assert classify_regime(4.0) == 'Distribution'
 
     def test_mania_regime(self):
-        """Test ATR Distance > 4 classifies as Mania."""
+        """Test 4 < ATR Distance <= 7 classifies as Mania."""
         assert classify_regime(4.1) == 'Mania'
         assert classify_regime(5.0) == 'Mania'
-        assert classify_regime(10.0) == 'Mania'
+        assert classify_regime(7.0) == 'Mania'
+
+    def test_blowoff_regime(self):
+        """Test ATR Distance > 7 classifies as Blow-off."""
+        assert classify_regime(7.1) == 'Blow-off'
+        assert classify_regime(8.0) == 'Blow-off'
+        assert classify_regime(15.0) == 'Blow-off'
 
     def test_nan_regime(self):
         """Test NaN ATR Distance classifies as Unknown."""
