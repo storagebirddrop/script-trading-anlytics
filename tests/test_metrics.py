@@ -1573,12 +1573,13 @@ class TestGenerateBtcSignalsJsonConfluence:
             'calculate_metrics.fetch_global_m2':           None,
             'calculate_metrics.fetch_etf_flows':           None,
             'calculate_metrics.fetch_binance_futures':     {},
-            'calculate_metrics.fetch_bgeometrics_onchain': None,
-            'calculate_metrics.fetch_bitbo_onchain':       None,
-            'calculate_metrics.fetch_blockchair_cdd':      None,
-            'calculate_metrics.fetch_puell_multiple':      None,
-            'calculate_metrics._load_onchain_cache':       (None, None),
-            'calculate_metrics._save_onchain_cache':       None,
+            'calculate_metrics.fetch_bgeometrics_onchain':    None,
+            'calculate_metrics.fetch_bitbo_onchain':           None,
+            'calculate_metrics.fetch_coinmetrics_v4_onchain':  None,
+            'calculate_metrics.fetch_blockchair_cdd':          None,
+            'calculate_metrics.fetch_puell_multiple':          None,
+            'calculate_metrics._load_onchain_cache':           (None, None),
+            'calculate_metrics._save_onchain_cache':           None,
         }
         defaults.update(overrides)
         patches = [patch(k, return_value=v) for k, v in defaults.items()]
