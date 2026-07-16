@@ -132,3 +132,8 @@
 - [x] **Debug pass + UX quick wins** _(defaultdict import fix, defensive confluence guard, docstring fix; phase badge first on BTC page; mobile nav labels hidden; badge tooltips; BTC era note; Corr tab removed; 13 new tests)_
 - [x] **Hamburger nav for mobile** _(≤520px: ☰ toggle replaces bottom tab bar; slide-up drawer with all 5 tabs; backdrop + Escape to close; body scroll lock)_
 - [x] **Novice/Expert card detail toggle** _(filter-bar chip; Novice hides 11 advanced fields and alignment header badge; Expert (default) shows all; persists to `localStorage`)_
+- [x] **Ragequit / Blow-off regime tiers** _(7-tier regime system: Ragequit < −7 (deep purple) and Blow-off > +7 (hot pink) added as outer extremes; Capitulation bounded −7..−4, Mania +4..+7; implemented across classify_regime, breadth, signal strength, gauge, chart annotations, sparklines, macro zones, CSS, landing page, BTC tooltip, CLAUDE.md; post-merge review fixed a Drilldown Funding-Rate/OI variable bug and a test-isolation gap)_
+- [x] **EUR price on BTC page** _(server-side Frankfurter/ECB rate fetched in CI, stored as `price_eur` in `btc_signals.json`; CSP-safe)_
+- [x] **New NASDAQ assets** _(KEEL, BTDR, BTBT, FUFU added to config and dashboard categories)_
+- [x] **Rankings tab: Daily/Weekly toggle** _(chip toggle mirroring Portfolio pattern; `rankingsFilter.timeframe` drives `renderRankings()`)_
+- [x] **Rankings tab: category filter** _(All/Crypto/NASDAQ/LSE chips; composes with the timeframe toggle)_
