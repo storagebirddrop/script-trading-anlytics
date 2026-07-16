@@ -2,6 +2,8 @@
 
 Automated pipeline that fetches daily and weekly OHLCV data from Yahoo Finance, Binance (CCXT), and GeckoTerminal, calculates technical indicators, accumulates historical data, and serves an interactive web dashboard via Cloudflare Pages.
 
+**📖 [User Guide](docs/USER_GUIDE.md)** — in-depth, screenshot-illustrated manual explaining every metric and how to read, use, and interpret it.
+
 ## Features
 
 - **Data sources:** Yahoo Finance (crypto + NASDAQ + LSE ETFs + macro), Binance/CCXT (SCP), GeckoTerminal (D2X); manual fallback for assets without API access
