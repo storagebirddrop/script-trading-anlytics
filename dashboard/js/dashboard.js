@@ -31,7 +31,7 @@ const LSE_ASSETS = ASSET_CATEGORIES.lse;
 const REGIME_ORDER = ['Ragequit','Capitulation','Accumulation','Trend','Distribution','Mania','Blow-off','Unknown'];
 
 // Rankings filter state
-const rankingsFilter = { timeframe: '1d' };
+const rankingsFilter = { timeframe: '1d', category: '' };
 
 // Portfolio filter state
 const portfolioFilter = {
@@ -829,6 +829,14 @@ function setupRankingsFilters() {
         rankingsFilter.timeframe = chip.dataset.value;
         renderRankings();
     });
+    document.getElementById('filter-rankings-category').addEventListener('click', e => {
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
+        document.querySelectorAll('#filter-rankings-category .chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        rankingsFilter.category = chip.dataset.value;
+        renderRankings();
+    });
 }
 
 // ─── Portfolio filters ────────────────────────────────────────────────────────
@@ -1481,6 +1489,7 @@ function renderRankings() {
     const rankings = [];
     Object.entries(dashboardData.assets).forEach(([asset, assetData]) => {
         if (ASSET_CATEGORIES.macro.has(asset)) return;
+        if (rankingsFilter.category && !ASSET_CATEGORIES[rankingsFilter.category].has(asset)) return;
         const d = assetData[rankingsFilter.timeframe]?.current;
         if (d?.atr_distance != null) {
             rankings.push({
