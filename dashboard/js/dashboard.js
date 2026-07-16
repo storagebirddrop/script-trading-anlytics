@@ -30,6 +30,9 @@ const LSE_ASSETS = ASSET_CATEGORIES.lse;
 // Regime display order for the summary strip
 const REGIME_ORDER = ['Ragequit','Capitulation','Accumulation','Trend','Distribution','Mania','Blow-off','Unknown'];
 
+// Rankings filter state
+const rankingsFilter = { timeframe: '1d' };
+
 // Portfolio filter state
 const portfolioFilter = {
     category: '', regime: null, sort: 'name', timeframe: '1d', search: '',
@@ -648,6 +651,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     setupNavigation();
     setupAssetSelectors();
+    setupRankingsFilters();
     setupPortfolioFilters();
     renderPortfolio();
     renderRankings();
@@ -812,6 +816,19 @@ function setupAssetSelectors() {
     drilldownSelect.addEventListener('change', renderDrilldown);
 
     document.getElementById('timeframe-select').addEventListener('change', renderDrilldown);
+}
+
+// ─── Rankings filters ─────────────────────────────────────────────────────────
+
+function setupRankingsFilters() {
+    document.getElementById('filter-rankings-timeframe').addEventListener('click', e => {
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
+        document.querySelectorAll('#filter-rankings-timeframe .chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        rankingsFilter.timeframe = chip.dataset.value;
+        renderRankings();
+    });
 }
 
 // ─── Portfolio filters ────────────────────────────────────────────────────────
@@ -1464,14 +1481,14 @@ function renderRankings() {
     const rankings = [];
     Object.entries(dashboardData.assets).forEach(([asset, assetData]) => {
         if (ASSET_CATEGORIES.macro.has(asset)) return;
-        const d = assetData['1d']?.current;
+        const d = assetData[rankingsFilter.timeframe]?.current;
         if (d?.atr_distance != null) {
             rankings.push({
                 asset,
                 atrDistance:   d.atr_distance,
                 regime:        d.regime || 'Unknown',
                 atrPercentile: d.atr_percentile ?? null,
-                sampleSize:    assetData['1d']?.historical?.sample_size ?? 0
+                sampleSize:    assetData[rankingsFilter.timeframe]?.historical?.sample_size ?? 0
             });
         }
     });
