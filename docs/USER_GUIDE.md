@@ -49,10 +49,12 @@ Everything on this dashboard hangs off one number:
 ATR Distance = (Price − EMA21) ÷ ATR
 ```
 
-- **EMA21** — the 21-period exponential moving average: the asset's short-term "fair value" anchor.
+- **EMA21** — the 21-period exponential moving average: the asset's short-term **trend anchor**. Note the word choice: an EMA is a *lagging average of recent prices*, not "fair value" in any fundamental sense. It follows price; it doesn't judge it.
 - **ATR** — the 14-period Average True Range (Wilder's smoothing): how much the asset *typically* moves in one bar.
 
 So ATR Distance reads as: **"how many normal days of movement is price away from its average?"**
+
+> ⚠️ **The most important thing to understand about this metric:** ATR Distance mean-reverts to zero in **two** ways — price can rally back up to the EMA, *or* the EMA can fall down to price while price keeps bleeding. In an established downtrend it is usually the second one. A reading of −4 does **not** mean "a bounce is due"; it can resolve as "the average catches down and you're another 12% lower with the indicator reading 0." The metric tells you where price is relative to its trend — never which of the two ways the gap closes.
 
 ### Worked example
 
@@ -84,18 +86,22 @@ ATR Distance maps directly onto seven regimes. These drive the coloured badge on
 
 | Regime | ATR Distance | Colour | What it means | Typical interpretation |
 |---|---|---|---|---|
-| **Ragequit** | < −7 | 🟣 deep purple | Historically extreme panic | Forced selling / liquidation cascades. Extremely rare — most assets never print it. When it appears, the seller of last resort is active. |
-| **Capitulation** | −7 to −4 | 🟥 dark red | Panic | The market is disorderly. Historically where durable bottoms *start* forming — but knives can keep falling. |
-| **Accumulation** | −4 to −2 | 🟢 green | Oversold | Statistically stretched to the downside. The classic "start paying attention" zone for mean-reversion buyers. |
-| **Trend** | −2 to +2 | 🔵 blue | Balanced / fair value | Price is within normal noise of its anchor. No positional edge from stretch alone — most assets are here most of the time. |
-| **Distribution** | +2 to +4 | 🟠 orange | Extended | Statistically stretched to the upside. Where profit-taking historically clusters. |
+| **Ragequit** | < −7 | 🟣 deep purple | Historically extreme panic | Forced selling / liquidation cascades. Rare — but see the asymmetry note below: it prints far more often than its upside mirror. |
+| **Capitulation** | −7 to −4 | 🟥 dark red | Panic | The market is disorderly. Some durable bottoms have started here — and so has the first half of many larger declines. The reading itself doesn't distinguish them. |
+| **Accumulation** | −4 to −2 | 🟢 green | Oversold | Statistically stretched to the downside. A *watch* zone — in an established downtrend, this is also exactly what a falling knife looks like on the way through. |
+| **Trend** | −2 to +2 | 🔵 blue | Balanced | Price is within normal noise of its anchor. No positional edge from stretch alone — most assets are here most of the time. |
+| **Distribution** | +2 to +4 | 🟠 orange | Extended | Statistically stretched to the upside. Where profit-taking tends to cluster. |
 | **Mania** | +4 to +7 | 🔴 red | Euphoric | Powerful momentum, but the reading is rare and mean-reversion risk is elevated. |
-| **Blow-off** | > +7 | 🩷 hot pink | Historically extreme euphoria | Parabolic. Prints only in genuine blow-off tops. Momentum can extend it, but risk/reward for new entries is historically terrible. |
+| **Blow-off** | > +7 | 🩷 hot pink | Historically extreme euphoria | Parabolic. Momentum can extend it further; risk/reward for *new* entries at this reading is poor. |
 
-Two things to keep in mind:
+> ⚠️ **Oversold is not a buy signal. Read this before the Opportunity panel.**
+> The dashboard's vocabulary ("Opportunity", "Accumulation") leans mean-reversion, and buying weakness inside a downtrend is the single most expensive habit in retail trading. An asset at −4 with **ADX > 25 and price below a falling EMA50 and 200DMA is a trend in progress, not a discount** — stretch can persist and deepen for weeks. Every oversold reading must pass a trend check (ADX + the Drilldown moving-average structure, [Section 6](#adx-average-directional-index--trend-strength)) before it deserves the word "opportunity". The workflows in [Section 9](#9-practical-workflows) build this check in — don't skip it.
 
-1. **Regimes are symmetric but markets aren't.** Assets spend far more time in Trend than anywhere else. The outer tiers (Ragequit / Blow-off) exist precisely to separate a "normal extreme" (±4–7) from a once-a-cycle event (beyond ±7).
-2. **A regime is a location, not a signal by itself.** Accumulation means *statistically cheap*, not *guaranteed bounce*. That's why the dashboard layers percentiles, weekly confirmation, and volume context on top — see the workflows in [Section 9](#9-practical-workflows).
+Three more things to keep in mind:
+
+1. **The thresholds are symmetric; markets are not.** Downside moves are faster and fatter-tailed than upside moves, so **Ragequit prints considerably more often than Blow-off** — they are mirror *thresholds*, not equivalent-probability events. Treat a Blow-off as the rarer, and a Ragequit as the more "ordinary", of the two extremes.
+2. **A regime is a location, not a signal by itself.** Accumulation means *statistically cheap relative to trend*, not *bounce due*. That's why the dashboard layers percentiles, weekly confirmation, trend strength, and volume context on top.
+3. **Nothing in this guide is backtested.** Where the text says a reading is "associated with" bottoms or tops, that is a qualitative observation, not a measured base rate. The dashboard tells you *where you are in the historical distribution* — it makes no claim about forward returns. Treat every historical association here as a hypothesis to check, not an edge to bank.
 
 ---
 
@@ -110,7 +116,7 @@ This is the second normalisation layer. ATR Distance already normalises by volat
 
 **Rule of thumb:** the absolute ATR Distance tells you *how stretched*, the percentile tells you *how unusual*. The strongest setups are stretched **and** unusual.
 
-Percentile badges require at least **30 bars of history**; newer listings show ATR Distance only.
+> ⚠️ **Sample size makes or breaks a percentile.** Badges appear from **30 bars of history**, but 30 daily bars is six weeks — a "P4%" computed on 30 samples is one bar out of thirty, i.e. statistical noise wearing the same badge as a P4% computed on 4,000 bars of BTC history. The dashboard renders both identically, so *you* must check: open the Extremes tab and look at the **sample size** in the stats grid. Under ~200 bars, treat any percentile as indicative only — and note that the newest, thinnest-history listings are precisely where percentiles look most dramatic and mean the least.
 
 ---
 
@@ -211,18 +217,20 @@ Requires ≥200 daily bars. Also drawn on the Drilldown price chart (purple dash
 
 Answers: **at what prices did the real business get done?** The last 90 daily bars (52 weekly) are sliced into 24 price buckets and each bar's volume is distributed across the buckets it spans.
 
-- **POC (Point of Control)** — the single highest-volume price. The market's strongest "memory" level; acts as a magnet and as support/resistance.
+- **POC (Point of Control)** — the single highest-volume price bucket. The market's strongest "memory" *zone* — often treated as a magnet and as support/resistance.
 - **Value Area (VAH → VAL)** — the price band containing 70% of all volume. *Inside* it = business as usual.
 - **Position badge:** `Above VAH` (price accepted above value — bullish but stretched) · `In VA` (normal) · `At POC` (at the magnet — decision point) · `Below VAL` (rejected below value — either capitulation or the start of a markdown).
 
-Pattern worth knowing: an oversold asset sitting **just below VAL** with the POC well above it has a clearly defined "return to value" target (the POC) if it reclaims the value area.
+Pattern worth knowing: an oversold asset sitting **just below VAL** with the POC well above it has a natural "return to value" reference (the POC) *if* it reclaims the value area.
+
+**Precision caveat (applies everywhere VP is mentioned):** this VP is built from daily bars with each bar's volume spread *uniformly* across its high–low range — a deliberately crude approximation of where volume actually traded. The POC and VA edges are **zones a bucket wide, not exact prices**, and can differ materially from a tick-based profile (TradingView's VPVR). Use them as areas of interest, never as precise trigger levels.
 
 ### ATR Trend (↑ / ↓ / ─)
 
 Slope of the last 10 ATR values: **expanding** (volatility rising), **compressing** (falling), or **flat**.
 
 - Expanding volatility during a decline = panic still accelerating; expanding during an advance = mania fuel.
-- **Compressing after an extreme** is what stabilisation looks like — many durable bottoms form as ATR compresses while price flatlines.
+- **Compressing after an extreme** is what stabilisation looks like — a pattern often *associated with* basing (price flatlining while ATR bleeds off). As with everything here, that's a qualitative observation, not a measured base rate: compression also happens mid-decline before the next leg.
 
 ### Multi-Timeframe Alignment (↑↑ / ↓↓ / ↕)
 
@@ -234,14 +242,14 @@ Compares the **daily** regime with the **weekly** regime:
 
 ### RS/BTC (crypto only)
 
-30-day return of the asset divided by the 30-day return of BTC. **> 1× (green ↑)** = outperforming BTC; **< 1× (red ↓)** = underperforming. In altcoin selection, an oversold alt that is *still* outperforming BTC is showing relative strength through weakness — a classic accumulation tell.
+30-day return of the asset divided by the 30-day return of BTC. **> 1× (green ↑)** = outperforming BTC; **< 1× (red ↓)** = underperforming. An oversold alt that is *still* outperforming BTC is showing relative strength through weakness — a pattern accumulation-minded traders watch for, though it is a positioning observation, not a validated predictor.
 
 ### Funding Rate & Open Interest (crypto only)
 
 From perpetual futures markets (rate shown as % per 8h period):
 
 - **Strongly positive funding** — longs pay shorts; crowded long positioning; long-squeeze risk.
-- **Negative funding** — shorts pay longs; crowded shorts; short-squeeze fuel. Negative funding on an oversold asset is a spring being compressed.
+- **Negative funding** — shorts pay longs; crowded short positioning. On an oversold asset this creates short-squeeze *potential* — fuel, not ignition. Crowded shorts can stay crowded (and right) for a long time.
 - **Open Interest** — total outstanding futures exposure in USD. Rising OI + extreme funding = the crowd is leveraged and vulnerable. Null for coins without a Binance perpetual.
 
 ### Composite Signal Score (−10 … +10)
@@ -252,7 +260,9 @@ A single number aggregating four signals, weighted:
 Score = ATR-percentile signal ×4  +  RSI Z-Score ×3  +  VP position ×2  +  TF alignment ×1
 ```
 
-**Positive = oversold/opportunity, negative = extended/risk.** Badge colours: ≥ +6 strong green · ≥ +2 green · −2…+2 grey · ≤ −2 amber · ≤ −6 red. Sort the Portfolio by **Score ↓** to rank the whole board by composite setup quality. It's a screening shortcut, not a verdict — always open the Drilldown before acting.
+**Positive = oversold, negative = extended.** Badge colours: ≥ +6 strong green · ≥ +2 green · −2…+2 grey · ≤ −2 amber · ≤ −6 red.
+
+**Be clear about what this is:** the weights are **heuristic — chosen by judgment, not fitted, optimised, or validated out-of-sample** — and the inputs aren't even commensurable units (a percentile, a z-score, and two categorical states summed together). The decimals convey false precision; a +6.2 is not meaningfully "better" than a +5.8. Use it for exactly one thing: **sorting the board** so the most stretched composite readings surface first (**Score ↓**). It is a screening order, not a measure of setup quality, and never a reason to act without opening the Drilldown.
 
 ### Chg%
 
@@ -264,7 +274,7 @@ Bar-over-bar price change. On the daily view: yesterday's close → latest close
 
 - **BTC Dominance** — BTC's share of total crypto market cap. Rising dominance suppresses altcoins; falling dominance with strong alts = rotation.
 - **Altseason Score (0–100)** — % of the tracked cryptos (excluding BTC) outperforming BTC over 90 days. > 75 = Altcoin Season, < 25 = Bitcoin Season.
-- **Fear & Greed Index (0–100)** — crowd sentiment from alternative.me. Extreme Fear (< 25) historically clusters near bottoms; Extreme Greed (> 75) near tops. It's a *contrarian* gauge: the screenshot above shows "25 — Extreme Fear" while the portfolio prints capitulation readings — exactly the combination a contrarian wants to see.
+- **Fear & Greed Index (0–100)** — crowd sentiment from alternative.me. Usually read as a contrarian gauge (Extreme Fear near lows, Extreme Greed near highs) — but treat that with care: **Extreme Fear can persist for months in a bear market**, and the index describes *current sentiment*, not forward returns. Fear + capitulation readings together (as in the screenshot) tell you the crowd is maximally pessimistic — they do not tell you the decline is finished.
 
 ---
 
@@ -358,7 +368,7 @@ Use this tab to calibrate: before treating any reading as extreme, look at where
 
 25 assets in five groups: US / EU / APAC indices, commodities, forex + DXY. Same pipeline and ATR Distance math, but neutral zone labels (Neutral / Oversold / Extended / Extreme Crash / Blow-off) instead of the crypto-flavoured regime names. Macro assets never appear in Portfolio, Rankings, or the Opportunity/Risk panels.
 
-Why it matters: crypto and risk assets rarely bottom while equity indices are mid-capitulation, and a DXY (dollar) extension is a headwind for everything priced in dollars. One glance tells you whether your asset's signal is idiosyncratic or just the market-wide tide. Click any card for a full Drilldown.
+Why it matters: risk assets are correlated, so a crypto or equity signal printed while indices are mid-capitulation is usually part of a market-wide tide rather than an asset-specific story, and a DXY (dollar) extension is a headwind for everything priced in dollars. But hold the correlation loosely — **it is weakest exactly when it matters most**: in acute crises everything can bottom together in a single liquidation event (March 2020), and crypto has led equities at turns as often as it has followed. Use the tab to ask "is this move idiosyncratic or systemic?", not to sequence entries. Click any card for a full Drilldown.
 
 ### 7.5 Drilldown — the full picture for one asset
 
@@ -380,7 +390,7 @@ Then the charts (90 bars):
 
   ![Volume profile chart](images/volume-profile.png)
 
-  Horizontal volume-at-price bars. Blue = POC, green = Value Area, orange = current price. In this example price sits just above the POC (~$63.5k) — the highest-volume shelf of the last 90 days is directly below, acting as support.
+  Horizontal volume-at-price bars. Blue = POC, green = Value Area, orange = current price. In this example price sits just above the POC (~$63.5k) — the highest-volume shelf of the last 90 days is directly below, a *potential* support zone. (Remember the precision caveat from Section 6: these are bucket-wide zones from daily bars, not exact levels.)
 
 ---
 
@@ -402,6 +412,10 @@ How to use it: **don't trade off any single card.** The page is built on the ide
 
 ## 9. Practical Workflows
 
+**A bias disclosure before the workflows.** This dashboard — and therefore this section — leans toward one style: *mean-reversion from oversold extremes*. That is a choice, not the only valid way to trade, and its failure mode (buying weakness inside downtrends) is well documented. The extended side of the board is presented here for **risk reduction on what you already hold**, not as a shorting manual; and momentum/breakout entries are a different toolkit this dashboard only partially serves (ADX and the MA structure help, but there is no breakout workflow). Know which game you're playing before using any of the recipes below.
+
+**And an execution reality that applies to all of them:** the data is end-of-day, computed once daily at 09:00 UTC. **You cannot trade the print you see.** By the time a Capitulation reading is on your screen, the next session may have gapped through your level — in both directions. Every workflow below produces *candidates to plan around*, with entries and invalidations defined by you at live prices — never "the dashboard said −4, so I bought the open."
+
 ### The 60-second morning scan
 
 1. **Market context bar** — F&G, BTC.D, Altseason: what's the weather?
@@ -418,9 +432,22 @@ Found something interesting (say, *Extreme Oversold* in the Opportunity panel)? 
 2. **Higher timeframe** — W-ATR on the card / weekly gauge: ↑↑ aligned-bullish means the stretch is structural; ↕ diverging means daily noise.
 3. **Trend state** — ADX + the Drilldown price chart: ADX > 25 with price under all three falling MAs = catching a falling knife; ADX < 20 with ATR **compressing** = a base may be forming.
 4. **Volume context** — VP: below VAL with POC overhead gives you a defined "return to value" target; At POC means the battle is being fought at the key level right now.
-5. **Positioning (crypto)** — negative funding on an oversold asset = crowded shorts = squeeze fuel; strongly positive funding = the bounce is already crowded.
+5. **Positioning (crypto)** — negative funding on an oversold asset = crowded shorts = squeeze *fuel* (not ignition); strongly positive funding = the bounce is already crowded.
 
-Then set a **⚑ alert** at your level instead of staring at charts.
+Then set a **⚑ alert** at your level instead of staring at charts — and before any entry, do the risk work below.
+
+### Risk management is not optional
+
+Nothing above is a trade plan until it has all four of these. The dashboard provides none of them — they are yours:
+
+1. **Invalidation before entry.** Write down what would prove the thesis wrong *before* you enter — a price level, a regime (e.g. "daily closes into Ragequit"), a structure break. "Oversold got more oversold" is not a plan; it's how Accumulation-zone buyers ride a position into Capitulation while feeling smarter at every tick down.
+2. **A hard stop, placed where the invalidation is** — not where the loss feels tolerable. If the stop distance is wider than you can afford, the position is too big, not the stop too far.
+3. **Position sizing from the stop.** Decide the maximum loss per trade first (a fixed fraction of capital), then `size = max loss ÷ stop distance`. ATR is right there on every card — a stop tighter than ~1 ATR on a daily-timeframe signal is noise waiting to take you out.
+4. **Portfolio-level exposure.** Ten "independent" oversold longs in a broad risk-off episode are one trade wearing ten tickers — the breadth chart and Macro tab exist precisely to show you when the whole board is a single correlated bet.
+
+An extreme reading is a *condition*. Entry, invalidation, size, and exit are *decisions* — and they're the part that determines whether you survive being wrong, which you regularly will be.
+
+
 
 ### Risk-checking what you hold
 
@@ -440,7 +467,7 @@ Its last data point lags the newest data in the set (weekends for stocks, delist
 Every metric degrades gracefully to hidden when its inputs are unavailable: percentile needs ≥30 bars, EMA50 ≥50, 200DMA ≥200, ADX ≥27, Bollinger ≥20; VP needs ≥20 bars of non-zero volume; funding/OI need a Binance USDT-M perpetual (D2X, SCP and some new listings have none); RS/BTC is crypto-only.
 
 **How fresh is the data?**
-The pipeline runs daily at 09:00 UTC. This is an end-of-day tool by design — it measures statistical stretch, not intraday flow.
+The pipeline runs daily at 09:00 UTC. This is an end-of-day tool by design — it measures statistical stretch, not intraday flow. The practical consequence bears repeating: any reading you see is at least hours old, and the market may have gapped through it. Signals here are for planning, not execution.
 
 **Are the indicators identical to TradingView?**
 Yes — EMA, ATR, RSI and ADX are SMA-seeded with Wilder's smoothing, matching `ta.ema()`, `ta.atr()`, `ta.rsi()`. Any value here can be reproduced on a TradingView chart.
@@ -450,6 +477,9 @@ Because they measure different structures — that disagreement *is* the alignme
 
 **Volume Profile looks different from TradingView's VPVR.**
 Daily bars distribute volume uniformly across each bar's high–low range — coarser than tick-level VPVR. Levels are approximate zones, not exact prices. LSE ETF volume is share count, so their VP is valid within the asset but not comparable across assets.
+
+**I'm red-green colorblind — is this dashboard usable?**
+Honestly: the visual language leans heavily on red/green (extended/oversold), which is the worst pairing for deuteranopia. The information is never *only* in the colour, though — every badge carries text (regime name, tier label, percentile), the ATR Distance sign tells you the direction, and the outer extremes use purple/pink rather than deeper red/green. If you rely on the numbers and badge text rather than the colour wash, nothing is hidden from you. A colorblind-friendly palette is a fair feature request.
 
 **Can a Blow-off / Ragequit reading keep going?**
 Absolutely. Beyond ±7 you are in the tail of the distribution, but tails have tails. These regimes flag *historically extreme risk/reward*, not a reversal timestamp — which is why the workflows lean on confirmation (weekly alignment, ATR compression, funding) rather than the level alone.
