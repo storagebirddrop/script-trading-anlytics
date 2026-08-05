@@ -1,10 +1,10 @@
 {
-  "fetched_at": "2026-08-04",
+  "fetched_at": "2026-08-05",
   "bgeometrics": {
-    "mvrv_z_score": 1.21,
-    "nupl": 0.1759,
-    "nupl_30d_change": 0.0095,
-    "sopr": 0.9966,
+    "mvrv_z_score": 1.23,
+    "nupl": 0.1839,
+    "nupl_30d_change": 0.0113,
+    "sopr": 0.9975,
     "signal_mvrv_z": "neutral",
     "signal_nupl": "neutral",
     "signal_sopr": "neutral"
