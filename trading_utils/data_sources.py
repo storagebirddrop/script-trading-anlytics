@@ -269,24 +269,33 @@ def fetch_ohlcv_geckoterminal(network: str, pool_address: str, timeframe: str, l
         print(f"No data for pool {pool_address} on {network}")
         return None
 
-    if timeframe == '1w':
-        # Resample to weekly (week-ending Sunday) — matches TradingView weekly bars
-        df = df.resample('W').agg({
-            'open':   'first',
-            'high':   'max',
-            'low':    'min',
-            'close':  'last',
-            'volume': 'sum',
-        }).dropna(subset=['close'])
-    elif timeframe == '1M':
-        # Resample to calendar month — matches TradingView monthly bars
-        df = df.resample('M').agg({
-            'open':   'first',
-            'high':   'max',
-            'low':    'min',
-            'close':  'last',
-            'volume': 'sum',
-        }).dropna(subset=['close'])
+    try:
+        if timeframe == '1w':
+            # Resample to weekly (week-ending Sunday) — matches TradingView weekly bars
+            df = df.resample('W').agg({
+                'open':   'first',
+                'high':   'max',
+                'low':    'min',
+                'close':  'last',
+                'volume': 'sum',
+            }).dropna(subset=['close'])
+        elif timeframe == '1M':
+            # Resample to calendar month-end — matches TradingView monthly bars.
+            # 'ME' (month-end), not the bare 'M' alias — pandas removed 'M' as a
+            # resample frequency in favour of 'ME'/'MS' (month-end/month-start).
+            df = df.resample('ME').agg({
+                'open':   'first',
+                'high':   'max',
+                'low':    'min',
+                'close':  'last',
+                'volume': 'sum',
+            }).dropna(subset=['close'])
+    except Exception as e:
+        # Matches the try/except-returns-None convention used by every other
+        # fetch_ohlcv_* function in this module — a resample failure for one
+        # asset must not crash the whole pipeline run.
+        print(f"Error resampling GeckoTerminal data for {pool_address} on {network} ({timeframe}): {e}")
+        return None
 
     return df
 
