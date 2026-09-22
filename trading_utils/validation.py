@@ -96,7 +96,7 @@ def validate_rsi(df: pd.DataFrame, result: ValidationResult):
 def validate_timeframe(df: pd.DataFrame, result: ValidationResult):
     if 'Timeframe' not in df.columns:
         return
-    valid = {'1d', '1w', 'Daily', 'Weekly'}
+    valid = {'1d', '1w', '1M', 'Daily', 'Weekly', 'Monthly'}
     invalid = df[~df['Timeframe'].isin(valid) & df['Timeframe'].notna()]
     if len(invalid) > 0:
         result.add_error(

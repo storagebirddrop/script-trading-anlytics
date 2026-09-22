@@ -1315,8 +1315,14 @@ function renderPortfolio() {
 
     // ── Render cards ──────────────────────────────────────────────────────────
     const activeTf  = portfolioFilter.timeframe;
-    const crossTf   = activeTf === '1d' ? '1w' : '1d';
-    const crossLabel = crossTf === '1w' ? 'W' : 'D';
+    // "Next timeframe up" ladder for the card's secondary cross-timeframe reading.
+    // Monthly (the top rung) has no higher timeframe to show, so it falls back to
+    // Weekly rather than hiding the field — keeps the card layout symmetric across
+    // all three toggle states instead of one of them silently losing a metric.
+    const CROSS_TF    = { '1d': '1w', '1w': '1M', '1M': '1w' };
+    const CROSS_LABEL = { '1d': 'W',  '1w': 'M',  '1M': 'W'  };
+    const crossTf    = CROSS_TF[activeTf];
+    const crossLabel = CROSS_LABEL[activeTf];
 
     assets.forEach(asset => {
         const assetData  = dashboardData.assets[asset];
@@ -1333,7 +1339,7 @@ function renderPortfolio() {
         const regime   = primary.regime || 'Unknown';
 
         const latestDate  = dashboardData.metadata?.date_range?.end;
-        const staleThreshold = activeTf === '1w' ? 10 : 3;
+        const staleThreshold = ({'1d': 3, '1w': 10, '1M': 35})[activeTf] ?? 3;
         const isStale = latestDate && primary.date
             ? Math.floor((new Date(latestDate) - new Date(primary.date)) / 86400000) >= staleThreshold
             : false;
@@ -1602,13 +1608,20 @@ function renderHistoricalContext() {
     const dual = document.createElement('div');
     dual.className = 'historical-dual';
 
-    ['1d', '1w'].forEach(tf => {
+    const TF_PANE_LABEL = { '1d': 'Daily (1d)', '1w': 'Weekly (1w)', '1M': 'Monthly (1M)' };
+    const TF_INSUFFICIENT_MSG = {
+        '1d': 'No data available.',
+        '1w': 'Insufficient weekly history for this asset.',
+        '1M': 'Insufficient monthly history for this asset.',
+    };
+
+    ['1d', '1w', '1M'].forEach(tf => {
         const pane = document.createElement('div');
         pane.className = 'historical-pane';
 
         const label = document.createElement('h3');
         label.className = 'pane-label';
-        label.textContent = tf === '1d' ? 'Daily (1d)' : 'Weekly (1w)';
+        label.textContent = TF_PANE_LABEL[tf];
         pane.appendChild(label);
 
         const tfData    = assetData[tf];
@@ -1618,9 +1631,7 @@ function renderHistoricalContext() {
         if (!historical || !current || historical.sample_size === 0) {
             const msg = document.createElement('div');
             msg.className = 'insufficient-history';
-            msg.textContent = tf === '1w'
-                ? 'Insufficient weekly history for this asset.'
-                : 'No data available.';
+            msg.textContent = TF_INSUFFICIENT_MSG[tf];
             pane.appendChild(msg);
             dual.appendChild(pane);
             return;
@@ -1985,7 +1996,7 @@ function renderDrilldown() {
                 <span class="summary-value ${signClass(current?.rsi_z_score)}">${current?.rsi_z_score?.toFixed(2) ?? 'N/A'}</span>
             </div>
             <div class="summary-item">
-                <span class="summary-label">Chg% (${selectedTimeframe === '1d' ? 'Day' : 'Week'})</span>
+                <span class="summary-label">Chg% (${({'1d': 'Day', '1w': 'Week', '1M': 'Month'})[selectedTimeframe] ?? 'Bar'})</span>
                 <span class="summary-value ${signClass(current?.price_change_pct)}">${current?.price_change_pct != null ? (current.price_change_pct >= 0 ? '+' : '') + current.price_change_pct.toFixed(2) + '%' : 'N/A'}</span>
             </div>
             <div class="summary-item">

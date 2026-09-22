@@ -446,7 +446,7 @@ body {
     gap: 1rem;
 }
 
-/* Dual-pane historical layout */
+/* Multi-pane historical layout (daily / weekly / monthly gauges) */
 .historical-dual {
     display: grid;
     grid-template-columns: 1fr;
@@ -456,6 +456,12 @@ body {
 @media (min-width: 768px) {
     .historical-dual {
         grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (min-width: 1200px) {
+    .historical-dual {
+        grid-template-columns: 1fr 1fr 1fr;
     }
 }
 

@@ -246,19 +246,21 @@ def fetch_ohlcv_geckoterminal(network: str, pool_address: str, timeframe: str, l
     """Fetch OHLCV from GeckoTerminal for a DEX pool.
 
     GeckoTerminal free tier only supports aggregate=1 on the 'day' timeframe.
-    Weekly candles are built by resampling daily data (week-ending Sunday,
-    matching TradingView's weekly bar convention).
+    Weekly and monthly candles are built by resampling daily data (week-ending
+    Sunday / calendar month, matching TradingView's bar conventions). Note:
+    the free tier's single-call ~1000-daily-candle cap limits monthly depth
+    to roughly 2.7 years regardless of how far back a backfill requests.
 
     Args:
         network:      GeckoTerminal network id, e.g. 'solana'
         pool_address: DEX pool/pair address
-        timeframe:    '1d' or '1w'
+        timeframe:    '1d', '1w', or '1M'
         limit:        max daily candles to fetch (free tier: up to 1000)
 
     Returns a DataFrame with columns [open, high, low, close, volume]
     indexed by UTC timestamp, sorted oldest-first.
     """
-    if timeframe not in ('1d', '1w'):
+    if timeframe not in ('1d', '1w', '1M'):
         print(f"Unsupported timeframe for GeckoTerminal: {timeframe}")
         return None
 
@@ -267,15 +269,33 @@ def fetch_ohlcv_geckoterminal(network: str, pool_address: str, timeframe: str, l
         print(f"No data for pool {pool_address} on {network}")
         return None
 
-    if timeframe == '1w':
-        # Resample to weekly (week-ending Sunday) — matches TradingView weekly bars
-        df = df.resample('W').agg({
-            'open':   'first',
-            'high':   'max',
-            'low':    'min',
-            'close':  'last',
-            'volume': 'sum',
-        }).dropna(subset=['close'])
+    try:
+        if timeframe == '1w':
+            # Resample to weekly (week-ending Sunday) — matches TradingView weekly bars
+            df = df.resample('W').agg({
+                'open':   'first',
+                'high':   'max',
+                'low':    'min',
+                'close':  'last',
+                'volume': 'sum',
+            }).dropna(subset=['close'])
+        elif timeframe == '1M':
+            # Resample to calendar month-end — matches TradingView monthly bars.
+            # 'ME' (month-end), not the bare 'M' alias — pandas removed 'M' as a
+            # resample frequency in favour of 'ME'/'MS' (month-end/month-start).
+            df = df.resample('ME').agg({
+                'open':   'first',
+                'high':   'max',
+                'low':    'min',
+                'close':  'last',
+                'volume': 'sum',
+            }).dropna(subset=['close'])
+    except Exception as e:
+        # Matches the try/except-returns-None convention used by every other
+        # fetch_ohlcv_* function in this module — a resample failure for one
+        # asset must not crash the whole pipeline run.
+        print(f"Error resampling GeckoTerminal data for {pool_address} on {network} ({timeframe}): {e}")
+        return None
 
     return df
 

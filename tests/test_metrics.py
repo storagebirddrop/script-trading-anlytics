@@ -350,6 +350,59 @@ class TestCalculateCurrentMetrics:
         assert current['vp_buckets'] is not None
         assert len(current['vp_buckets']) == 24
 
+    def test_vp_fields_present_for_monthly_timeframe(self):
+        """VP fields are populated for '1M' rows too, exercising VP_LOOKBACK_BARS_BY_TF['1M']."""
+        n = 25  # just above VP's 20-bar minimum
+        closes  = [100.0 + i * 0.5 for i in range(n)]
+        highs   = [c + 1.0 for c in closes]
+        lows    = [c - 1.0 for c in closes]
+        dates   = pd.date_range(end='2026-06-01', periods=n, freq='30D').strftime('%Y-%m-%d').tolist()
+        df = pd.DataFrame({
+            'Date':         dates,
+            'Asset':        ['BTC'] * n,
+            'Price':        closes,
+            'EMA21':        [c - 0.5 for c in closes],
+            'ATR':          [1.4] * n,
+            'RSI':          [50.0] * n,
+            'RSI_Z_Score':  [0.0] * n,
+            'ATR_Distance': [0.5] * n,
+            'Pct_Above_EMA':[0.5] * n,
+            'Timeframe':    ['1M'] * n,
+            'High':         highs,
+            'Low':          lows,
+            'Volume':       [100000.0] * n,
+        })
+        metrics = calculate_current_metrics(df)
+        current = metrics['BTC']['1M']['current']
+        assert current['vp_position'] is not None
+        assert current['vp_poc'] is not None
+        assert current['vp_vah'] is not None
+        assert current['vp_val'] is not None
+        assert current['vp_buckets'] is not None
+        assert len(current['vp_buckets']) == 24
+
+
+class TestNormTimeframe:
+    """Regression coverage for _norm_timeframe's canonical-case handling.
+
+    '1M'.lower() == '1m', which would silently diverge from the canonical
+    '1M' key if the function fell through to its lowercase default the
+    way it does for '1d'/'1w' — this locks in the explicit exception.
+    """
+
+    def test_1M_stays_capitalised(self):
+        assert _cm._norm_timeframe('1M') == '1M'
+
+    def test_monthly_maps_to_1M(self):
+        assert _cm._norm_timeframe('Monthly') == '1M'
+        assert _cm._norm_timeframe('monthly') == '1M'
+
+    def test_daily_weekly_unaffected(self):
+        assert _cm._norm_timeframe('1d') == '1d'
+        assert _cm._norm_timeframe('1w') == '1w'
+        assert _cm._norm_timeframe('Daily') == '1d'
+        assert _cm._norm_timeframe('Weekly') == '1w'
+
 
 class TestGenerateDashboardJson:
     """Test dashboard JSON generation."""
@@ -419,19 +472,20 @@ class TestMultipleTimeframes:
     def test_multiple_timeframes(self):
         """Test metrics calculation with multiple timeframes."""
         df = pd.DataFrame({
-            'Date': ['2026-06-01', '2026-06-01'],
-            'Asset': ['BTC', 'BTC'],
-            'Price': [65000.0, 65000.0],
-            'EMA21': [64000.0, 64000.0],
-            'ATR': [1000.0, 1000.0],
-            'RSI': [50.0, 50.0],
-            'ATR_Distance': [1.0, 1.0],
-            'Timeframe': ['1d', '1w']
+            'Date': ['2026-06-01', '2026-06-01', '2026-06-01'],
+            'Asset': ['BTC', 'BTC', 'BTC'],
+            'Price': [65000.0, 65000.0, 65000.0],
+            'EMA21': [64000.0, 64000.0, 64000.0],
+            'ATR': [1000.0, 1000.0, 1000.0],
+            'RSI': [50.0, 50.0, 50.0],
+            'ATR_Distance': [1.0, 1.0, 1.0],
+            'Timeframe': ['1d', '1w', '1M']
         })
 
         metrics = calculate_historical_metrics(df)
         assert '1d' in metrics['BTC']
         assert '1w' in metrics['BTC']
+        assert '1M' in metrics['BTC']
 
 
 class TestFetchFearGreed:
