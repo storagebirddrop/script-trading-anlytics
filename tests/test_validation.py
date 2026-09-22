@@ -341,7 +341,37 @@ class TestValidateTimeframe:
         result = ValidationResult()
         validate_timeframe(df, result)
         assert result.is_valid is True
-    
+
+    def test_valid_timeframe_1M(self):
+        """Test validation passes with '1M' timeframe."""
+        df = pd.DataFrame({
+            'Date': ['2026-06-01'],
+            'Asset': ['BTC'],
+            'Price': [65000.0],
+            'EMA21': [64000.0],
+            'ATR': [1000.0],
+            'RSI': [50.0],
+            'Timeframe': ['1M']
+        })
+        result = ValidationResult()
+        validate_timeframe(df, result)
+        assert result.is_valid is True
+
+    def test_valid_timeframe_monthly(self):
+        """Test validation passes with 'Monthly' timeframe."""
+        df = pd.DataFrame({
+            'Date': ['2026-06-01'],
+            'Asset': ['BTC'],
+            'Price': [65000.0],
+            'EMA21': [64000.0],
+            'ATR': [1000.0],
+            'RSI': [50.0],
+            'Timeframe': ['Monthly']
+        })
+        result = ValidationResult()
+        validate_timeframe(df, result)
+        assert result.is_valid is True
+
     def test_invalid_timeframe(self):
         """Test validation fails with invalid timeframe."""
         df = pd.DataFrame({
@@ -357,6 +387,21 @@ class TestValidateTimeframe:
         validate_timeframe(df, result)
         assert result.is_valid is False
         assert "Timeframe must be" in result.errors[0]
+
+    def test_invalid_timeframe_1mo_not_accepted(self):
+        """Test that '1mo' (lowercase-o) is rejected — '1M' is the only canonical monthly key."""
+        df = pd.DataFrame({
+            'Date': ['2026-06-01'],
+            'Asset': ['BTC'],
+            'Price': [65000.0],
+            'EMA21': [64000.0],
+            'ATR': [1000.0],
+            'RSI': [50.0],
+            'Timeframe': ['1mo']  # Invalid — not the canonical key
+        })
+        result = ValidationResult()
+        validate_timeframe(df, result)
+        assert result.is_valid is False
 
 
 class TestValidateDuplicates:

@@ -86,7 +86,7 @@ def remove_duplicates(new_data: pd.DataFrame, existing_history: pd.DataFrame) ->
     """
     # Normalise a copy for key comparison only
     def _norm_tf(series):
-        return series.fillna('').str.lower().replace({'daily': '1d', 'weekly': '1w'})
+        return series.fillna('').str.lower().replace({'daily': '1d', 'weekly': '1w', 'monthly': '1m'})
 
     new_norm = new_data.copy()
     new_norm['_tf'] = _norm_tf(new_norm['Timeframe'])

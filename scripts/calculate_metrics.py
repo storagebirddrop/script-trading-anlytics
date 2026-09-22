@@ -24,7 +24,7 @@ import pandas as pd
 from trading_utils import (
     HISTORY_CSV_PATH, DASHBOARD_JSON_PATH, CHART_HISTORY_JSON_PATH, METADATA_JSON_PATH,
     MARKET_CAPS_JSON_PATH, BTC_SIGNALS_JSON_PATH,
-    calculate_volume_profile, VP_LOOKBACK_BARS, VP_LOOKBACK_BARS_WEEKLY,
+    calculate_volume_profile, VP_LOOKBACK_BARS_BY_TF,
     MACRO_ASSETS,
 )
 
@@ -42,12 +42,19 @@ def _ema_series(prices: 'pd.Series', period: int) -> 'pd.Series':
 
 
 def _norm_timeframe(tf: str) -> str:
-    """Normalise timeframe string to canonical form ('1d' / '1w')."""
+    """Normalise timeframe string to canonical form ('1d' / '1w' / '1M').
+
+    Note: '1M' must stay capitalised (CCXT's monthly convention; see config.py),
+    so it can't just fall through the lowercase default like '1d'/'1w' do —
+    '1M'.lower() == '1m', which would silently diverge from the canonical key.
+    """
     t = tf.lower()
     if t == 'daily':
         return '1d'
     if t == 'weekly':
         return '1w'
+    if t in ('monthly', '1m'):
+        return '1M'
     return t
 
 
@@ -244,7 +251,7 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
             vp_df = asset_data.rename(columns={
                 'Price': 'close', 'High': 'high', 'Low': 'low', 'Volume': 'volume'
             })
-            lookback = VP_LOOKBACK_BARS_WEEKLY if tf_norm == '1w' else VP_LOOKBACK_BARS
+            lookback = VP_LOOKBACK_BARS_BY_TF.get(tf_norm, VP_LOOKBACK_BARS_BY_TF['1d'])
             vp = calculate_volume_profile(vp_df, lookback_bars=lookback)
 
         # Regime transition — compare current regime to the previous bar
@@ -753,14 +760,14 @@ def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
         else:
             c1d['rs_vs_btc'] = None
 
-    # ── Funding Rate + Open Interest (crypto, both timeframes) ──────────────────
+    # ── Funding Rate + Open Interest (crypto, all timeframes) ───────────────────
     print("Fetching Binance futures funding rates / open interest...")
     binance_futures = fetch_binance_futures()
     if binance_futures:
         print(f"  Binance futures: {len(binance_futures)} symbols received")
     for asset in _CRYPTO_ASSETS:
         bf = binance_futures.get(asset)
-        for tf in ('1d', '1w'):
+        for tf in ('1d', '1w', '1M'):
             c = assets_data.get(asset, {}).get(tf, {}).get('current')
             if c is None:
                 continue

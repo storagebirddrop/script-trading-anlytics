@@ -46,7 +46,7 @@ _EXCEL_HEADERS = [
     'High', 'Low', 'Volume',
 ]
 
-_MAX_FAILED_ASSETS = 40  # allow up to 20 assets × 2 timeframes missing (newer tokens + macro may be unavailable)
+_MAX_FAILED_ASSETS = 60  # allow up to 20 assets × 3 timeframes missing (newer tokens + macro may be unavailable)
 
 
 def get_data(asset, timeframe):

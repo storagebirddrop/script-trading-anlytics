@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
 Historical Data Backfill Script
-Fetches historical OHLCV data from January 1, 2024 to present for all assets,
-calculates indicators, and writes to CSV files and the Excel workbook.
+Fetches historical OHLCV data from START_DATE (2010-01-01 — predates every
+tracked asset's real listing date, so this reaches as far back as each
+source actually has data) to present for all assets, calculates indicators,
+and writes to CSV files and the Excel workbook.
 """
 
 import warnings
@@ -21,6 +23,7 @@ warnings.filterwarnings('ignore', category=FutureWarning, module='pandas')
 from trading_utils import (
     ASSETS,
     ASSET_CONFIG,
+    TIMEFRAMES,
     SPREADSHEET_PATH,
     MASTER_CSV_PATH,
     HISTORY_CSV_PATH,
@@ -118,7 +121,9 @@ def fetch_historical_ccxt(exchange_id, symbol, start_date, end_date, timeframe='
 
 def fetch_historical_yahoo(symbol, start_date, end_date, timeframe='1d'):
     """Fetch historical OHLCV from Yahoo Finance."""
-    interval_map = {'1d': '1d', '1w': '1wk'}
+    # Kept in sync with fetch_ohlcv_yahoo's interval_map in trading_utils/data_sources.py
+    # (a separate copy because this function takes a date range, not a bar limit).
+    interval_map = {'1d': '1d', '1w': '1wk', '1M': '1mo'}
     interval = interval_map.get(timeframe, '1d')
 
     try:
@@ -253,7 +258,7 @@ def main():
 
     for asset in ASSETS:
         print(f"Processing {asset}...")
-        for timeframe in ['1d', '1w']:
+        for timeframe in TIMEFRAMES:
             records = get_historical_data(asset, START_DATE, END_DATE, timeframe)
             if records:
                 all_data.extend(records)

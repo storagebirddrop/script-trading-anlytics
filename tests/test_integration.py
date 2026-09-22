@@ -41,6 +41,7 @@ class TestPipelineIntegration:
         ws.append(['2026-06-01', 'BTC', 65000.0, 64000.0, 1000.0, 50.0, 0.0, 1.0, 1.56, '1d'])
         ws.append(['2026-06-01', 'ETH', 3500.0, 3450.0, 50.0, 50.0, 0.0, 1.0, 1.45, '1d'])
         ws.append(['2026-06-01', 'BTC', 65000.0, 64000.0, 1000.0, 50.0, 0.0, 1.0, 1.56, '1w'])
+        ws.append(['2026-06-01', 'BTC', 65000.0, 64000.0, 1000.0, 50.0, 0.0, 1.0, 1.56, '1M'])
         
         wb.save(excel_path)
         return excel_path
@@ -167,7 +168,39 @@ class TestPipelineIntegration:
         
         # Should be empty because it's a duplicate
         assert len(new_records) == 0
-    
+
+    def test_no_duplicate_history_records_monthly(self, temp_dir):
+        """'1M' and 'Monthly' collapse to the same dedup key (regression for _norm_tf)."""
+        initial_data = pd.DataFrame({
+            'Date': ['2026-06-01'],
+            'Asset': ['BTC'],
+            'Price': [65000.0],
+            'EMA21': [64000.0],
+            'ATR': [1000.0],
+            'RSI': [50.0],
+            'ATR_Distance': [1.0],
+            'Timeframe': ['1M']
+        })
+        history_path = os.path.join(temp_dir, 'history.csv')
+        initial_data.to_csv(history_path, index=False)
+
+        from update_history import remove_duplicates
+        new_data = pd.DataFrame({
+            'Date': ['2026-06-01'],
+            'Asset': ['BTC'],
+            'Price': [65500.0],
+            'EMA21': [64200.0],
+            'ATR': [1000.0],
+            'RSI': [52.0],
+            'ATR_Distance': [1.3],
+            'Timeframe': ['Monthly']  # Same bar as '1M' above, different casing/spelling
+        })
+
+        existing = pd.read_csv(history_path)
+        new_records = remove_duplicates(new_data, existing)
+
+        assert len(new_records) == 0
+
     def test_atr_distance_recalculation(self, temp_dir):
         """Test that ATR Distance is recalculated during ingestion."""
         from update_history import recalculate_atr_distance

@@ -28,7 +28,7 @@ ASSETS = [
     'DXY', 'EURUSD', 'GBPUSD', 'AUDUSD', 'NZDUSD', 'USDCAD', 'USDCHF', 'USDJPY',
 ]
 
-TIMEFRAMES = ['1d', '1w']
+TIMEFRAMES = ['1d', '1w', '1M']
 
 ASSET_CONFIG = {
     # Crypto assets — Yahoo Finance avoids Binance geo-restrictions on CI runners.
@@ -142,9 +142,12 @@ BB_STD     = 2.0
 Z_SCORE_PERIOD = 20
 
 # Volume Profile parameters
-VP_LOOKBACK_BARS        = 90   # daily lookback (~4 months)
-VP_LOOKBACK_BARS_WEEKLY = 52   # weekly lookback (~1 year)
-VP_N_BUCKETS            = 24   # price distribution buckets
+VP_LOOKBACK_BARS_BY_TF = {
+    '1d': 90,   # daily lookback (~4 months)
+    '1w': 52,   # weekly lookback (~1 year)
+    '1M': 24,   # monthly lookback (~2 years)
+}
+VP_N_BUCKETS = 24   # price distribution buckets
 
 # CoinGecko IDs for market cap / rank lookups (crypto only; None = not listed)
 COINGECKO_IDS = {

@@ -16,7 +16,7 @@ with only 20-30 weekly bars).
 import numpy as np
 import pandas as pd
 
-from .config import EMA_PERIOD, ATR_PERIOD, RSI_PERIOD, ADX_PERIOD, BB_PERIOD, BB_STD, Z_SCORE_PERIOD, VP_LOOKBACK_BARS, VP_N_BUCKETS
+from .config import EMA_PERIOD, ATR_PERIOD, RSI_PERIOD, ADX_PERIOD, BB_PERIOD, BB_STD, Z_SCORE_PERIOD, VP_LOOKBACK_BARS_BY_TF, VP_N_BUCKETS
 
 
 def calculate_ema(df, period=EMA_PERIOD):
@@ -179,7 +179,7 @@ def calculate_bollinger_bands(df, period=BB_PERIOD, std_dev=BB_STD):
     return pct_b, bandwidth
 
 
-def calculate_volume_profile(df, lookback_bars=VP_LOOKBACK_BARS, n_buckets=VP_N_BUCKETS):
+def calculate_volume_profile(df, lookback_bars=VP_LOOKBACK_BARS_BY_TF['1d'], n_buckets=VP_N_BUCKETS):
     """
     Compute a fixed-lookback Volume Profile from OHLCV history.
 
