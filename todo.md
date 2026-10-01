@@ -137,3 +137,25 @@
 - [x] **New NASDAQ assets** _(KEEL, BTDR, BTBT, FUFU added to config and dashboard categories)_
 - [x] **Rankings tab: Daily/Weekly toggle** _(chip toggle mirroring Portfolio pattern; `rankingsFilter.timeframe` drives `renderRankings()`)_
 - [x] **Rankings tab: category filter** _(All/Crypto/NASDAQ/LSE chips; composes with the timeframe toggle)_
+- [x] **Monthly (`1M`) timeframe** _(third timeframe across pipeline and dashboard: Portfolio/Rankings/Drilldown toggles, three-pane Extremes tab, `VP_LOOKBACK_BARS_BY_TF`; canonical key is capital-M `1M` to match CCXT; alignment and `rs_vs_btc` deliberately stay daily/weekly-only and daily-only; SCP has no monthly data, D2X ~2.7 years)_
+- [x] **User guide** _(`docs/USER_GUIDE.md` with screenshots; hardened after a trader-style review: falling-knife warning, no-backtest disclosure, risk-management section)_
+- [x] **Data repair: High/Low/Volume, ADX/Bollinger, open bars** _(Excel header row lacked High/Low/Volume names so values landed in `Unnamed` columns; ADX/BB were never stored and are now derived from history; weekly/monthly open bars were frozen at their first day and are now refreshed; unfinished bars without a close are ignored; silent OHLC loss now warns and fails the run above 25%; covered by `tests/test_ohlc_repair.py`)_
+- [x] **Docs refresh** _(README, CLAUDE.md, landing/BTC pages corrected; new `docs/DATA_SCHEMA.md`, data limitations and disclaimer sections)_
+
+---
+
+## Open items
+
+- [ ] **Funding rate / open interest are `null` for every asset in CI.** Binance returns 451 and Bybit 403 to GitHub-hosted runners and the CoinGecko fallback returns no per-symbol data. Needs a reachable source or proxy.
+- [ ] **LICENSE file.** None present; the licence choice is the owner's decision.
+- [ ] **DRIFT** has no data on any timeframe (Yahoo). Kept in `ASSETS` and documented as a known exception; remove it if it stays unavailable.
+- [ ] **Delete merged remote branches** `claude/*` on GitHub (squash-merged; branch deletion is not possible from the automation tools).
+
+## Ideas from the trader-style review (not started)
+
+- [ ] **Forward-return base rates** — per asset, how often/how far price moved N bars after entering each regime, so "historically precedes bounces" claims are measured instead of asserted (`history.csv` has everything needed).
+- [ ] **Falling-knife flag on the Opportunity panel** — badge oversold candidates that also have ADX > 25 and price under falling EMA50/200DMA.
+- [ ] **Thin-percentile marker** — dim or asterisk percentile badges backed by fewer than ~200 bars.
+- [ ] **ATR-based position-size calculator** (account risk % and stop distance in ATR → size), client-side like the alerts.
+- [ ] **Colour-blind-safe palette toggle** (red/green is the core visual language).
+- [ ] **Composite score without false precision** — show whole numbers, label the weights as heuristic.
