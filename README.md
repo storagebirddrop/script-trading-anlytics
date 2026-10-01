@@ -167,7 +167,7 @@ Use the backfill workflow after adding new assets or changing indicator calculat
 - **Thin history.** Percentile badges and signal tiers need at least 30 bars, so recently listed assets show none on the monthly timeframe (a new asset needs ~2.5 years of monthly bars). The Volume Profile needs at least 20 bars with volume.
 - **Timeframe scope.** `rs_vs_btc` is computed for the daily timeframe only, and the alignment badge compares daily with weekly only — both are `null` for `1M` by design.
 - **Open bars.** The latest weekly and monthly bar is still open. It is refreshed on every daily run, so it reflects the most recent fetch; a weekly price can differ slightly from the latest daily close depending on fetch timing.
-- **Unfinished bars.** Yahoo sometimes returns an unfinished latest bar without a close (seen for forex and Asian indices). The tracker ignores it and uses the newest bar that has a close, so no empty rows are stored. Historic empty rows from before this fix (about 180) remain until the next backfill.
+- **Unfinished bars.** Yahoo sometimes returns an unfinished latest bar without a close (seen for forex and Asian indices). The tracker ignores it and uses the newest bar that has a close, so no empty rows are stored. A backfill rewrites history and removes the empty rows of earlier days; only the unfinished bars of the day the backfill ran can remain, and the next backfill clears those.
 
 ## Disclaimer
 
