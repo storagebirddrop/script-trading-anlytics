@@ -26,6 +26,7 @@ from trading_utils import (
     MARKET_CAPS_JSON_PATH, BTC_SIGNALS_JSON_PATH,
     calculate_volume_profile, VP_LOOKBACK_BARS_BY_TF,
     MACRO_ASSETS,
+    calculate_adx, calculate_bollinger_bands, ADX_PERIOD, BB_PERIOD, BB_STD,
 )
 
 
@@ -56,6 +57,43 @@ def _norm_timeframe(tf: str) -> str:
     if t in ('monthly', '1m'):
         return '1M'
     return t
+
+
+def _adx_bb_from_history(asset_data: 'pd.DataFrame') -> Dict[str, Optional[float]]:
+    """ADX and Bollinger %B / bandwidth for the latest bar, derived from history.
+
+    history.csv stores no ADX/BB columns, so they are recomputed here from the
+    stored Price (+ High/Low for ADX), the same way EMA50 and the 200DMA are.
+    Values are None when there is not enough valid history, or — for ADX —
+    when the latest bar has no High/Low (a gap would otherwise yield a stale value).
+    """
+    out: Dict[str, Optional[float]] = {'adx': None, 'bb_pct_b': None, 'bb_bandwidth': None}
+    d = asset_data.sort_values('Date', ascending=True)
+    close = pd.to_numeric(d['Price'], errors='coerce')
+
+    valid_close = close.dropna()
+    if len(valid_close) >= BB_PERIOD:
+        pct_b, bandwidth = calculate_bollinger_bands(
+            pd.DataFrame({'close': valid_close.to_numpy(dtype=float)}), BB_PERIOD, BB_STD
+        )
+        if pd.notna(pct_b.iloc[-1]):
+            out['bb_pct_b'] = float(pct_b.iloc[-1])
+        if pd.notna(bandwidth.iloc[-1]):
+            out['bb_bandwidth'] = float(bandwidth.iloc[-1])
+
+    if {'High', 'Low'}.issubset(d.columns):
+        ohlc = pd.DataFrame({
+            'high': pd.to_numeric(d['High'], errors='coerce'),
+            'low': pd.to_numeric(d['Low'], errors='coerce'),
+            'close': close,
+        })
+        latest_ok = ohlc.iloc[-1].notna().all() if len(ohlc) else False
+        valid = ohlc.dropna().reset_index(drop=True)
+        if latest_ok and len(valid) >= 2 * ADX_PERIOD - 1:
+            adx = calculate_adx(valid, ADX_PERIOD)
+            if pd.notna(adx.iloc[-1]):
+                out['adx'] = float(adx.iloc[-1])
+    return out
 
 
 def _sanitise(obj):
@@ -293,6 +331,12 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
                 ema50_distance = round((float(row['Price']) - ema50_val) / _atr_val, 2)
             ema50_val = round(ema50_val, 4)
 
+        adx_bb = _adx_bb_from_history(asset_data)
+        # A value stored on the history row (a future schema that persists them) wins.
+        for _col, _key in (('ADX', 'adx'), ('BB_Pct_B', 'bb_pct_b'), ('BB_Bandwidth', 'bb_bandwidth')):
+            if _col in row.index and pd.notna(row.get(_col)):
+                adx_bb[_key] = float(row[_col])
+
         # 200DMA Proximity — % above/below the 200-day simple moving average (conventional form)
         ma200d_val = None
         pct_above_200d = None
@@ -310,9 +354,9 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
             'rsi_z_score': float(row['RSI_Z_Score']) if pd.notna(row.get('RSI_Z_Score')) else None,
             'atr_distance': float(atr_distance) if pd.notna(atr_distance) else None,
             'pct_above_ema': float(row['Pct_Above_EMA']) if pd.notna(row.get('Pct_Above_EMA')) else None,
-            'adx': float(row['ADX']) if 'ADX' in row.index and pd.notna(row.get('ADX')) else None,
-            'bb_pct_b':    float(row['BB_Pct_B'])    if 'BB_Pct_B'    in row.index and pd.notna(row.get('BB_Pct_B'))    else None,
-            'bb_bandwidth': float(row['BB_Bandwidth']) if 'BB_Bandwidth' in row.index and pd.notna(row.get('BB_Bandwidth')) else None,
+            'adx': adx_bb['adx'],
+            'bb_pct_b': adx_bb['bb_pct_b'],
+            'bb_bandwidth': adx_bb['bb_bandwidth'],
             'regime': regime,
             'atr_percentile': percentile,
             'price_change_pct': price_change_pct,

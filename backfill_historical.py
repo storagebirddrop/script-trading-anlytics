@@ -30,6 +30,7 @@ from trading_utils import (
     calculate_indicators,
     fetch_ohlcv_geckoterminal,
 )
+from trading_utils.excel_utils import ensure_excel_headers
 
 _PROJECT_ROOT = Path(__file__).resolve().parent
 _MASTER_CSV = Path(MASTER_CSV_PATH)
@@ -210,6 +211,7 @@ def write_to_sheet(wb, sheet_name, data):
     """Write records to an Excel sheet, skipping any existing Date+Asset+Timeframe keys (C5)."""
     if sheet_name in wb.sheetnames:
         ws = wb[sheet_name]
+        ensure_excel_headers(ws, _EXCEL_HEADERS)
         # Build set of keys already in the sheet
         existing_keys = set()
         for row in ws.iter_rows(min_row=2, values_only=True):
