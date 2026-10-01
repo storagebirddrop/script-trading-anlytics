@@ -332,3 +332,25 @@ class TestGeckoTerminalResampleLabels:
         assert (out.index.day == 1).all()
         assert out.index.max() <= daily.index.max()
         assert out['close'].iloc[-1] == daily['close'].iloc[-1]
+
+
+class TestImportableExcelRows:
+    def _excel(self):
+        return pd.DataFrame({
+            'Date': ['2026-10-01', '2026-10-01', '2026-10-04', '2026-10-31', '2026-09-28'],
+            'Asset': ['XLM', 'USDJPY', 'D2X', 'D2X', 'XLM'],
+            'Timeframe': ['1d', '1M', '1w', '1M', '1w'],
+            'Price': [0.22, np.nan, 0.0018, 0.0018, 0.22],
+        })
+
+    def test_unfinished_bar_without_price_is_not_imported(self):
+        out = uh.recent_rows(self._excel())
+        assert 'USDJPY' not in out['Asset'].tolist()
+
+    def test_future_dated_period_bars_are_not_imported(self):
+        out = uh.recent_rows(self._excel())
+        assert 'D2X' not in out['Asset'].tolist()
+
+    def test_current_rows_survive(self):
+        out = uh.recent_rows(self._excel())
+        assert set(zip(out['Date'], out['Timeframe'])) == {('2026-10-01', '1d'), ('2026-09-28', '1w')}
