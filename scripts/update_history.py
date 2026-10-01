@@ -175,12 +175,16 @@ RECENT_WINDOW_DAYS = 45  # covers the open weekly (<=7d) and monthly (<=31d) bar
 
 
 def recent_rows(excel_data: pd.DataFrame, days: int = RECENT_WINDOW_DAYS) -> pd.DataFrame:
-    """Keep only Excel rows from the last `days` days (relative to the newest daily bar).
+    """Excel rows that may be imported into History.
 
     The workbook keeps every row it was ever given, including ones a later backfill
-    replaced in history.csv. Importing "any key history lacks" re-adds those stale
-    rows (empty prices, missing High/Low, delisted assets) on every run. The tracker
-    only ever writes the latest bar, so nothing recent is lost by this window.
+    replaced in history.csv. Importing "any key History lacks" re-adds those stale
+    rows on every run, so only rows that are:
+      - from the last `days` days (relative to the newest daily bar),
+      - not dated after that newest daily bar (a future-labelled period bar), and
+      - finished (they have a Price)
+    are kept. The tracker only ever writes the latest finished bar, so nothing
+    current is lost.
     """
     if excel_data.empty:
         return excel_data
@@ -190,7 +194,10 @@ def recent_rows(excel_data: pd.DataFrame, days: int = RECENT_WINDOW_DAYS) -> pd.
         .replace({'daily': '1d', 'weekly': '1w', 'monthly': '1m'})
     )
     reference = dates[tf == '1d'].max() if (tf == '1d').any() else dates.max()
-    return excel_data[dates >= reference - pd.Timedelta(days=days)]
+    keep = (dates >= reference - pd.Timedelta(days=days)) & (dates <= reference)
+    if 'Price' in excel_data.columns:
+        keep &= excel_data['Price'].notna()
+    return excel_data[keep]
 
 
 def _bar_keys(df: pd.DataFrame) -> pd.Series:
@@ -329,7 +336,7 @@ def main():
     print()
 
     print("Step 5b: Refreshing open (latest) weekly/monthly/daily bars")
-    existing_history, refreshed = refresh_open_bars(existing_history, excel_data)
+    existing_history, refreshed = refresh_open_bars(existing_history, recent)
     print(f"Refreshed {refreshed} open bar(s) with newer values")
     print()
 
