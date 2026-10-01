@@ -35,7 +35,7 @@ Automated pipeline that fetches daily, weekly, and monthly OHLCV data from Yahoo
 
 Most crypto assets are fetched via Yahoo Finance (`BTC-USD` format). D2X is fetched via GeckoTerminal (Solana pool). SCP is fetched via CCXT/CoinEx. REZ, ONDO, NIGHT may not be listed on Yahoo Finance and will fail gracefully.
 
-**Known exception — DRIFT:** `DRIFT-USD` currently returns no data from Yahoo Finance on any timeframe. It stays in `ASSETS` so it appears automatically if Yahoo lists it, but it has no `current` entry and is not rendered. It also counts as 3 failed (asset, timeframe) pairs against the CI threshold. The dashboard header counts assets in `ASSETS` (74); 73 have data.
+**Known exception — DRIFT:** `DRIFT-USD` currently returns no data from Yahoo Finance on any timeframe. It stays in `ASSETS` so it appears automatically if Yahoo lists it, but it has no `current` entry and is not rendered. It also counts as 3 failed (asset, timeframe) pairs against the CI threshold. It has no rows in `history.csv`, so the dashboard header (`metadata.assets_count`, the number of assets with data) shows 73 of the 74 configured assets.
 
 Macro assets (indices, commodities, forex) are all fetched via Yahoo Finance using standard futures/index/forex tickers (e.g. `^GSPC`, `GC=F`, `EURUSD=X`). They appear on the dedicated **Macro tab** and are excluded from the Portfolio, Rankings, and Opportunity/Risk panels. Natural gas is named `NATGAS` to avoid collision with the `GAS` crypto asset.
 
