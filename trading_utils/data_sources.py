@@ -246,8 +246,8 @@ def fetch_ohlcv_geckoterminal(network: str, pool_address: str, timeframe: str, l
     """Fetch OHLCV from GeckoTerminal for a DEX pool.
 
     GeckoTerminal free tier only supports aggregate=1 on the 'day' timeframe.
-    Weekly and monthly candles are built by resampling daily data (week-ending
-    Sunday / calendar month, matching TradingView's bar conventions). Note:
+    Weekly and monthly candles are built by resampling daily data and are labelled
+    by the start of the period (Monday / 1st of the month), like Yahoo's bars. Note:
     the free tier's single-call ~1000-daily-candle cap limits monthly depth
     to roughly 2.7 years regardless of how far back a backfill requests.
 
@@ -271,8 +271,9 @@ def fetch_ohlcv_geckoterminal(network: str, pool_address: str, timeframe: str, l
 
     try:
         if timeframe == '1w':
-            # Resample to weekly (week-ending Sunday) — matches TradingView weekly bars
-            df = df.resample('W').agg({
+            # Weekly bars labelled by their Monday start (like Yahoo's weekly bars),
+            # so an open bar is never dated in the future.
+            df = df.resample('W-MON', label='left', closed='left').agg({
                 'open':   'first',
                 'high':   'max',
                 'low':    'min',
@@ -280,10 +281,12 @@ def fetch_ohlcv_geckoterminal(network: str, pool_address: str, timeframe: str, l
                 'volume': 'sum',
             }).dropna(subset=['close'])
         elif timeframe == '1M':
-            # Resample to calendar month-end — matches TradingView monthly bars.
-            # 'ME' (month-end), not the bare 'M' alias — pandas removed 'M' as a
-            # resample frequency in favour of 'ME'/'MS' (month-end/month-start).
-            df = df.resample('ME').agg({
+            # Monthly bars labelled by the 1st of the month (like Yahoo's monthly
+            # bars). 'MS' rather than 'ME' so the open bar is never dated in the
+            # future: a month-end label made the dataset's "latest date" 30 days
+            # ahead and flagged every card as stale. (The bare 'M' alias no longer
+            # exists in pandas.)
+            df = df.resample('MS').agg({
                 'open':   'first',
                 'high':   'max',
                 'low':    'min',

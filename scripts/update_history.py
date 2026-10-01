@@ -171,6 +171,28 @@ _BAR_VALUE_COLUMNS = [
 ]
 
 
+RECENT_WINDOW_DAYS = 45  # covers the open weekly (<=7d) and monthly (<=31d) bar
+
+
+def recent_rows(excel_data: pd.DataFrame, days: int = RECENT_WINDOW_DAYS) -> pd.DataFrame:
+    """Keep only Excel rows from the last `days` days (relative to the newest daily bar).
+
+    The workbook keeps every row it was ever given, including ones a later backfill
+    replaced in history.csv. Importing "any key history lacks" re-adds those stale
+    rows (empty prices, missing High/Low, delisted assets) on every run. The tracker
+    only ever writes the latest bar, so nothing recent is lost by this window.
+    """
+    if excel_data.empty:
+        return excel_data
+    dates = pd.to_datetime(excel_data['Date'], errors='coerce')
+    tf = (
+        excel_data['Timeframe'].fillna('').astype(str).str.lower()
+        .replace({'daily': '1d', 'weekly': '1w', 'monthly': '1m'})
+    )
+    reference = dates[tf == '1d'].max() if (tf == '1d').any() else dates.max()
+    return excel_data[dates >= reference - pd.Timedelta(days=days)]
+
+
 def _bar_keys(df: pd.DataFrame) -> pd.Series:
     """Date|Asset|timeframe key per row (Daily/Weekly/Monthly normalised)."""
     tf = (
@@ -301,7 +323,9 @@ def main():
     print()
 
     print("Step 5: Removing duplicates")
-    new_records = remove_duplicates(excel_data, existing_history)
+    recent = recent_rows(excel_data)
+    print(f"Importing {len(recent)} of {len(excel_data)} Excel rows (last {RECENT_WINDOW_DAYS} days only)")
+    new_records = remove_duplicates(recent, existing_history)
     print()
 
     print("Step 5b: Refreshing open (latest) weekly/monthly/daily bars")
