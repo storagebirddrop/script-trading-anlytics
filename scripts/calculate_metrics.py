@@ -59,6 +59,17 @@ def _norm_timeframe(tf: str) -> str:
     return t
 
 
+def _latest_daily_date(df: 'pd.DataFrame'):
+    """Newest Date among daily bars (any bar if there are none).
+
+    Weekly/monthly bars can be labelled ahead of "today"; the dataset's reference
+    date (staleness checks, metadata.date_range.end) must come from daily bars.
+    """
+    tf = df['Timeframe'].astype(str).map(_norm_timeframe)
+    daily = df.loc[tf == '1d', 'Date']
+    return daily.max() if len(daily) else df['Date'].max()
+
+
 def _adx_bb_from_history(asset_data: 'pd.DataFrame') -> Dict[str, Optional[float]]:
     """ADX and Bollinger %B / bandwidth for the latest bar, derived from history.
 
@@ -248,7 +259,7 @@ def calculate_current_metrics(df: pd.DataFrame) -> Dict[str, Any]:
     )
 
     latest = df.sort_values('Date', ascending=False).groupby(['Asset', 'Timeframe']).first()
-    global_latest_date = pd.Timestamp(df['Date'].max())
+    global_latest_date = pd.Timestamp(_latest_daily_date(df))
 
     for (asset, timeframe), row in latest.iterrows():
         if pd.isna(timeframe):
@@ -840,7 +851,7 @@ def generate_dashboard_json(history_df: pd.DataFrame) -> Dict[str, Any]:
             'records_count': int(len(history_df)),
             'date_range': {
                 'start': str(history_df['Date'].min()),
-                'end': str(history_df['Date'].max()),
+                'end': str(_latest_daily_date(history_df)),
             },
         },
         'btc_dominance': btc_dominance,

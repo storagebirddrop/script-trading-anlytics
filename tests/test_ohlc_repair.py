@@ -264,3 +264,71 @@ class TestBackfillSkipsUnfinishedBar:
         records = bf.get_historical_data('BTC', bf.START_DATE, bf.END_DATE, '1d')
         assert records[-1]['Date'] == idx[-2].strftime('%Y-%m-%d')
         assert all(r['Price'] is not None for r in records)
+
+
+class TestRecentRowsWindow:
+    def _excel(self):
+        return pd.DataFrame({
+            'Date': ['2022-05-23', '2026-08-01', '2026-09-28', '2026-10-01', '2026-10-01'],
+            'Asset': ['DRIFT', 'XLM', 'XLM', 'XLM', 'XLM'],
+            'Timeframe': ['1d', '1M', '1w', '1d', '1M'],
+        })
+
+    def test_old_rows_are_not_imported(self):
+        out = uh.recent_rows(self._excel())
+        assert 'DRIFT' not in out['Asset'].tolist()
+        assert '2026-08-01' not in out['Date'].tolist()
+
+    def test_open_weekly_and_monthly_bars_are_kept(self):
+        out = uh.recent_rows(self._excel())
+        assert {('2026-09-28', '1w'), ('2026-10-01', '1M'), ('2026-10-01', '1d')} <= set(
+            zip(out['Date'], out['Timeframe'])
+        )
+
+    def test_future_dated_weekly_bar_does_not_move_the_window(self):
+        excel = self._excel()
+        excel.loc[len(excel)] = ['2026-10-31', 'D2X', '1M']
+        out = uh.recent_rows(excel)
+        assert ('2026-09-28', '1w') in set(zip(out['Date'], out['Timeframe']))
+
+    def test_empty_frame_is_returned_unchanged(self):
+        assert uh.recent_rows(pd.DataFrame(columns=['Date', 'Asset', 'Timeframe'])).empty
+
+
+class TestLatestDailyDate:
+    def test_future_labelled_weekly_and_monthly_bars_are_ignored(self):
+        df = pd.DataFrame({
+            'Date': ['2026-10-01', '2026-10-04', '2026-10-31'],
+            'Timeframe': ['1d', '1w', '1M'],
+        })
+        assert cm._latest_daily_date(df) == '2026-10-01'
+
+    def test_falls_back_to_any_bar_without_daily_rows(self):
+        df = pd.DataFrame({'Date': ['2026-09-01', '2026-10-01'], 'Timeframe': ['1M', '1M']})
+        assert cm._latest_daily_date(df) == '2026-10-01'
+
+
+class TestGeckoTerminalResampleLabels:
+    def _daily(self):
+        idx = pd.date_range('2026-07-01', '2026-10-01', freq='D', tz='UTC')
+        close = pd.Series(np.linspace(1.0, 2.0, len(idx)), index=idx)
+        return pd.DataFrame({'open': close, 'high': close + 0.1, 'low': close - 0.1,
+                             'close': close, 'volume': 10.0}, index=idx)
+
+    def test_weekly_bars_start_on_monday_and_are_never_future_dated(self, monkeypatch):
+        from trading_utils import data_sources as ds
+        daily = self._daily()
+        monkeypatch.setattr(ds, '_fetch_gecko_daily', lambda *a, **k: daily)
+        out = ds.fetch_ohlcv_geckoterminal('solana', 'pool', '1w')
+        assert (out.index.dayofweek == 0).all()
+        assert out.index.max() <= daily.index.max()
+        assert out['volume'].iloc[1] == 70.0  # a full week of 10.0
+
+    def test_monthly_bars_start_on_the_first_and_are_never_future_dated(self, monkeypatch):
+        from trading_utils import data_sources as ds
+        daily = self._daily()
+        monkeypatch.setattr(ds, '_fetch_gecko_daily', lambda *a, **k: daily)
+        out = ds.fetch_ohlcv_geckoterminal('solana', 'pool', '1M')
+        assert (out.index.day == 1).all()
+        assert out.index.max() <= daily.index.max()
+        assert out['close'].iloc[-1] == daily['close'].iloc[-1]
