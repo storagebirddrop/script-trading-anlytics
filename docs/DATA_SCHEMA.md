@@ -17,7 +17,7 @@ Reference for the files the pipeline produces. Everything is derived from `data/
 ## Conventions
 
 - **Timeframe keys:** `1d`, `1w`, `1M` (capital M — CCXT's monthly convention). `history.csv` may also contain `Daily`/`Weekly`/`Monthly`; they are normalised on read.
-- **Dates:** `YYYY-MM-DD`. A weekly bar is dated by the start of its week (Yahoo) and a monthly bar by the first of the month; the latest bar of each timeframe is still *open* and is refreshed on every run.
+- **Dates:** `YYYY-MM-DD`. A weekly bar is dated by the Monday that starts its week and a monthly bar by the first of the month (Yahoo and the D2X resample alike), so no bar is ever dated in the future; the latest bar of each timeframe is still *open* and is refreshed on every run.
 - **`null`:** means "not available", never zero. `NaN`/`inf` are converted to `null` before writing JSON. Every optional field below can be `null`.
 
 ## `data/history.csv`
@@ -41,7 +41,7 @@ ADX and Bollinger Bands are **not** stored; they are derived from `Price`/`High`
 
 ```
 {
-  "metadata":      { last_updated, assets_count, records_count, date_range: {start, end} },
+  "metadata":      { last_updated, assets_count, records_count, date_range: {start, end} },  // end = newest daily bar
   "fear_greed":    { value: 0-100, label, timestamp: "<unix seconds as string>" } | null,
   "btc_dominance": percent | null,
   "altseason":     { score: 0-100, label, alts_outperforming, total } | null,
