@@ -40,8 +40,9 @@
         </div>
 
         <footer class="btc-footer">
+            <strong>Data file:</strong> the signals are gathered once a day in CI (<code>scripts/calculate_metrics.py</code>) and written to <code>data/btc_signals.json</code>; this page only loads that file and calls no API itself. A source that could not be fetched shows as unavailable.
             <strong>Data sources:</strong> Price history &amp; indicators (200WMA, 200DMA, Pi Cycle, RSI, ATR Distance, Volume Profile) &mdash; computed from history.csv via Yahoo Finance.
-            Funding rate &amp; Open Interest &mdash; Binance USDT-M Futures API (free).
+            Funding rate &amp; Open Interest &mdash; Binance USDT-M Futures API (free); currently unavailable because Binance and Bybit block GitHub-hosted runners.
             Fear &amp; Greed Index &mdash; alternative.me (free).
             BTC Dominance &amp; Stablecoin supply &mdash; CoinGecko (free).
             Hash Ribbons (30/60-day hashrate MAs) &amp; Puell Multiple (block rewards) &mdash; mempool.space (free).
