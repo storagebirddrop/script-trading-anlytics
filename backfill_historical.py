@@ -177,6 +177,13 @@ def get_historical_data(asset, start_date, end_date, timeframe):
     if df is None or df.empty:
         return None
 
+    # Drop an unfinished trailing bar without a close (forex, markets still open),
+    # matching crypto_tracker.get_data — otherwise it is stored as an empty row.
+    last_valid = df['close'].last_valid_index()
+    if last_valid is None:
+        return None
+    df = df.loc[:last_valid]
+
     df = calculate_indicators(df)
 
     def to_scalar(val):
