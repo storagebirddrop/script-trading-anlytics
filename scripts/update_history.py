@@ -44,10 +44,52 @@ def recalculate_atr_distance(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# Positional layout of the Excel sheet written by crypto_tracker.py / backfill_historical.py.
+EXCEL_COLUMNS = [
+    'Date', 'Asset', 'Timeframe', 'Price', 'EMA21', 'ATR',
+    'RSI', 'RSI_Z_Score', 'ATR_Distance', 'Pct_Above_EMA',
+    'High', 'Low', 'Volume',
+]
+_OHLCV_COLUMNS = ['High', 'Low', 'Volume']
+
+
+def name_unnamed_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Give headerless Excel columns their real names by position.
+
+    The workbook predates the High/Low/Volume columns, so its header row only
+    has 10 names while the writers fill columns K-M. pandas then reads those
+    as 'Unnamed: 10/11/12' and the values never reach History.
+    """
+    renames = {}
+    for pos, name in enumerate(EXCEL_COLUMNS):
+        if pos < len(df.columns) and str(df.columns[pos]).startswith('Unnamed'):
+            renames[df.columns[pos]] = name
+    return df.rename(columns=renames) if renames else df
+
+
+def merge_legacy_unnamed_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Fold 'Unnamed: 10/11/12' (legacy High/Low/Volume) into the named columns.
+
+    Existing values in High/Low/Volume win; the Unnamed values only fill gaps.
+    The Unnamed columns are dropped afterwards.
+    """
+    df = df.copy()
+    for legacy, name in zip(('Unnamed: 10', 'Unnamed: 11', 'Unnamed: 12'), _OHLCV_COLUMNS):
+        if legacy in df.columns:
+            if name in df.columns:
+                df[name] = df[name].fillna(df[legacy])
+            else:
+                df[name] = df[legacy]
+    return df.drop(columns=[c for c in df.columns if str(c).startswith('Unnamed')])
+
+
 def load_history() -> pd.DataFrame:
     """Load existing history.csv or return empty DataFrame."""
     if os.path.exists(HISTORY_CSV_PATH):
         df = pd.read_csv(HISTORY_CSV_PATH)
+        if any(str(c).startswith('Unnamed') for c in df.columns):
+            df = merge_legacy_unnamed_columns(df)
+            print("Repaired legacy 'Unnamed' columns in history.csv (merged into High/Low/Volume)")
         print(f"Loaded existing history: {len(df)} records")
         return df
     print("No existing history.csv found, will create new file")
@@ -66,7 +108,8 @@ def read_excel_data(excel_path: str) -> pd.DataFrame:
             return pd.DataFrame()
 
         df = pd.read_excel(excel_path, sheet_name='Data')
-        df.columns = df.columns.str.strip()
+        df.columns = df.columns.astype(str).str.strip()
+        df = name_unnamed_columns(df)
         print(f"Read {len(df)} records from Data sheet")
         return df
 
@@ -120,6 +163,69 @@ def remove_duplicates(new_data: pd.DataFrame, existing_history: pd.DataFrame) ->
     skipped = len(new_data) - len(new_records)
     print(f"Found {len(new_records)} new records to append (skipped {skipped} duplicates)")
     return new_records
+
+
+_BAR_VALUE_COLUMNS = [
+    'Price', 'EMA21', 'ATR', 'RSI', 'RSI_Z_Score', 'ATR_Distance', 'Pct_Above_EMA',
+    'High', 'Low', 'Volume',
+]
+
+
+def _bar_keys(df: pd.DataFrame) -> pd.Series:
+    """Date|Asset|timeframe key per row (Daily/Weekly/Monthly normalised)."""
+    tf = (
+        df['Timeframe'].fillna('').astype(str).str.lower()
+        .replace({'daily': '1d', 'weekly': '1w', 'monthly': '1m'})
+    )
+    return df['Date'].fillna('').astype(str) + '|' + df['Asset'].fillna('').astype(str) + '|' + tf
+
+
+def refresh_open_bars(history: pd.DataFrame, excel_data: pd.DataFrame):
+    """Refresh the still-open (latest) bar of every Asset+Timeframe from the Excel data.
+
+    A weekly or monthly bar keeps the same Date for the whole period, so the
+    duplicate check skips it after the first run and History keeps the first
+    day's values until the period ends. The newest Excel row per
+    Asset+Timeframe is the open bar; its values replace the stored ones.
+    Rows without a Price (an unfinished bar) never overwrite stored values, and
+    NaN never overwrites a stored value.
+
+    Returns (history, number_of_rows_updated).
+    """
+    if history.empty or excel_data.empty:
+        return history, 0
+
+    latest = (
+        excel_data.sort_values('Date', ascending=True)
+        .groupby(['Asset', 'Timeframe'], as_index=False)
+        .tail(1)
+    )
+    latest = latest[latest['Price'].notna()]
+    if latest.empty:
+        return history, 0
+
+    position = {}
+    for pos, key in enumerate(_bar_keys(history)):
+        position[key] = pos
+
+    columns = [c for c in _BAR_VALUE_COLUMNS if c in history.columns and c in latest.columns]
+    updated = 0
+    for key, (_, row) in zip(_bar_keys(latest), latest.iterrows()):
+        pos = position.get(key)
+        if pos is None:
+            continue
+        idx = history.index[pos]
+        changed = False
+        for col in columns:
+            new = row[col]
+            if pd.isna(new):
+                continue
+            old = history.at[idx, col]
+            if pd.isna(old) or not np.isclose(float(old), float(new), rtol=1e-9, atol=0.0):
+                history.at[idx, col] = float(new)
+                changed = True
+        updated += int(changed)
+    return history, updated
 
 
 def update_master(df: pd.DataFrame) -> pd.DataFrame:
@@ -198,8 +304,16 @@ def main():
     new_records = remove_duplicates(excel_data, existing_history)
     print()
 
+    print("Step 5b: Refreshing open (latest) weekly/monthly/daily bars")
+    existing_history, refreshed = refresh_open_bars(existing_history, excel_data)
+    print(f"Refreshed {refreshed} open bar(s) with newer values")
+    print()
+
     print("Step 6: Appending to history.csv")
-    if not new_records.empty:
+    legacy_repaired = os.path.exists(HISTORY_CSV_PATH) and any(
+        str(c).startswith('Unnamed') for c in pd.read_csv(HISTORY_CSV_PATH, nrows=0).columns
+    )
+    if not new_records.empty or refreshed or legacy_repaired:
         updated_history = pd.concat([existing_history, new_records], ignore_index=True)
         updated_history = updated_history.sort_values(['Date', 'Asset', 'Timeframe'])
         updated_history.to_csv(HISTORY_CSV_PATH, index=False)

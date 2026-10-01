@@ -35,6 +35,7 @@ from trading_utils import (
     get_manual_data,
     fetch_market_caps,
 )
+from trading_utils.excel_utils import ensure_excel_headers
 
 _PROJECT_ROOT = Path(__file__).resolve().parent
 _MASTER_CSV = Path(MASTER_CSV_PATH)
@@ -76,6 +77,14 @@ def get_data(asset, timeframe):
     if df is None or df.empty:
         return None
 
+    # Yahoo sometimes returns an unfinished latest bar without a close (forex,
+    # Asian indices). Use the newest bar that has one; otherwise the NaN row
+    # would be stored as a permanent hole in History.
+    last_valid = df['close'].last_valid_index()
+    if last_valid is None:
+        return None
+    df = df.loc[:last_valid]
+
     df = calculate_indicators(df)
     latest = df.iloc[-1]
 
@@ -96,8 +105,19 @@ def get_data(asset, timeframe):
     }
 
 
+def _excel_row_values(row_data):
+    """Cell values for one record, in _EXCEL_HEADERS order."""
+    return [row_data.get(header) for header in _EXCEL_HEADERS]
+
+
 def write_to_excel(records):
-    """Append new records to ATR_Tracker_Dashboard.xlsx, skipping existing Date+Asset+Timeframe keys."""
+    """Write records to ATR_Tracker_Dashboard.xlsx.
+
+    New Date+Asset+Timeframe keys are appended. A key that already exists is
+    the still-open bar (a weekly/monthly bar keeps its Date for the whole
+    period), so its cells are refreshed instead of left at the first day's
+    values. Unfinished bars (no Price) and empty values never overwrite.
+    """
     try:
         wb = load_workbook(_SPREADSHEET)
     except FileNotFoundError:
@@ -107,43 +127,67 @@ def write_to_excel(records):
     sheet_name = 'Data'
     if sheet_name in wb.sheetnames:
         ws = wb[sheet_name]
-        # Build set of existing composite keys
-        existing_keys = set()
-        for row in ws.iter_rows(min_row=2, values_only=True):
+        repaired = ensure_excel_headers(ws, _EXCEL_HEADERS)
+        if repaired:
+            print(f"Excel: added {repaired} missing header cell(s) (High/Low/Volume)")
+        # Map each existing composite key to its worksheet row
+        existing_rows = {}
+        for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             date, asset, timeframe = str(row[0]), str(row[1]), str(row[2])
-            existing_keys.add(f"{date}|{asset}|{timeframe}")
+            existing_rows[f"{date}|{asset}|{timeframe}"] = row_idx
         start_row = ws.max_row + 1
     else:
         ws = wb.create_sheet(title=sheet_name)
         for col, header in enumerate(_EXCEL_HEADERS, 1):
             ws.cell(row=1, column=col, value=header)
-        existing_keys = set()
+        existing_rows = {}
         start_row = 2
 
     new_count = 0
+    updated_count = 0
     for row_data in records:
         key = f"{row_data['Date']}|{row_data['Asset']}|{row_data['Timeframe']}"
-        if key in existing_keys:
+        values = _excel_row_values(row_data)
+        if key in existing_rows:
+            if row_data.get('Price') is None:
+                continue
+            row_idx = existing_rows[key]
+            changed = False
+            for col, value in enumerate(values, 1):
+                if value is None or col <= 3:
+                    continue
+                if ws.cell(row=row_idx, column=col).value != value:
+                    ws.cell(row=row_idx, column=col, value=value)
+                    changed = True
+            updated_count += int(changed)
             continue
-        ws.cell(row=start_row, column=1, value=row_data['Date'])
-        ws.cell(row=start_row, column=2, value=row_data['Asset'])
-        ws.cell(row=start_row, column=3, value=row_data['Timeframe'])
-        ws.cell(row=start_row, column=4, value=row_data['Price'])
-        ws.cell(row=start_row, column=5, value=row_data['EMA21'])
-        ws.cell(row=start_row, column=6, value=row_data['ATR'])
-        ws.cell(row=start_row, column=7, value=row_data['RSI'])
-        ws.cell(row=start_row, column=8, value=row_data['RSI_Z_Score'])
-        ws.cell(row=start_row, column=9,  value=row_data['ATR_Distance'])
-        ws.cell(row=start_row, column=10, value=row_data['Pct_Above_EMA'])
-        ws.cell(row=start_row, column=11, value=row_data.get('High'))
-        ws.cell(row=start_row, column=12, value=row_data.get('Low'))
-        ws.cell(row=start_row, column=13, value=row_data.get('Volume'))
-        existing_keys.add(key)
+        for col, value in enumerate(values, 1):
+            ws.cell(row=start_row, column=col, value=value)
+        existing_rows[key] = start_row
         start_row += 1
         new_count += 1
 
     wb.save(_SPREADSHEET)
-    print(f"Excel: wrote {new_count} new records to {_SPREADSHEET}")
+    print(f"Excel: wrote {new_count} new records, refreshed {updated_count} open bars in {_SPREADSHEET}")
+
+
+_MAX_MISSING_OHLC_SHARE = 0.25  # fail the run if more than this share of records lack High/Low
+
+
+def find_missing_ohlc(records):
+    """Return 'ASSET (tf)' labels for records without High/Low.
+
+    ADX and the Volume Profile depend on High/Low, so a source that silently
+    stops returning them degrades the dashboard without any fetch error.
+    Manual-source assets never carry OHLC and are skipped.
+    """
+    missing = []
+    for rec in records:
+        if ASSET_CONFIG.get(rec['Asset'], {}).get('source') == 'manual':
+            continue
+        if rec.get('High') is None or rec.get('Low') is None:
+            missing.append(f"{rec['Asset']} ({rec['Timeframe']})")
+    return missing
 
 
 def main():
@@ -162,6 +206,15 @@ def main():
             else:
                 failed += 1
                 print(f"  WARNING: failed to fetch {asset} ({timeframe})")
+
+    missing_ohlc = find_missing_ohlc(all_data)
+    if missing_ohlc:
+        print(f"WARNING: {len(missing_ohlc)} of {len(all_data)} records have no High/Low: "
+              f"{', '.join(missing_ohlc[:10])}{' …' if len(missing_ohlc) > 10 else ''}")
+    if all_data and len(missing_ohlc) / len(all_data) > _MAX_MISSING_OHLC_SHARE:
+        print(f"ERROR: High/Low missing for more than {_MAX_MISSING_OHLC_SHARE:.0%} of records — "
+              f"the data source stopped returning OHLC. Exiting non-zero.")
+        sys.exit(1)
 
     if all_data:
         _MASTER_CSV.parent.mkdir(parents=True, exist_ok=True)

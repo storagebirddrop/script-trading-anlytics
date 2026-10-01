@@ -31,7 +31,7 @@ The pipeline runs automatically every day at 09:00 UTC:
 
 ```
 Yahoo Finance / Binance / GeckoTerminal
-        → OHLCV data for 74 assets (daily + weekly)
+        → OHLCV data for 74 assets (daily + weekly + monthly)
         → indicators (EMA, ATR, RSI, ADX, Bollinger, Volume Profile)
         → regime classification & percentile ranking
         → this dashboard
@@ -300,7 +300,7 @@ Top to bottom:
    ![Market breadth chart](images/breadth-chart.png)
 
    Read it as weather history: mostly-blue columns = calm; green floods from below = broad oversold episodes (the June cluster above); orange/red tops = broad extension. Breadth extremes mark *market-wide* opportunity or risk better than any single asset can.
-8. **Filter bar** — Timeframe (Daily/Weekly), Category (All/Crypto/NASDAQ/LSE), Sort (incl. **Score ↓** and **Market Cap ↓**), and the **Detail** toggle.
+8. **Filter bar** — Timeframe (Daily/Weekly/Monthly), Category (All/Crypto/NASDAQ/LSE), Sort (incl. **Score ↓** and **Market Cap ↓**), and the **Detail** toggle.
 9. **Asset cards** — see below.
 
 #### Anatomy of an asset card (Expert mode)
@@ -345,7 +345,7 @@ Start in Novice while you internalise ATR Distance and regimes; switch to Expert
 
 The ten most oversold and ten most extended assets, each with regime badge, percentile, severity tier, and ATR Distance. Two filter groups:
 
-- **Timeframe** — Daily or **Weekly**. Weekly rankings surface structural stretch that daily noise hides; an asset near the top of both lists is stretched at every resolution.
+- **Timeframe** — Daily, **Weekly**, or **Monthly**. Weekly and monthly rankings surface structural stretch that daily noise hides; an asset near the top of several lists is stretched at every resolution. Monthly percentiles need at least 30 monthly bars (~2.5 years), so recently listed assets are missing or unranked there.
 - **Category** — All / Crypto / NASDAQ / LSE, for like-for-like comparisons inside one asset class.
 
 Click any row to jump straight to its Drilldown. Macro assets are excluded here.
@@ -354,7 +354,7 @@ Click any row to jump straight to its Drilldown. Macro assets are excluded here.
 
 ![Extremes gauge for BTC](images/extremes-gauge.png)
 
-Pick any portfolio asset and see, for daily and weekly side by side:
+Pick any portfolio asset and see, for daily, weekly and monthly side by side (three columns on wide screens, wrapping on narrower ones):
 
 - **The percentile gauge** — the white marker is today's ATR Distance placed inside the asset's full historical distribution. The coloured zones are the seven regimes, and the **width of each zone is proportional to how often the asset has actually been there** (the axis is percentile-spaced, not linear). A huge blue Trend zone literally means "this asset almost never reaches its extremes" — so when the marker leaves it, take notice.
 - **Interpretation sentence** — plain-language reading ("lower 18th percentile — below-average but not at an extreme (107 of 598 bars)").

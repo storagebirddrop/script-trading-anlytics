@@ -22,7 +22,7 @@ python scripts/calculate_metrics.py                               # Generate das
 python scripts/build_dashboard.py                                 # Copy assets to dashboard/
 ```
 
-**Backfill historical data (Jan 2024 to present):**
+**Backfill historical data (full history, `START_DATE` = 2010-01-01):**
 ```bash
 python backfill_historical.py
 ```
@@ -36,6 +36,7 @@ pytest tests/test_indicators.py    # Indicator arithmetic (ATR, RSI, EMA correct
 pytest tests/test_metrics.py       # Regime classification
 pytest tests/test_validation.py    # Data validation rules
 pytest tests/test_integration.py   # End-to-end pipeline
+pytest tests/test_ohlc_repair.py   # High/Low/Volume repair, open-bar refresh, ADX/BB derivation
 ```
 
 ## Architecture
@@ -98,15 +99,15 @@ Shared library used by both `crypto_tracker.py` and `backfill_historical.py`. Av
 | `data/breadth.json` | Last 60 days of daily regime counts for portfolio assets (non-macro); used by breadth chart on Portfolio tab |
 | `data/btc_signals.json` | BTC cycle indicator confluence data; consumed by `dashboard/btc.html` |
 
-`history.csv` is the source of truth. `master.csv`, `dashboard.json`, `chart_history.json`, `breadth.json`, and `btc_signals.json` are all derived from it.
+`history.csv` is the source of truth. `master.csv`, `dashboard.json`, `chart_history.json`, `breadth.json`, and `btc_signals.json` are all derived from it. Field-level reference: [`docs/DATA_SCHEMA.md`](docs/DATA_SCHEMA.md).
 
 ### Tracked Assets
 
-70 assets across 4 categories (45 trading + 25 macro), both daily (`1d`) and weekly (`1w`) timeframes:
+74 assets across 4 categories (49 trading + 25 macro), on daily (`1d`), weekly (`1w`) and monthly (`1M`) timeframes. `1M` is capital-M on purpose: CCXT passes the string straight to the exchange and `'1M'.lower() == '1m'`, so `_norm_timeframe()` has an explicit branch for it. `rs_vs_btc` is daily-only and `alignment` compares daily vs weekly only — both are `null` for `1M` by design.
 
-**Trading portfolio (45 assets):**
-- **Crypto (28):** BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP, ADA, NIGHT, VTHO, LINK, NEO, GAS, DRIFT, SEI, PEAQ, AEVO, EIGEN, W, WOO, JASMY — fetched via Yahoo Finance (symbol format: `BTC-USD`, `LINK-USD`). REZ, ONDO, NIGHT and some newer tokens may not be listed on Yahoo Finance and will fail gracefully. Also includes D2X (Solana via GeckoTerminal) and SCP (CoinEx via CCXT) — all 28 are grouped as "Crypto" in the dashboard UI and `ASSET_CATEGORIES`.
-- **NASDAQ stocks (11):** MSTR, XXI, RIOT, MARA, IREN, BMNR, HUT, WULF, HIVE, CLSK, SLNH
+**Trading portfolio (49 assets):**
+- **Crypto (28):** BTC, ETH, SOL, XLM, REZ, RSR, NEAR, RENDER, ONDO, ACH, BNB, XRP, ADA, NIGHT, VTHO, LINK, NEO, GAS, DRIFT, SEI, PEAQ, AEVO, EIGEN, W, WOO, JASMY — fetched via Yahoo Finance (symbol format: `BTC-USD`, `LINK-USD`). REZ, ONDO, NIGHT and some newer tokens may not be listed on Yahoo Finance and will fail gracefully. **DRIFT currently returns no data on any timeframe** (known exception: it has no `current` entry). SCP has no monthly data (CoinEx offers no monthly candles); D2X has ~2.7 years of monthly bars (GeckoTerminal's single-call ~1,000-daily-candle limit). Also includes D2X (Solana via GeckoTerminal) and SCP (CoinEx via CCXT) — all 28 are grouped as "Crypto" in the dashboard UI and `ASSET_CATEGORIES`.
+- **NASDAQ stocks (15):** MSTR, XXI, RIOT, MARA, IREN, BMNR, HUT, WULF, HIVE, CLSK, SLNH, KEEL, BTDR, BTBT, FUFU
 - **LSE ETFs (6):** MSTY, YMST, MARY, RIOY, IREY, BMNY — fetched via Yahoo Finance with `.L` suffix. These pay large regular distributions; **always use `auto_adjust=False`** in `yf.download()` calls or historical EMA/ATR will be corrupted each time a dividend is paid.
 
 **Macro assets (25 assets) — appear only on the Macro tab:**
@@ -128,8 +129,8 @@ All calculations live in `trading_utils/indicators.py`.
 - **RSI_Z_Score:** 20-period rolling Z-score of RSI
 - **ATR_Distance:** `(Price - EMA21) / ATR` — core metric for regime classification; `NaN` when `ATR = 0`
 - **Pct_Above_EMA:** `((Price - EMA21) / EMA21) * 100`
-- **ADX:** 14-period Average Directional Index (Wilder's RMA, SMA-seeded). Measures trend strength independently of direction (0–100; >25 = trending, <20 = ranging). Computed from +DM/−DM → +DI/−DI → DX → ADX. First valid at bar `2*(period−1)` = 26. Added to `history.csv` as `ADX` column; written as `adx` in `dashboard.json` `current` objects; shown as a colour-coded badge on portfolio cards and in the Drilldown summary.
-- **BB_Pct_B / BB_Bandwidth:** 20-period Bollinger Bands with 2σ. `%B = (close − lower) / (upper − lower)` — 0 = at lower band, 1 = at upper band; outside [0,1] = price beyond the bands. Bandwidth = `(upper − lower) / mid × 100` — percentage width relative to midband; useful for detecting BB squeezes (multi-period lows precede large moves). Uses rolling sample-std (ddof=1). First valid at bar `period − 1` = 19. Written as `bb_pct_b` and `bb_bandwidth` in `dashboard.json`; shown as coloured badge on cards and two rows in the Drilldown summary.
+- **ADX:** 14-period Average Directional Index (Wilder's RMA, SMA-seeded). Measures trend strength independently of direction (0–100; >25 = trending, <20 = ranging). Computed from +DM/−DM → +DI/−DI → DX → ADX. First valid at bar `2*(period−1)` = 26. **Not stored in `history.csv`** — `_adx_bb_from_history()` in `calculate_metrics.py` recomputes it from stored `Price`/`High`/`Low` (a value on the history row would win if a future schema stored one); `null` when the latest bar has no High/Low. Written as `adx` in `dashboard.json` `current` objects; shown as a colour-coded badge on portfolio cards and in the Drilldown summary.
+- **BB_Pct_B / BB_Bandwidth:** 20-period Bollinger Bands with 2σ. `%B = (close − lower) / (upper − lower)` — 0 = at lower band, 1 = at upper band; outside [0,1] = price beyond the bands. Bandwidth = `(upper − lower) / mid × 100` — percentage width relative to midband; useful for detecting BB squeezes (multi-period lows precede large moves). Uses rolling sample-std (ddof=1). First valid at bar `period − 1` = 19. Derived from stored `Price` by `_adx_bb_from_history()` (not stored in `history.csv`). Written as `bb_pct_b` and `bb_bandwidth` in `dashboard.json`; shown as coloured badge on cards and two rows in the Drilldown summary.
 - **price_change_pct** *(derived in `calculate_metrics.py`)*: `(current_price - prev_price) / prev_price × 100` — momentum indicator added to `dashboard.json` `current` objects; displayed as "Chg%" on portfolio cards and in the drilldown summary
 - **EMA50 Distance** *(derived in `calculate_metrics.py` via `_ema_series()`)*: `(Price − EMA50) / ATR` — same ATR-normalised scale as ATR_Distance but vs the 50-period EMA. Requires ≥ 50 bars; `null` otherwise. Written as `ema50_distance` (and raw `ema50`) in `dashboard.json`; displayed as an "E50" badge on Expert cards and in the Drilldown summary. Badge colour uses the same 5-tier scale as ATR Distance (cap/acc/trend/dist/mania).
 - **200DMA Proximity** *(derived in `calculate_metrics.py`)*: `((Price − SMA200) / SMA200) × 100` — conventional percentage deviation from the 200-day simple moving average (SMA, same as TradingView's `ta.sma(close, 200)`). Requires ≥ 200 bars; `null` otherwise. Written as `pct_above_200d` (and raw `ma200d`) in `dashboard.json`; displayed as a "200D" badge on Expert cards and in the Drilldown summary. Badge colour: deep-below < −20% (green) → below < 0% (light green) → near < +20% (grey) → extended < +50% (amber) → extreme ≥ +50% (red). EMA50 and 200DMA lines are also added to the Price chart in Drilldown as blue and purple dashed series respectively. Both metrics are added to `chart_history.json` as abbreviated keys `e5` (EMA50) and `m2` (200DMA SMA).
@@ -140,7 +141,7 @@ All indicators use SMA of the first `period` bars as the seed value, then apply 
 
 Computed by `calculate_volume_profile()` in `trading_utils/indicators.py`. Called from `scripts/calculate_metrics.py` when `history.csv` contains `High`, `Low`, `Volume` columns (added by `crypto_tracker.py` and `backfill_historical.py`).
 
-**Algorithm** (per asset+timeframe snapshot, using last `VP_LOOKBACK_BARS` rows):
+**Algorithm** (per asset+timeframe snapshot, using the last `VP_LOOKBACK_BARS_BY_TF[timeframe]` rows):
 1. Determine full price range: `min(low)` → `max(high)` across all bars
 2. Divide into `VP_N_BUCKETS = 24` equal-width price buckets
 3. Distribute each bar's volume proportionally across overlapping buckets (`overlap / bar_range`)
@@ -152,9 +153,8 @@ Computed by `calculate_volume_profile()` in `trading_utils/indicators.py`. Calle
 
 **Config constants** (in `trading_utils/config.py`):
 ```python
-VP_LOOKBACK_BARS        = 90   # daily lookback (~4 months)
-VP_LOOKBACK_BARS_WEEKLY = 52   # weekly lookback (~1 year)
-VP_N_BUCKETS            = 24   # price distribution buckets
+VP_LOOKBACK_BARS_BY_TF = {'1d': 90, '1w': 52, '1M': 24}  # ~4 months / ~1 year / ~2 years
+VP_N_BUCKETS           = 24   # price distribution buckets
 ADX_PERIOD              = 14   # ADX period (shared with ATR/RSI)
 BB_PERIOD               = 20   # Bollinger Bands period
 BB_STD                  = 2.0  # Bollinger Bands standard deviation multiplier
@@ -188,6 +188,10 @@ All fields are `null` when `High`/`Low`/`Volume` columns are absent from `histor
 
 ### Resilience Behaviour
 
+- **Excel column layout (High/Low/Volume):** the workbook's header row once had only 10 names, so High/Low/Volume (columns K–M) were read back as `Unnamed: 10/11/12` and never reached `history.csv`'s `High/Low/Volume`. Writers now call `ensure_excel_headers()` (`trading_utils/excel_utils.py`), `update_history.py` names headerless columns by position (`name_unnamed_columns`) and folds legacy `Unnamed` columns into `High/Low/Volume` on load (`merge_legacy_unnamed_columns`).
+- **Open bars are refreshed, not skipped:** a weekly/monthly bar keeps the same `Date` all period, so the old skip-existing-key logic froze it at the first day's values. `write_to_excel()` now refreshes the cells of an existing key, and `update_history.refresh_open_bars()` updates the newest bar per Asset+Timeframe in `history.csv`. Unfinished bars (no `Price`) and `NaN` never overwrite stored values; `get_data()` ignores a trailing bar without a close.
+- **Silent OHLC loss is loud:** `crypto_tracker.find_missing_ohlc()` warns for records without High/Low and the run exits non-zero when more than 25% lack them.
+
 - **API retries:** `_with_retry` in `trading_utils/data_sources.py` retries each fetch up to 3 times with exponential backoff (5s, 10s, 20s). If more than 40 (asset, timeframe) pairs fail in `crypto_tracker.py`, it exits with code 1 and the CI job fails visibly. The threshold is 40 to allow for newer crypto tokens and macro assets that may be temporarily unavailable (Yahoo Finance futures contracts roll periodically).
 - **Binance pagination:** `backfill_historical.py:fetch_historical_binance` loops with `since` offsets to handle histories longer than 1000 bars.
 - **ATR = 0:** `ATR_Distance` is set to `NaN` rather than `inf`/`-inf`.
@@ -206,11 +210,11 @@ Client-side vanilla JS app in `dashboard/`. Loads `dashboard/assets/data.json` (
 - `dashboard/index.html` — main single-page app
 
 **Tabs:**
-- **Portfolio tab:** Portfolio Health Bar (oversold%/neutral%/extended%/sentiment + **Crypto Fear & Greed Index badge** from alternative.me — colour-coded Extreme Fear → green through Extreme Greed → red; hidden when unavailable), Opportunity panel (top-3 most oversold with signal-strength labels), Risk panel (top-3 most extended), **Recent Regime Transitions** section (animated yellow chips showing assets whose regime changed since the last bar, hidden when none), **Market Breadth 60-Day chart** (stacked bar chart of daily regime counts loaded from `breadth.json`, hidden when unavailable), a live **search input** (filters assets by name), then asset cards with ATR Distance (semantically coloured), inline historical percentile badge (P8%), VP position badge, **multi-timeframe alignment badge** (↑↑ aligned-bullish / ↓↓ aligned-bearish / ↕ diverging), **regime transition pulse** (animated yellow dot when regime changed last bar), **ATR trend icon** (expanding ↑ / compressing ↓ / flat ─), **RS/BTC badge** (crypto only — 30-day return ratio vs BTC, outperforming/underperforming), **Funding Rate badge** (crypto only — colour-coded by squeeze risk; hidden when null), **OI** (crypto only — open interest in USD; hidden when null), **ADX badge** (colour-coded Trending/Neutral/Ranging; hidden when null), **BB %B badge** (Bollinger Band position; hidden when null), **star button** (watchlist, max 10, starred assets float to top via localStorage), **alert bell button** (⚑ flag icon, orange when active; opens alert modal to set ATR Distance threshold or regime-change notification per asset; stored in `localStorage`; checked on every page load via `checkAndFireAlerts()`), **Signal Score badge** (composite −10 to +10 score aggregating ATR percentile, RSI Z-Score, VP position, and alignment — colour-coded green → red; hidden when ATR data is unavailable), and a 14-bar ATR Distance sparkline. Filterable by **timeframe (Daily/Weekly)**, regime, and category. Sort options include **Market Cap ↓** (uses `market_cap_rank`) and **Score ↓** (best composite setup first). **Detail toggle (Novice/Expert)** in the filter bar: Novice hides 11 advanced fields (cross-TF ATR, RSI Z-Score, VP, MCap, ATR Trend, RS/BTC, Funding Rate, OI, ADX, BB %B, Signal Score) and the alignment header badge; Expert (default) shows all. Choice persists to `localStorage` key `cardDetail`. Macro assets are excluded from this tab.
-- **Rankings tab:** top 10 most oversold / most extended assets with historical percentile rank and signal-strength label (Extreme Oversold → Mild Dip / Extreme Extended → Mild Extension). Filter bar with a **timeframe toggle (Daily/Weekly)** and a **category filter (All/Crypto/NASDAQ/LSE)** — both drive `rankingsFilter` state in `dashboard.js` and compose with each other. Macro assets excluded.
+- **Portfolio tab:** Portfolio Health Bar (oversold%/neutral%/extended%/sentiment + **Crypto Fear & Greed Index badge** from alternative.me — colour-coded Extreme Fear → green through Extreme Greed → red; hidden when unavailable), Opportunity panel (top-3 most oversold with signal-strength labels), Risk panel (top-3 most extended), **Recent Regime Transitions** section (animated yellow chips showing assets whose regime changed since the last bar, hidden when none), **Market Breadth 60-Day chart** (stacked bar chart of daily regime counts loaded from `breadth.json`, hidden when unavailable), a live **search input** (filters assets by name), then asset cards with ATR Distance (semantically coloured), inline historical percentile badge (P8%), VP position badge, **multi-timeframe alignment badge** (↑↑ aligned-bullish / ↓↓ aligned-bearish / ↕ diverging), **regime transition pulse** (animated yellow dot when regime changed last bar), **ATR trend icon** (expanding ↑ / compressing ↓ / flat ─), **RS/BTC badge** (crypto only — 30-day return ratio vs BTC, outperforming/underperforming), **Funding Rate badge** (crypto only — colour-coded by squeeze risk; hidden when null), **OI** (crypto only — open interest in USD; hidden when null), **ADX badge** (colour-coded Trending/Neutral/Ranging; hidden when null), **BB %B badge** (Bollinger Band position; hidden when null), **star button** (watchlist, max 10, starred assets float to top via localStorage), **alert bell button** (⚑ flag icon, orange when active; opens alert modal to set ATR Distance threshold or regime-change notification per asset; stored in `localStorage`; checked on every page load via `checkAndFireAlerts()`), **Signal Score badge** (composite −10 to +10 score aggregating ATR percentile, RSI Z-Score, VP position, and alignment — colour-coded green → red; hidden when ATR data is unavailable), and a 14-bar ATR Distance sparkline. Filterable by **timeframe (Daily/Weekly/Monthly)**, regime, and category. The secondary "cross-timeframe" ATR reading on each card follows a next-timeframe-up ladder (`1d→1w`, `1w→1M`, `1M→1w`). Sort options include **Market Cap ↓** (uses `market_cap_rank`) and **Score ↓** (best composite setup first). **Detail toggle (Novice/Expert)** in the filter bar: Novice hides 11 advanced fields (cross-TF ATR, RSI Z-Score, VP, MCap, ATR Trend, RS/BTC, Funding Rate, OI, ADX, BB %B, Signal Score) and the alignment header badge; Expert (default) shows all. Choice persists to `localStorage` key `cardDetail`. Macro assets are excluded from this tab.
+- **Rankings tab:** top 10 most oversold / most extended assets with historical percentile rank and signal-strength label (Extreme Oversold → Mild Dip / Extreme Extended → Mild Extension). Filter bar with a **timeframe toggle (Daily/Weekly/Monthly)** and a **category filter (All/Crypto/NASDAQ/LSE)** — both drive `rankingsFilter` state in `dashboard.js` and compose with each other. Macro assets excluded.
 - **Extremes tab** (formerly "Historical"): percentile gauge showing current ATR Distance position within historical range, with coloured regime zones; contextual interpretation paragraph explaining how frequently the asset has been at this level; metrics grid including RSI Z-Score. Macro assets excluded from selector.
 - **Macro tab:** 25 macro assets grouped into 5 sections (US Indices, EU Indices, APAC Indices, Commodities, Forex). Each card shows symbol, zone badge (`macroZoneLabel()`), price, ATR Distance, and Chg%. Clicking any card navigates to the Drilldown for that asset. Zone badges use neutral labels (Neutral/Oversold/Extended) rather than the crypto-flavoured regime names.
-- **Drilldown tab:** Key Takeaways panel (up to 5 auto-generated insights: ATR percentile, RSI status, weekly regime alignment, recent ATR trend direction, and VP position), then Chart.js line charts (Price vs EMA21, ATR Distance, RSI, Weekly ATR Distance, Volume Profile horizontal bar chart) plus summary metrics grid (includes VP Zone, POC, VAH, VAL, TF Align, ATR Trend, Transition, RS/BTC, Funding Rate (crypto), Open Interest (crypto), ADX (14), BB %B (20), BB Width, Signal Score rows). Available for all 70 assets including macro.
+- **Drilldown tab:** Key Takeaways panel (up to 5 auto-generated insights: ATR percentile, RSI status, weekly regime alignment, recent ATR trend direction, and VP position), then Chart.js line charts (Price vs EMA21, ATR Distance, RSI, Weekly ATR Distance, Volume Profile horizontal bar chart) plus summary metrics grid (includes VP Zone, POC, VAH, VAL, TF Align, ATR Trend, Transition, RS/BTC, Funding Rate (crypto), Open Interest (crypto), ADX (14), BB %B (20), BB Width, Signal Score rows). Available for all assets including macro; the timeframe selector offers Daily/Weekly/Monthly (the "Weekly ATR Distance" reference chart always shows weekly). The Extremes tab shows three gauge panes (Daily/Weekly/Monthly): 3 columns at ≥1200px, 2 at ≥768px, 1 below.
 
 **Signal strength tiers** (used in Opportunity/Risk panels and Rankings):
 Uses the **more severe** of two independent signals — whichever gives the stronger label wins:
@@ -338,7 +342,7 @@ Standalone BTC cycle signals page (not a tab). Linked from main dashboard header
 `scripts/validate_data.py` enforces:
 - All required columns present, no nulls in `Date`, `Asset`, `Timeframe`
 - ATR > 0, RSI in [0, 100]
-- Timeframe values in `{1d, 1w, Daily, Weekly}`
+- Timeframe values in `{1d, 1w, 1M, Daily, Weekly, Monthly}`
 - No duplicate `(Date, Asset, Timeframe)` combinations
 
 `ValidationResult` accumulates errors and warnings and is used by both `update_history.py` and the test suite. A validation failure in `update_history.py` stops the pipeline with exit code 1.
