@@ -250,3 +250,17 @@ class TestGetDataSkipsUnfinishedBar:
         df['close'] = np.nan
         monkeypatch.setattr(crypto_tracker, 'fetch_ohlcv_yahoo', lambda *a, **k: df)
         assert crypto_tracker.get_data('BTC', '1d') is None
+
+
+class TestBackfillSkipsUnfinishedBar:
+    def test_trailing_nan_close_is_not_stored(self, monkeypatch):
+        import backfill_historical as bf
+        idx = pd.date_range('2026-07-01', periods=60)
+        close = pd.Series(100 + np.cumsum(np.sin(np.arange(60) / 3.0)), index=idx)
+        df = pd.DataFrame({'open': close, 'high': close + 1, 'low': close - 1,
+                           'close': close, 'volume': 1000.0}, index=idx)
+        df.iloc[-1, df.columns.get_loc('close')] = np.nan
+        monkeypatch.setattr(bf, 'fetch_historical_yahoo', lambda *a, **k: df)
+        records = bf.get_historical_data('BTC', bf.START_DATE, bf.END_DATE, '1d')
+        assert records[-1]['Date'] == idx[-2].strftime('%Y-%m-%d')
+        assert all(r['Price'] is not None for r in records)
